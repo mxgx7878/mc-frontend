@@ -78,7 +78,8 @@ const UserManagement = () => {
   const menuItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
     { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { label: 'Products', path: '/admin/products', icon: <Package size={20} /> },
+    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
+    { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
     { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
     { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
     { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },

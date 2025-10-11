@@ -185,12 +185,38 @@ const AppRouter = () => {
         />
 
         {/* Master Products Routes */}
-        <Route path="/admin/master-products">
-          <Route index element={<MasterProductsList />} />
-          <Route path="add" element={<AddMasterProduct />} />
-          <Route path="edit/:id" element={<EditMasterProduct />} />
-          <Route path="view/:id" element={<ViewMasterProduct />} />
-        </Route>
+        <Route
+          path="/admin/master-products"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MasterProductsList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/master-products/add"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AddMasterProduct />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/master-products/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <EditMasterProduct />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/master-products/view/:id"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <ViewMasterProduct />
+            </ProtectedRoute>
+          }
+        />
         
         <Route
           path="/admin/profile"
