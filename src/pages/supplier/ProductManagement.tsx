@@ -13,7 +13,10 @@ import {
   Filter,
   Loader2,
   AlertCircle,
-  X
+  X,
+  TrendingUp,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -161,7 +164,6 @@ const ProductManagement = () => {
 
   const hasFilters = searchQuery || selectedCategory || statusFilter !== 'all';
 
-  // ✅ FIX: Proper pagination data with fallbacks
   const pagination = {
     currentPage: productsData?.current_page || 1,
     lastPage: productsData?.last_page || 1,
@@ -173,12 +175,12 @@ const ProductManagement = () => {
 
   return (
     <DashboardLayout menuItems={menuItems}>
-      <div className="space-y-6">
+      <div className="space-y-8 pb-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-secondary-900">Product Management</h1>
-            <p className="text-secondary-600 mt-1">
+            <h1 className="text-4xl font-bold text-secondary-900 mb-2">Product Management</h1>
+            <p className="text-secondary-600 text-lg">
               Manage your product offers and request new products
             </p>
           </div>
@@ -186,6 +188,7 @@ const ProductManagement = () => {
             onClick={() => setShowRequestModal(true)}
             variant="primary"
             fullWidth={false}
+            className="shadow-lg hover:shadow-xl transition-shadow"
           >
             <Plus size={20} />
             Request Product
@@ -194,105 +197,121 @@ const ProductManagement = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-secondary-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-secondary-600 mb-1">Total Products</p>
-                <p className="text-3xl font-bold text-secondary-900">{stats.total}</p>
+          {/* Total Products */}
+          <div className="relative bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300" />
+            <div className="relative p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <Package size={28} className="text-white" />
+                </div>
+                <TrendingUp size={20} className="text-white/60" />
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Package size={24} className="text-blue-600" />
-              </div>
+              <p className="text-blue-100 text-sm font-medium mb-1">Total Products</p>
+              <p className="text-white text-4xl font-bold">{stats.total}</p>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-secondary-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-secondary-600 mb-1">My Offers</p>
-                <p className="text-3xl font-bold text-success-600">{stats.myOffers}</p>
+          {/* My Offers */}
+          <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300" />
+            <div className="relative p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <CheckCircle size={28} className="text-white" />
+                </div>
+                <TrendingUp size={20} className="text-white/60" />
               </div>
-              <div className="w-12 h-12 bg-success-100 rounded-lg flex items-center justify-center">
-                <Package size={24} className="text-success-600" />
-              </div>
+              <p className="text-green-100 text-sm font-medium mb-1">My Active Offers</p>
+              <p className="text-white text-4xl font-bold">{stats.myOffers}</p>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-secondary-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-secondary-600 mb-1">Not Added</p>
-                <p className="text-3xl font-bold text-secondary-500">{stats.notAdded}</p>
+          {/* Not Added */}
+          <div className="relative bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300" />
+            <div className="relative p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <XCircle size={28} className="text-white" />
+                </div>
+                <TrendingUp size={20} className="text-white/60" />
               </div>
-              <div className="w-12 h-12 bg-secondary-100 rounded-lg flex items-center justify-center">
-                <Package size={24} className="text-secondary-500" />
-              </div>
+              <p className="text-orange-100 text-sm font-medium mb-1">Available to Add</p>
+              <p className="text-white text-4xl font-bold">{stats.notAdded}</p>
             </div>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex flex-col gap-4">
+        {/* Filters Section */}
+        <div className="bg-white rounded-2xl shadow-md border border-secondary-100">
+          <div className="p-6 space-y-6">
             {/* Search and Category */}
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Search */}
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary-400 group-focus-within:text-primary-500 transition-colors" size={20} />
                 <input
                   type="text"
-                  placeholder="Search products..."
+                  placeholder="Search products by name, type, or specifications..."
                   value={localSearch}
                   onChange={(e) => setLocalSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500"
+                  className="w-full pl-12 pr-4 py-3.5 bg-secondary-50 border-2 border-transparent rounded-xl focus:outline-none focus:border-primary-500 focus:bg-white transition-all text-secondary-900 placeholder-secondary-400"
                 />
               </div>
 
               {/* Category Filter */}
-              <select
-                value={selectedCategory || ''}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value ? Number(e.target.value) : undefined);
-                  setPage(1);
-                }}
-                className="px-4 py-3 border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500"
-              >
-                <option value="">All Categories</option>
-                {categoriesData?.data.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none" size={20} />
+                <select
+                  value={selectedCategory || ''}
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value ? Number(e.target.value) : undefined);
+                    setPage(1);
+                  }}
+                  className="w-full pl-12 pr-4 py-3.5 bg-secondary-50 border-2 border-transparent rounded-xl focus:outline-none focus:border-primary-500 focus:bg-white transition-all text-secondary-900 appearance-none cursor-pointer"
+                >
+                  <option value="">All Categories</option>
+                  {categoriesData?.data.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Status Filters */}
-            <div className="flex flex-wrap gap-3">
+            {/* Status Filter Pills */}
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium text-secondary-700">Filter by:</span>
+              
               <button
                 onClick={() => { setStatusFilter('all'); setPage(1); }}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-6 py-2.5 rounded-full font-medium transition-all duration-200 ${
                   statusFilter === 'all'
-                    ? 'bg-primary-500 text-white'
+                    ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30 scale-105'
                     : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
                 }`}
               >
                 All Products
               </button>
+              
               <button
                 onClick={() => { setStatusFilter('my_offers'); setPage(1); }}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-6 py-2.5 rounded-full font-medium transition-all duration-200 ${
                   statusFilter === 'my_offers'
-                    ? 'bg-success-500 text-white'
+                    ? 'bg-green-500 text-white shadow-lg shadow-green-500/30 scale-105'
                     : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
                 }`}
               >
                 My Offers
               </button>
+              
               <button
                 onClick={() => { setStatusFilter('not_added'); setPage(1); }}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-6 py-2.5 rounded-full font-medium transition-all duration-200 ${
                   statusFilter === 'not_added'
-                    ? 'bg-error-500 text-white'
+                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30 scale-105'
                     : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
                 }`}
               >
@@ -302,10 +321,10 @@ const ProductManagement = () => {
               {hasFilters && (
                 <button
                   onClick={clearFilters}
-                  className="px-4 py-2 rounded-lg font-medium bg-secondary-100 text-secondary-700 hover:bg-secondary-200 transition-colors flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-full font-medium bg-error-100 text-error-700 hover:bg-error-200 transition-all duration-200 flex items-center gap-2"
                 >
                   <X size={16} />
-                  Clear Filters
+                  Clear All
                 </button>
               )}
             </div>
@@ -313,18 +332,30 @@ const ProductManagement = () => {
         </div>
 
         {/* Products Grid */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-white rounded-2xl shadow-md border border-secondary-100 p-6">
           {isLoadingProducts ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="animate-spin text-primary-500" size={32} />
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <Loader2 className="animate-spin text-primary-500 mx-auto mb-4" size={48} />
+                <p className="text-secondary-600 font-medium">Loading products...</p>
+              </div>
             </div>
           ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-12">
-              <AlertCircle className="mx-auto text-secondary-400 mb-4" size={48} />
-              <p className="text-secondary-600 text-lg">No products found</p>
-              <p className="text-secondary-500 text-sm mt-2">
-                Try adjusting your filters or search term
+            <div className="text-center py-20">
+              <div className="w-24 h-24 bg-secondary-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="text-secondary-400" size={48} />
+              </div>
+              <h3 className="text-2xl font-bold text-secondary-900 mb-2">No products found</h3>
+              <p className="text-secondary-600 text-lg mb-6">
+                {hasFilters 
+                  ? 'Try adjusting your filters or search term'
+                  : 'No products available at the moment'}
               </p>
+              {hasFilters && (
+                <Button onClick={clearFilters} variant="outline">
+                  Clear Filters
+                </Button>
+              )}
             </div>
           ) : (
             <>
@@ -342,7 +373,7 @@ const ProductManagement = () => {
 
               {/* Pagination */}
               {pagination.total > 0 && (
-                <div className="mt-6">
+                <div className="mt-8 pt-6 border-t border-secondary-200">
                   <Pagination
                     currentPage={pagination.currentPage}
                     lastPage={pagination.lastPage}
