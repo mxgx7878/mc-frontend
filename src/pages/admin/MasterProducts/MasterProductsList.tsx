@@ -1,45 +1,29 @@
 // FILE PATH: src/pages/admin/MasterProducts/MasterProductsList.tsx
-
-/**
- * Master Products List Component
- * 
- * Main listing page for Master Products with:
- * - Paginated table display
- * - Active/Inactive status toggle
- * - Search functionality
- * - Category filter
- * - View/Edit/Delete actions
- * - Stats cards (Total, Approved, Pending)
- * - Image preview
- * 
- * What's happening here:
- * 1. On mount, we fetch products from API with pagination
- * 2. Status toggle updates 'is_approved' field via API
- * 3. Confirmation modal appears before status change
- * 4. Search/filters trigger new API calls with query params
- * 5. Navigation to Add/Edit/View pages via React Router
- */
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Home, Users, Package, ShoppingCart, BarChart, MapPin, Settings } from 'lucide-react';
-import { 
-  masterProductsAPI, 
-  MasterProduct, 
-  PaginatedMasterProductsResponse,
-  MasterProductsFilters 
+import {
+  masterProductsAPI,
+  MasterProduct,
+  MasterProductsFilters
 } from '../../../api/handlers/masterProducts.api';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import StatusBadge from '../../../components/common/StatusBadge';
 import Pagination from '../../../components/common/Pagination';
 import ConfirmModal from '../../../components/common/ConfirmModal';
 
+const PER_PAGE = 10;
+
+// Inline SVG placeholder to prevent image loading errors
+const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2UzZTNlMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+
 const MasterProductsList = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  // Admin menu items for DashboardLayout
-  const menuItems = [
+  const menuItems = useMemo(() => [
     { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
     { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
     { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
@@ -47,24 +31,18 @@ const MasterProductsList = () => {
     { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
     { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
     { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
-  ];
+  ], []);
 
-  // State management with proper TypeScript types
-  const [products, setProducts] = useState<MasterProduct[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    lastPage: 1,
-    total: 0,
-    perPage: 10,
+  // State - Simple filter management
+  const [filters, setFilters] = useState<MasterProductsFilters>({
+    page: 1,
+    per_page: PER_PAGE,
   });
-
-  // Filter states
+  
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>(''); // 'approved', 'pending', or ''
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  // Modal states
+  // Modal
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     productId: number | null;
@@ -77,152 +55,108 @@ const MasterProductsList = () => {
     loading: false,
   });
 
-  // Stats
-  const [stats, setStats] = useState({
-    total: 0,
-    approved: 0,
-    pending: 0,
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setFilters(prev => ({ ...prev, page: 1 }));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Build query params
+  const queryParams: MasterProductsFilters = {
+    ...filters,
+    search: debouncedSearch || undefined,
+  };
+
+  // Fetch Products using React Query
+  const { data: productsData, isLoading, error } = useQuery({
+    queryKey: ['masterProducts', queryParams],
+    queryFn: () => masterProductsAPI.getAll(queryParams),
+    keepPreviousData: true,
   });
 
-  /**
-   * Calculate statistics from products data
-   * WHY: To show quick stats cards at the top
-   */
-  const calculateStats = (productsData: MasterProduct[]) => {
-    const total = productsData.length;
-    const approved = productsData.filter(p => p.is_approved === 1).length;
-    const pending = productsData.filter(p => p.is_approved === 0).length;
-
-    setStats({ total, approved, pending });
-  };
-
-  /**
-   * Fetch products from API
-   * WHY: We need to get paginated data with filters applied
-   * HOW: Call API service with current page and filters
-   */
-  const fetchProducts = async (page: number = 1) => {
-    setLoading(true);
-    try {
-      const filters: MasterProductsFilters = {
-        page,
-        per_page: pagination.perPage,
-      };
-      
-      // Add filters if they exist
-      if (searchQuery) filters.search = searchQuery;
-      if (categoryFilter) filters.category = categoryFilter;
-      if (statusFilter) filters.is_approved = statusFilter === 'approved' ? 1 : 0;
-
-      const response: PaginatedMasterProductsResponse = await masterProductsAPI.getAll(filters);
-      
-      setProducts(response.data);
-      setPagination({
-        currentPage: response.current_page,
-        lastPage: response.last_page,
-        total: response.total,
-        perPage: response.per_page,
-      });
-
-      // Calculate stats
-      calculateStats(response.data);
-    } catch (error: any) {
-      console.error('Error fetching products:', error);
-      toast.error(error.message || 'Failed to load products. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /**
-   * Handle status toggle
-   * WHY: Admin needs to activate/deactivate products
-   * HOW: Show confirmation modal, then call API to update is_approved field
-   */
-  const handleStatusToggle = (productId: number, currentStatus: boolean) => {
-    setConfirmModal({
-      isOpen: true,
-      productId,
-      currentStatus,
-      loading: false,
-    });
-  };
-
-  /**
-   * Confirm status change
-   * WHY: Execute the actual API call after user confirmation
-   */
-  const confirmStatusChange = async () => {
-    const { productId, currentStatus } = confirmModal;
-    
-    if (!productId || currentStatus === null) return;
-    
-    const newStatus = !currentStatus;
-
-    setConfirmModal(prev => ({ ...prev, loading: true }));
-
-    try {
-      await masterProductsAPI.toggleApproval(productId, newStatus);
-      
-      // Update local state to reflect change
-      setProducts(prev => 
-        prev.map(product => 
-          product.id === productId 
-            ? { ...product, is_approved: newStatus ? 1 : 0 }
-            : product
-        )
-      );
-
-      toast.success(`Product ${newStatus ? 'activated' : 'deactivated'} successfully!`);
+  // Toggle Approval Mutation
+  const toggleApprovalMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: boolean }) => 
+      masterProductsAPI.toggleApproval(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['masterProducts']);
+      toast.success('Product status updated successfully');
       setConfirmModal({ isOpen: false, productId: null, currentStatus: null, loading: false });
-    } catch (error: any) {
-      console.error('Error toggling status:', error);
-      toast.error(error.message || 'Failed to update product status. Please try again.');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update product status');
       setConfirmModal(prev => ({ ...prev, loading: false }));
+    },
+  });
+
+  // Handlers
+  const handleFilterChange = (key: keyof MasterProductsFilters, value: any) => {
+    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+  };
+
+  const handleStatusToggle = (productId: number, currentStatus: boolean) => {
+    setConfirmModal({ isOpen: true, productId, currentStatus, loading: false });
+  };
+
+  const confirmStatusChange = () => {
+    const { productId, currentStatus } = confirmModal;
+    if (!productId || currentStatus === null) return;
+
+    const newStatus = !currentStatus;
+    setConfirmModal(prev => ({ ...prev, loading: true }));
+    toggleApprovalMutation.mutate({ id: productId, status: newStatus });
+  };
+
+  const handleDelete = (productId: number) => {
+    toast('Delete functionality coming soon', { icon: '🚧' });
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      page: 1,
+      per_page: PER_PAGE,
+    });
+    setSearchQuery('');
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = searchQuery || filters.category || filters.is_approved !== undefined;
+
+  // Fixed image handler - prevents infinite loop
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const target = e.currentTarget;
+    // Only set placeholder if not already set to prevent loop
+    if (target.src !== PLACEHOLDER_IMAGE) {
+      target.src = PLACEHOLDER_IMAGE;
+      // Remove onError to prevent further triggers
+      target.onerror = null;
     }
   };
 
-  /**
-   * Handle search input change with debounce
-   * WHY: User wants to filter products by name/type
-   * HOW: Debounce search to avoid excessive API calls
-   */
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      fetchProducts(1); // Reset to page 1 when searching
-    }, 500); // 500ms debounce
-
-    return () => clearTimeout(debounceTimer);
-  }, [searchQuery, categoryFilter, statusFilter]);
-
-  // Initial load - only runs once on mount
-  useEffect(() => {
-    fetchProducts(1);
-  }, []); // Empty dependency array - runs only once
-
-  /**
-   * Handle page change
-   */
-  const handlePageChange = (page: number) => {
-    fetchProducts(page);
-  };
-
-  /**
-   * Handle delete (placeholder for now)
-   */
-  const handleDelete = (productId: number) => {
-    toast('Delete functionality coming soon!', { icon: '🚧' });
-    // We'll implement this later
-  };
-
-  /**
-   * Get image URL
-   * WHY: Laravel stores images with relative paths, we need full URL
-   */
   const getImageUrl = (photoPath: string | null): string => {
-    if (!photoPath) return '/placeholder-image.png'; // Fallback image
+    if (!photoPath) return PLACEHOLDER_IMAGE;
     const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://127.0.0.1:8000';
     return `${baseUrl}/storage/${photoPath}`;
+  };
+
+  // Extract data
+  const products = productsData?.data || [];
+  const pagination = {
+    currentPage: productsData?.current_page || 1,
+    lastPage: productsData?.last_page || 1,
+    total: productsData?.total || 0,
+    perPage: PER_PAGE,
+  };
+
+  // Calculate stats
+  const stats = {
+    total: pagination.total,
+    approved: products.filter(p => p.is_approved === 1).length,
+    pending: products.filter(p => p.is_approved === 0).length,
   };
 
   return (
@@ -261,7 +195,7 @@ const MasterProductsList = () => {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-500">Total Products</p>
-                  <p className="text-2xl font-semibold text-gray-900">{pagination.total}</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
                 </div>
               </div>
             </div>
@@ -318,8 +252,8 @@ const MasterProductsList = () => {
                   Status
                 </label>
                 <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  value={filters.is_approved !== undefined ? (filters.is_approved === 1 ? 'approved' : 'pending') : ''}
+                  onChange={(e) => handleFilterChange('is_approved', e.target.value ? (e.target.value === 'approved' ? 1 : 0) : undefined)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">All Status</option>
@@ -328,37 +262,66 @@ const MasterProductsList = () => {
                 </select>
               </div>
 
-              {/* Category Filter - Will be populated from API */}
+              {/* Category Filter */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Category
                 </label>
                 <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  value={filters.category || ''}
+                  onChange={(e) => handleFilterChange('category', e.target.value || undefined)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">All Categories</option>
-                  {/* TODO: Fetch and populate categories dynamically */}
                   <option value="1">Cats</option>
                 </select>
               </div>
             </div>
+
+            {/* Clear Filters Button */}
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="mt-4 text-sm text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Clear all filters
+              </button>
+            )}
           </div>
 
           {/* Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            {loading ? (
+            {isLoading ? (
               <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  <p className="text-gray-500">Loading products...</p>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center py-12 text-red-500">
+                <p className="mb-2">Failed to load products</p>
+                <button 
+                  onClick={() => queryClient.invalidateQueries(['masterProducts'])}
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  Try again
+                </button>
               </div>
             ) : products.length === 0 ? (
-              <div className="text-center py-12">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <svg className="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No products found</h3>
-                <p className="mt-1 text-sm text-gray-500">Get started by creating a new product.</p>
+                <p className="mb-2">No products found</p>
+                {hasActiveFilters && (
+                  <button 
+                    onClick={clearFilters}
+                    className="text-sm text-primary-600 hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -400,10 +363,7 @@ const MasterProductsList = () => {
                                   className="h-12 w-12 rounded-lg object-cover border border-gray-200"
                                   src={getImageUrl(product.photo)}
                                   alt={product.product_name}
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.src = '/placeholder-image.png';
-                                  }}
+                                  onError={handleImageError}
                                 />
                               </div>
                               <div className="ml-4">
@@ -495,8 +455,8 @@ const MasterProductsList = () => {
                   lastPage={pagination.lastPage}
                   total={pagination.total}
                   perPage={pagination.perPage}
-                  onPageChange={handlePageChange}
-                  loading={loading}
+                  onPageChange={(next) => setFilters(prev => ({ ...prev, page: next }))}
+                  loading={isLoading}
                 />
               </>
             )}
@@ -512,7 +472,7 @@ const MasterProductsList = () => {
             confirmText={confirmModal.currentStatus ? 'Deactivate' : 'Activate'}
             cancelText="Cancel"
             isDanger={confirmModal.currentStatus === true}
-            loading={confirmModal.loading}
+            loading={confirmModal.loading || toggleApprovalMutation.isLoading}
           />
         </div>
       </div>

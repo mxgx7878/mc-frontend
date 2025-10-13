@@ -1,4 +1,4 @@
-// SRC BUNDLE 2025-10-11T11:27:32.019Z
+// SRC BUNDLE 2025-10-13T11:22:07.769Z
 
 /* FILE: src/api/axios.config.ts */
 // src/api/axios.config.ts
@@ -626,6 +626,239 @@ export const projectsAPI = {
   create: (payload: ProjectCreateInput) => api.post<ProjectDTO>(BASE, payload).then(r => r.data),
   update: ({ id, ...payload }: ProjectUpdateInput) => api.put<ProjectDTO>(`${BASE}/${id}`, payload).then(r => r.data),
   remove: (id: number) => api.delete(`${BASE}/${id}`).then(r => r.data),
+};
+/* FILE: src/api/handlers/supplierProducts.api.ts */
+// FILE PATH: src/api/handlers/supplierProducts.api.ts
+import axiosInstance from '../axios.config';
+// ==================== TYPE DEFINITIONS ====================
+
+export interface Category {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AddedBy {
+  id: number;
+  name: string;
+  email: string;
+  profile_image: string | null;
+}
+
+export interface ProductCategory {
+  id: number;
+  name: string;
+}
+
+export interface Supplier {
+  id: number;
+  name: string;
+  email: string;
+  profile_image: string | null;
+  delivery_zones: Array<{
+    address: string;
+    lat: number;
+    long: number;
+    radius: number;
+  }>;
+}
+
+export interface SupplierOffer {
+  id: number;
+  supplier_id: number;
+  master_product_id: number;
+  price: string;
+  availability_status: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  isMe: boolean;
+  supplier: Supplier;
+}
+
+export interface MasterProduct {
+  id: number;
+  added_by: AddedBy;
+  is_approved: number;
+  approved_by: AddedBy | null;
+  slug: string;
+  category: ProductCategory;
+  product_name: string;
+  product_type: string;
+  specifications: string;
+  unit_of_measure: string;
+  tech_doc: string | null;
+  photo: string;
+  created_at: string;
+  updated_at: string;
+  supplierOffersCount: number;
+  suppliers: SupplierOffer[];
+}
+
+export interface ProductsResponse {
+  current_page: number;
+  data: MasterProduct[];
+  first_page_url: string;
+  from: number;
+  last_page: number;
+  last_page_url: string;
+  links: Array<{
+    url: string | null;
+    label: string;
+    page: number | null;
+    active: boolean;
+  }>;
+  next_page_url: string | null;
+  path: string;
+  per_page: number;
+  prev_page_url: string | null;
+  to: number;
+  total: number;
+}
+
+export interface CategoriesResponse {
+  current_page: number;
+  data: Category[];
+  first_page_url: string;
+  from: number;
+  last_page: number;
+  last_page_url: string;
+  links: Array<{
+    url: string | null;
+    label: string;
+    page: number | null;
+    active: boolean;
+  }>;
+  next_page_url: string | null;
+  path: string;
+  per_page: number;
+  prev_page_url: string | null;
+  to: number;
+  total: number;
+}
+
+export interface AddOfferPayload {
+  master_product_id: number;
+  price: number;
+  availability_status: string;
+}
+
+export interface UpdateOfferPayload {
+  price: number;
+  availability_status: string;
+}
+
+export interface RequestProductPayload {
+  product_name: string;
+  product_type: string;
+  category_id: number;
+  specifications: string;
+  unit_of_measure: string;
+  photo?: File | null;
+}
+
+export interface OfferStatus {
+  id: number;
+  supplier_id: number;
+  master_product_id: number;
+  price: string;
+  availability_status: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ==================== API FUNCTIONS ====================
+
+/**
+ * Get all master products with supplier offers
+ */
+export const getProducts = async (params?: {
+  page?: number;
+  per_page?: number;
+  search?: string;
+  category_id?: number;
+}): Promise<ProductsResponse> => {
+  const response = await axiosInstance.get('/master-product-inventory', { params });
+  return response.data;
+};
+
+/**
+ * Get all categories
+ */
+export const getCategories = async (): Promise<CategoriesResponse> => {
+  const response = await axiosInstance.get('/categories');
+  return response.data;
+};
+
+/**
+ * Add product to supplier offers
+ */
+export const addSupplierOffer = async (payload: AddOfferPayload): Promise<{ message: string }> => {
+  const response = await axiosInstance.post('/supplier-offers', payload);
+  return response.data;
+};
+
+/**
+ * Update supplier offer (price/availability)
+ */
+export const updateSupplierOffer = async (
+  offerId: number,
+  payload: UpdateOfferPayload
+): Promise<{ message: string }> => {
+  const response = await axiosInstance.put(`/update-pricing/${offerId}`, payload);
+  return response.data;
+};
+
+/**
+ * Delete supplier offer
+ */
+export const deleteSupplierOffer = async (offerId: number): Promise<{ message: string }> => {
+  const response = await axiosInstance.delete(`/supplier-offers/${offerId}`);
+  return response.data;
+};
+
+/**
+ * Request new master product
+ */
+export const requestMasterProduct = async (payload: RequestProductPayload): Promise<{ message: string }> => {
+  const formData = new FormData();
+  formData.append('product_name', payload.product_name);
+  formData.append('product_type', payload.product_type);
+  formData.append('category_id', payload.category_id.toString());
+  formData.append('specifications', payload.specifications);
+  formData.append('unit_of_measure', payload.unit_of_measure);
+  
+  if (payload.photo) {
+    formData.append('photo', payload.photo);
+  }
+
+  const response = await axiosInstance.post('/request-master-product', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+/**
+ * Get supplier offer status
+ */
+export const getOfferStatus = async (): Promise<OfferStatus[]> => {
+  const response = await axiosInstance.get('/supplier-offer-status');
+  return response.data;
+};
+
+// Export as default object
+export const supplierProductsAPI = {
+  getProducts,
+  getCategories,
+  addSupplierOffer,
+  updateSupplierOffer,
+  deleteSupplierOffer,
+  requestMasterProduct,
+  getOfferStatus,
 };
 /* FILE: src/api/handlers/users.api.ts */
 // src/api/handlers/users.api.ts
@@ -1876,6 +2109,88 @@ const Input = ({
 };
 
 export default Input;
+/* FILE: src/components/common/Input2.tsx */
+// src/components/common/Input2.tsx
+import { Eye, EyeOff } from 'lucide-react';
+import { useState, InputHTMLAttributes, ReactNode, FC } from 'react';
+import { UseFormRegisterReturn } from 'react-hook-form';
+
+// ✅ Type for Lucide Icon components
+type LucideIconType = FC<{ size?: number | string; className?: string }>;
+
+interface Input2Props extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
+  label?: string;
+  error?: string;
+  type?: 'text' | 'email' | 'password' | 'number' | 'tel';
+  register?: UseFormRegisterReturn;
+  icon?: LucideIconType; // ✅ Only accept Lucide component type
+}
+
+const Input2 = ({ 
+  label, 
+  error, 
+  type = 'text',
+  register,
+  icon: IconComponent, // ✅ Renamed for clarity
+  ...props 
+}: Input2Props) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === 'password';
+  const inputType = isPassword && showPassword ? 'text' : type;
+
+  return (
+    <div className="space-y-2">
+      {label && (
+        <label className="block text-sm font-medium text-secondary-700">
+          {label}
+          {props.required && <span className="text-error-500 ml-1">*</span>}
+        </label>
+      )}
+      
+      <div className="relative">
+        {IconComponent && (
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400">
+            {/* ✅ Properly render the Lucide icon component */}
+            <IconComponent size={20} />
+          </div>
+        )}
+        
+        <input
+          type={inputType}
+          className={`
+            w-full px-4 py-3 rounded-lg border-2 transition-all
+            ${IconComponent ? 'pl-10' : ''}
+            ${isPassword ? 'pr-10' : ''}
+            ${error 
+              ? 'border-error-500 focus:border-error-500 focus:ring-error-500' 
+              : 'border-secondary-200 focus:border-primary-500 focus:ring-primary-500'
+            }
+            focus:outline-none focus:ring-2 focus:ring-opacity-20
+            disabled:bg-secondary-50 disabled:cursor-not-allowed
+          `}
+          {...register}
+          {...props}
+        />
+        
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600"
+          >
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <p className="text-sm text-error-500">{error}</p>
+      )}
+    </div>
+  );
+};
+
+export default Input2;
 /* FILE: src/components/common/LocationPicker.tsx */
 // src/components/common/LocationPicker.tsx
 import { useState, useEffect, useRef } from 'react';
@@ -2212,9 +2527,9 @@ const Pagination: React.FC<PaginationProps> = ({
   onPageChange,
   loading = false 
 }) => {
-  // Calculate display range
-  const startItem = total === 0 ? 0 : ((currentPage - 1) * perPage) + 1;
-  const endItem = Math.min(currentPage * perPage, total);
+  // ✅ FIX: Handle edge cases properly
+  const startItem = total === 0 ? 0 : Math.max(1, ((currentPage - 1) * perPage) + 1);
+  const endItem = total === 0 ? 0 : Math.min(currentPage * perPage, total);
 
   const handlePrevious = () => {
     if (currentPage > 1 && !loading) {
@@ -2228,7 +2543,7 @@ const Pagination: React.FC<PaginationProps> = ({
     }
   };
 
-  const handlePageClick = (page) => {
+  const handlePageClick = (page: number) => {
     if (page !== currentPage && !loading) {
       onPageChange(page);
     }
@@ -2325,8 +2640,8 @@ const Pagination: React.FC<PaginationProps> = ({
                 </span>
               ) : (
                 <button
-                  key={page}
-                  onClick={() => handlePageClick(page)}
+                  key={`page-${page}`}
+                  onClick={() => handlePageClick(Number(page))}
                   disabled={loading}
                   className={`relative inline-flex items-center px-4 py-2 text-sm font-medium border ${
                     page === currentPage
@@ -2786,6 +3101,166 @@ const ChangePasswordSection = () => {
 };
 
 export default ChangePasswordSection;
+/* FILE: src/components/supplier/AddOfferModal.tsx */
+// FILE PATH: src/components/supplier/AddOfferModal.tsx
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { X, DollarSign, Package } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+import { MasterProduct, supplierProductsAPI } from '../../api/handlers/supplierProducts.api';
+import { addOfferSchema, AddOfferFormData } from '../../utils/validators';
+import Input2 from '../common/Input2'; // ✅ Using Input2 instead of Input
+import Button from '../common/Buttons';
+
+interface AddOfferModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  product: MasterProduct | null;
+}
+
+const AddOfferModal = ({ isOpen, onClose, product }: AddOfferModalProps) => {
+  const queryClient = useQueryClient();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<AddOfferFormData>({
+    resolver: zodResolver(addOfferSchema),
+    defaultValues: {
+      availability_status: 'In Stock',
+    },
+  });
+
+  const addOfferMutation = useMutation({
+    mutationFn: supplierProductsAPI.addSupplierOffer,
+    onSuccess: () => {
+      toast.success('Product added to your offers successfully!');
+      queryClient.invalidateQueries({ queryKey: ['supplier-products'] });
+      handleClose();
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || 'Failed to add product to offers';
+      toast.error(message);
+    },
+  });
+
+  const onSubmit = (data: AddOfferFormData) => {
+    if (!product) return;
+
+    addOfferMutation.mutate({
+      master_product_id: product.id,
+      price: parseFloat(data.price),
+      availability_status: data.availability_status,
+    });
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  if (!isOpen || !product) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-secondary-100">
+          <h2 className="text-2xl font-bold text-secondary-900">Add to Your Offers</h2>
+          <button
+            onClick={handleClose}
+            className="text-secondary-400 hover:text-secondary-600 transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Product Info */}
+        <div className="p-6 bg-secondary-50 border-b border-secondary-100">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
+              <Package size={24} className="text-primary-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-secondary-900">{product.product_name}</h3>
+              <p className="text-sm text-secondary-600">
+                {product.category.name} • {product.unit_of_measure}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+          {/* Price Input - Using Input2 with icon as component */}
+          <Input2
+            label={`Price per ${product.unit_of_measure}`}
+            type="text"
+            placeholder="0.00"
+            icon={DollarSign} // ✅ Pass component reference
+            error={errors.price?.message}
+            {...register('price')}
+            required
+          />
+
+          {/* Availability Status */}
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              Availability Status <span className="text-error-500">*</span>
+            </label>
+            <select
+              {...register('availability_status')}
+              className={`
+                w-full px-4 py-3 rounded-lg border-2 transition-all
+                ${errors.availability_status 
+                  ? 'border-error-500 focus:border-error-500 focus:ring-error-500' 
+                  : 'border-secondary-200 focus:border-primary-500 focus:ring-primary-500'
+                }
+                focus:outline-none focus:ring-2 focus:ring-opacity-20
+              `}
+            >
+              <option value="In Stock">In Stock</option>
+              <option value="Out of Stock">Out of Stock</option>
+              <option value="Limited Stock">Limited Stock</option>
+            </select>
+            {errors.availability_status && (
+              <p className="text-sm text-error-500 mt-1">{errors.availability_status.message}</p>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="submit"
+              isLoading={addOfferMutation.isPending}
+              disabled={addOfferMutation.isPending}
+              fullWidth={false}
+              className="flex-1"
+            >
+              {addOfferMutation.isPending ? 'Adding...' : 'Add to Offers'}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              fullWidth={false}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default AddOfferModal;
 /* FILE: src/components/supplier/DeliveryZonesManagement.tsx */
 // src/components/supplier/DeliveryZonesManagement.tsx - COMPLETE WITH JSX
 import React, { useState, useEffect, useCallback } from 'react';
@@ -3719,6 +4194,598 @@ const DeliveryZonesMapView: React.FC<MapViewProps> = ({ zones }) => {
 
 export default DeliveryZonesMapView;
 
+/* FILE: src/components/supplier/EditOfferModal.tsx */
+// FILE PATH: src/components/supplier/EditOfferModal.tsx
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { X, DollarSign, Package } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+import { MasterProduct, SupplierOffer, supplierProductsAPI } from '../../api/handlers/supplierProducts.api';
+import { updateOfferSchema, UpdateOfferFormData } from '../../utils/validators';
+import Input2 from '../common/Input2'; // ✅ Using Input2 instead of Input
+import Button from '../common/Buttons';
+
+interface EditOfferModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  product: MasterProduct | null;
+  offer: SupplierOffer | null;
+}
+
+const EditOfferModal = ({ isOpen, onClose, product, offer }: EditOfferModalProps) => {
+  const queryClient = useQueryClient();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    setValue,
+  } = useForm<UpdateOfferFormData>({
+    resolver: zodResolver(updateOfferSchema),
+  });
+
+  // Pre-fill form when offer changes
+  useEffect(() => {
+    if (offer) {
+      setValue('price', offer.price.toString()); // Convert number to string for input
+      setValue('availability_status', offer.availability_status as any);
+    }
+  }, [offer, setValue]);
+
+  const updateOfferMutation = useMutation({
+    mutationFn: ({ offerId, payload }: { offerId: number; payload: any }) =>
+      supplierProductsAPI.updateSupplierOffer(offerId, payload),
+    onSuccess: () => {
+      toast.success('Offer updated successfully!');
+      queryClient.invalidateQueries({ queryKey: ['supplier-products'] });
+      handleClose();
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || 'Failed to update offer';
+      toast.error(message);
+    },
+  });
+
+  const onSubmit = (data: UpdateOfferFormData) => {
+    if (!offer) return;
+
+    updateOfferMutation.mutate({
+      offerId: offer.id,
+      payload: {
+        price: parseFloat(data.price),
+        availability_status: data.availability_status,
+      },
+    });
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  if (!isOpen || !product || !offer) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-secondary-100">
+          <h2 className="text-2xl font-bold text-secondary-900">Edit Your Offer</h2>
+          <button
+            onClick={handleClose}
+            className="text-secondary-400 hover:text-secondary-600 transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Product Info */}
+        <div className="p-6 bg-secondary-50 border-b border-secondary-100">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
+              <Package size={24} className="text-primary-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-secondary-900">{product.product_name}</h3>
+              <p className="text-sm text-secondary-600">
+                {product.category.name} • {product.unit_of_measure}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+          {/* Price Input - Using Input2 with icon as component */}
+          <Input2
+            label={`Price per ${product.unit_of_measure}`}
+            type="text"
+            placeholder="0.00"
+            icon={DollarSign} // ✅ Pass component reference
+            error={errors.price?.message}
+            {...register('price')}
+            required
+          />
+
+          {/* Availability Status */}
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              Availability Status <span className="text-error-500">*</span>
+            </label>
+            <select
+              {...register('availability_status')}
+              className={`
+                w-full px-4 py-3 rounded-lg border-2 transition-all
+                ${errors.availability_status 
+                  ? 'border-error-500 focus:border-error-500 focus:ring-error-500' 
+                  : 'border-secondary-200 focus:border-primary-500 focus:ring-primary-500'
+                }
+                focus:outline-none focus:ring-2 focus:ring-opacity-20
+              `}
+            >
+              <option value="In Stock">In Stock</option>
+              <option value="Out of Stock">Out of Stock</option>
+              <option value="Limited Stock">Limited Stock</option>
+            </select>
+            {errors.availability_status && (
+              <p className="text-sm text-error-500 mt-1">{errors.availability_status.message}</p>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="submit"
+              isLoading={updateOfferMutation.isPending}
+              disabled={updateOfferMutation.isPending}
+              fullWidth={false}
+              className="flex-1"
+            >
+              {updateOfferMutation.isPending ? 'Updating...' : 'Update Offer'}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              fullWidth={false}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default EditOfferModal;
+/* FILE: src/components/supplier/ProductCard.tsx */
+// FILE PATH: src/components/supplier/ProductCard.tsx
+import { Package, Edit, Trash2, Plus, AlertCircle } from 'lucide-react';
+import { MasterProduct, SupplierOffer } from '../../api/handlers/supplierProducts.api';
+import Button from '../common/Buttons';
+import StatusBadge from '../common/StatusBadge';
+
+interface ProductCardProps {
+  product: MasterProduct;
+  onAddOffer: (product: MasterProduct) => void;
+  onEditOffer: (product: MasterProduct, offer: SupplierOffer) => void;
+  onRemoveOffer: (offerId: number, productName: string) => void;
+}
+
+const ProductCard = ({ product, onAddOffer, onEditOffer, onRemoveOffer }: ProductCardProps) => {
+  const imageUrl = product.photo 
+    ? `${import.meta.env.VITE_IMAGE_BASE_URL}${product.photo}`
+    : null;
+
+  // Find if current supplier has an offer for this product
+  const myOffer = product.suppliers.find(s => s.isMe === true);
+  const hasOffer = !!myOffer;
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden border border-secondary-100">
+      <div className="flex gap-4 p-6">
+        {/* Product Image */}
+        <div className="flex-shrink-0">
+          {imageUrl ? (
+            <img 
+              src={imageUrl} 
+              alt={product.product_name}
+              className="w-24 h-24 object-cover rounded-lg border border-secondary-200"
+              onError={(e) => {
+                e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2UzZTNlMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+              }}
+            />
+          ) : (
+            <div className="w-24 h-24 bg-secondary-100 rounded-lg flex items-center justify-center">
+              <Package size={32} className="text-secondary-400" />
+            </div>
+          )}
+        </div>
+
+        {/* Product Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-secondary-900 mb-1">
+                {product.product_name}
+              </h3>
+              <div className="flex items-center gap-3 text-sm text-secondary-600 mb-2">
+                <span className="flex items-center gap-1">
+                  <Package size={14} />
+                  {product.category.name}
+                </span>
+                <span className="text-secondary-300">•</span>
+                <span>{product.unit_of_measure}</span>
+              </div>
+              
+              {product.specifications && (
+                <p className="text-sm text-secondary-600 line-clamp-2 mb-3">
+                  {product.specifications}
+                </p>
+              )}
+
+              {/* Offer Status */}
+              {hasOffer && myOffer ? (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-secondary-700">Price:</span>
+                    <span className="text-lg font-bold text-primary-600">
+                      ${parseFloat(myOffer.price).toFixed(2)}
+                    </span>
+                    <span className="text-sm text-secondary-500">
+                      per {product.unit_of_measure}
+                    </span>
+                  </div>
+                  
+                  <StatusBadge 
+                    status={myOffer.availability_status === 'In Stock' ? 'active' : 'inactive'}
+                    label={myOffer.availability_status}
+                  />
+
+                  {myOffer.status === 'Pending' && (
+                    <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                      <AlertCircle size={14} />
+                      Pending Admin Approval
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-secondary-500">
+                  <Plus size={16} />
+                  <span className="text-sm font-medium">Not in your offers</span>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              {hasOffer && myOffer ? (
+                <>
+                  <Button
+                    onClick={() => onEditOffer(product, myOffer)}
+                    variant="outline"
+                    fullWidth={false}
+                    className="!px-3 !py-2"
+                  >
+                    <Edit size={16} />
+                    Edit
+                  </Button>
+                  <Button
+                    onClick={() => onRemoveOffer(myOffer.id, product.product_name)}
+                    variant="danger"
+                    fullWidth={false}
+                    className="!px-3 !py-2"
+                  >
+                    <Trash2 size={16} />
+                    Remove
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  onClick={() => onAddOffer(product)}
+                  variant="primary"
+                  fullWidth={false}
+                  className="!px-4 !py-2"
+                >
+                  <Plus size={16} />
+                  Add to Offers
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ProductCard;
+/* FILE: src/components/supplier/RequestProductModal.tsx */
+// FILE PATH: src/components/supplier/RequestProductModal.tsx
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { X, Package, Upload, FileText, Layers } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+import { Category, supplierProductsAPI } from '../../api/handlers/supplierProducts.api';
+import { requestProductSchema, RequestProductFormData } from '../../utils/validators';
+import Input2 from '../common/Input2'; // ✅ Changed from Input to Input2
+import Button from '../common/Buttons';
+
+interface RequestProductModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  categories: Category[];
+}
+
+const RequestProductModal = ({ isOpen, onClose, categories }: RequestProductModalProps) => {
+  const queryClient = useQueryClient();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<RequestProductFormData>({
+    resolver: zodResolver(requestProductSchema),
+  });
+
+  const requestProductMutation = useMutation({
+    mutationFn: supplierProductsAPI.requestMasterProduct,
+    onSuccess: () => {
+      toast.success('Product request submitted successfully! Waiting for admin approval.');
+      queryClient.invalidateQueries({ queryKey: ['supplier-products'] });
+      handleClose();
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || 'Failed to submit product request';
+      toast.error(message);
+    },
+  });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        toast.error('Please upload a valid image (JPG, PNG, or WEBP)');
+        return;
+      }
+
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size must be less than 5MB');
+        return;
+      }
+
+      setSelectedFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const onSubmit = (data: RequestProductFormData) => {
+    requestProductMutation.mutate({
+      ...data,
+      photo: selectedFile,
+    });
+  };
+
+  const handleClose = () => {
+    reset();
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-secondary-100">
+          <h2 className="text-2xl font-bold text-secondary-900">Request New Product</h2>
+          <button
+            onClick={handleClose}
+            className="text-secondary-400 hover:text-secondary-600 transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Product Name - ✅ Using Input2 with component reference */}
+            <Input2
+              label="Product Name"
+              type="text"
+              placeholder="e.g., Premium Ceramic Tiles"
+              icon={Package} // ✅ Pass component, not JSX
+              error={errors.product_name?.message}
+              {...register('product_name')}
+              required
+            />
+
+            {/* Product Type - ✅ Using Input2 with component reference */}
+            <Input2
+              label="Product Type"
+              type="text"
+              placeholder="e.g., Tiles, Cement, Steel"
+              icon={Layers} // ✅ Pass component, not JSX
+              error={errors.product_type?.message}
+              {...register('product_type')}
+              required
+            />
+
+            {/* Category */}
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                Category <span className="text-error-500">*</span>
+              </label>
+              <select
+                {...register('category_id')}
+                className={`
+                  w-full px-4 py-3 rounded-lg border-2 transition-all
+                  ${errors.category_id 
+                    ? 'border-error-500 focus:border-error-500 focus:ring-error-500' 
+                    : 'border-secondary-200 focus:border-primary-500 focus:ring-primary-500'
+                  }
+                  focus:outline-none focus:ring-2 focus:ring-opacity-20
+                `}
+              >
+                <option value="">Select a category</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              {errors.category_id && (
+                <p className="text-sm text-error-500 mt-1">{errors.category_id.message}</p>
+              )}
+            </div>
+
+            {/* Unit of Measurement - ✅ Using Input2 with component reference */}
+            <Input2
+              label="Unit of Measurement"
+              type="text"
+              placeholder="e.g., ton, bag, sqft"
+              icon={FileText} // ✅ Pass component, not JSX
+              error={errors.unit_of_measurement?.message}
+              {...register('unit_of_measurement')}
+              required
+            />
+          </div>
+
+          {/* Specifications */}
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              Specifications <span className="text-error-500">*</span>
+            </label>
+            <textarea
+              {...register('specifications')}
+              rows={4}
+              placeholder="Describe the product specifications, features, and use cases..."
+              className={`
+                w-full px-4 py-3 rounded-lg border-2 transition-all resize-none
+                ${errors.specifications 
+                  ? 'border-error-500 focus:border-error-500 focus:ring-error-500' 
+                  : 'border-secondary-200 focus:border-primary-500 focus:ring-primary-500'
+                }
+                focus:outline-none focus:ring-2 focus:ring-opacity-20
+              `}
+            />
+            {errors.specifications && (
+              <p className="text-sm text-error-500 mt-1">{errors.specifications.message}</p>
+            )}
+          </div>
+
+          {/* Photo Upload */}
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              Product Photo (Optional)
+            </label>
+            <div className="flex items-center gap-4">
+              {previewUrl ? (
+                <div className="relative">
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="w-24 h-24 object-cover rounded-lg border border-secondary-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setPreviewUrl(null);
+                    }}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-error-500 text-white rounded-full flex items-center justify-center hover:bg-error-600 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <div className="w-24 h-24 bg-secondary-100 rounded-lg flex items-center justify-center">
+                  <Upload size={32} className="text-secondary-400" />
+                </div>
+              )}
+
+              <div className="flex-1">
+                <input
+                  type="file"
+                  id="photo-upload"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="photo-upload"
+                  className="inline-block px-4 py-2 bg-secondary-100 text-secondary-700 rounded-lg cursor-pointer hover:bg-secondary-200 transition-colors"
+                >
+                  Choose File
+                </label>
+                <p className="text-xs text-secondary-500 mt-2">
+                  Supported: JPG, PNG, WEBP (Max 5MB)
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Info Message */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              <strong>Note:</strong> Your product request will be reviewed by the admin team. 
+              Once approved, it will be added to the master product inventory and you'll be able to create an offer for it.
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              onClick={handleClose}
+              variant="outline"
+              fullWidth
+              disabled={requestProductMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              fullWidth
+              disabled={requestProductMutation.isPending}
+              isLoading={requestProductMutation.isPending}
+            >
+              {requestProductMutation.isPending ? 'Submitting...' : 'Submit Request'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default RequestProductModal;
 /* FILE: src/features/components/ProjectForm.tsx */
 // --- src/features/projects/components/ProjectForm.tsx ---
 import { useForm } from 'react-hook-form';
@@ -3887,7 +4954,7 @@ const AdminSupplierDeliveryZones = () => {
   const menuItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
     { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { label: 'Products', path: '/admin/products', icon: <Package size={20} /> },
+    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
     { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
     { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
     { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
@@ -4238,59 +5305,50 @@ const EditMasterProduct = () => {
 export default EditMasterProduct;
 /* FILE: src/pages/admin/MasterProducts/MasterProductsList.tsx */
 // FILE PATH: src/pages/admin/MasterProducts/MasterProductsList.tsx
-
-/**
- * Master Products List Component
- * 
- * Main listing page for Master Products with:
- * - Paginated table display
- * - Active/Inactive status toggle
- * - Search functionality
- * - Category filter
- * - View/Edit/Delete actions
- * - Stats cards (Total, Approved, Pending)
- * - Image preview
- * 
- * What's happening here:
- * 1. On mount, we fetch products from API with pagination
- * 2. Status toggle updates 'is_approved' field via API
- * 3. Confirmation modal appears before status change
- * 4. Search/filters trigger new API calls with query params
- * 5. Navigation to Add/Edit/View pages via React Router
- */
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { 
-  masterProductsAPI, 
-  MasterProduct, 
-  PaginatedMasterProductsResponse,
-  MasterProductsFilters 
+import { Home, Users, Package, ShoppingCart, BarChart, MapPin, Settings } from 'lucide-react';
+import {
+  masterProductsAPI,
+  MasterProduct,
+  MasterProductsFilters
 } from '../../../api/handlers/masterProducts.api';
+import DashboardLayout from '../../../components/layout/DashboardLayout';
 import StatusBadge from '../../../components/common/StatusBadge';
 import Pagination from '../../../components/common/Pagination';
 import ConfirmModal from '../../../components/common/ConfirmModal';
 
+const PER_PAGE = 10;
+
+// Inline SVG placeholder to prevent image loading errors
+const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2UzZTNlMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+
 const MasterProductsList = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  // State management with proper TypeScript types
-  const [products, setProducts] = useState<MasterProduct[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    lastPage: 1,
-    total: 0,
-    perPage: 10,
+  const menuItems = useMemo(() => [
+    { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
+    { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
+    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
+    { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
+    { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
+    { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
+    { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
+  ], []);
+
+  // State - Simple filter management
+  const [filters, setFilters] = useState<MasterProductsFilters>({
+    page: 1,
+    per_page: PER_PAGE,
   });
-
-  // Filter states
+  
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>(''); // 'approved', 'pending', or ''
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  // Modal states
+  // Modal
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     productId: number | null;
@@ -4303,445 +5361,428 @@ const MasterProductsList = () => {
     loading: false,
   });
 
-  // Stats
-  const [stats, setStats] = useState({
-    total: 0,
-    approved: 0,
-    pending: 0,
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setFilters(prev => ({ ...prev, page: 1 }));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Build query params
+  const queryParams: MasterProductsFilters = {
+    ...filters,
+    search: debouncedSearch || undefined,
+  };
+
+  // Fetch Products using React Query
+  const { data: productsData, isLoading, error } = useQuery({
+    queryKey: ['masterProducts', queryParams],
+    queryFn: () => masterProductsAPI.getAll(queryParams),
+    keepPreviousData: true,
   });
 
-  /**
-   * Fetch products from API
-   * WHY: We need to get paginated data with filters applied
-   * HOW: Call API service with current page and filters
-   */
-  const fetchProducts = async (page: number = 1) => {
-    setLoading(true);
-    try {
-      const filters: MasterProductsFilters = {
-        page,
-        per_page: pagination.perPage,
-      };
-      
-      // Add filters if they exist
-      if (searchQuery) filters.search = searchQuery;
-      if (categoryFilter) filters.category = categoryFilter;
-      if (statusFilter) filters.is_approved = statusFilter === 'approved' ? 1 : 0;
-
-      const response: PaginatedMasterProductsResponse = await masterProductsAPI.getAll(filters);
-      
-      setProducts(response.data);
-      setPagination({
-        currentPage: response.current_page,
-        lastPage: response.last_page,
-        total: response.total,
-        perPage: response.per_page,
-      });
-
-      // Calculate stats
-      calculateStats(response.data);
-    } catch (error: any) {
-      console.error('Error fetching products:', error);
-      toast.error(error.message || 'Failed to load products. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /**
-   * Calculate statistics from products data
-   * WHY: To show quick stats cards at the top
-   */
-  const calculateStats = (productsData: MasterProduct[]) => {
-    const total = productsData.length;
-    const approved = productsData.filter(p => p.is_approved === 1).length;
-    const pending = productsData.filter(p => p.is_approved === 0).length;
-
-    setStats({ total, approved, pending });
-  };
-
-  /**
-   * Handle status toggle
-   * WHY: Admin needs to activate/deactivate products
-   * HOW: Show confirmation modal, then call API to update is_approved field
-   */
-  const handleStatusToggle = (productId: number, currentStatus: boolean) => {
-    setConfirmModal({
-      isOpen: true,
-      productId,
-      currentStatus,
-      loading: false,
-    });
-  };
-
-  /**
-   * Confirm status change
-   * WHY: Execute the actual API call after user confirmation
-   */
-  const confirmStatusChange = async () => {
-    const { productId, currentStatus } = confirmModal;
-    
-    if (!productId) return;
-    
-    const newStatus = !currentStatus;
-
-    setConfirmModal(prev => ({ ...prev, loading: true }));
-
-    try {
-      await masterProductsAPI.toggleApproval(productId, newStatus);
-      
-      // Update local state to reflect change
-      setProducts(prev => 
-        prev.map(product => 
-          product.id === productId 
-            ? { ...product, is_approved: newStatus ? 1 : 0 }
-            : product
-        )
-      );
-
-      toast.success(`Product ${newStatus ? 'activated' : 'deactivated'} successfully!`);
+  // Toggle Approval Mutation
+  const toggleApprovalMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: boolean }) => 
+      masterProductsAPI.toggleApproval(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['masterProducts']);
+      toast.success('Product status updated successfully');
       setConfirmModal({ isOpen: false, productId: null, currentStatus: null, loading: false });
-    } catch (error: any) {
-      console.error('Error toggling status:', error);
-      toast.error(error.message || 'Failed to update product status. Please try again.');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update product status');
       setConfirmModal(prev => ({ ...prev, loading: false }));
+    },
+  });
+
+  // Handlers
+  const handleFilterChange = (key: keyof MasterProductsFilters, value: any) => {
+    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+  };
+
+  const handleStatusToggle = (productId: number, currentStatus: boolean) => {
+    setConfirmModal({ isOpen: true, productId, currentStatus, loading: false });
+  };
+
+  const confirmStatusChange = () => {
+    const { productId, currentStatus } = confirmModal;
+    if (!productId || currentStatus === null) return;
+
+    const newStatus = !currentStatus;
+    setConfirmModal(prev => ({ ...prev, loading: true }));
+    toggleApprovalMutation.mutate({ id: productId, status: newStatus });
+  };
+
+  const handleDelete = (productId: number) => {
+    toast('Delete functionality coming soon', { icon: '🚧' });
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      page: 1,
+      per_page: PER_PAGE,
+    });
+    setSearchQuery('');
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = searchQuery || filters.category || filters.is_approved !== undefined;
+
+  // Fixed image handler - prevents infinite loop
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const target = e.currentTarget;
+    // Only set placeholder if not already set to prevent loop
+    if (target.src !== PLACEHOLDER_IMAGE) {
+      target.src = PLACEHOLDER_IMAGE;
+      // Remove onError to prevent further triggers
+      target.onerror = null;
     }
   };
 
-  /**
-   * Handle search input change
-   * WHY: User wants to filter products by name/type
-   * HOW: Debounce search to avoid excessive API calls
-   */
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      fetchProducts(1); // Reset to page 1 when searching
-    }, 500); // 500ms debounce
-
-    return () => clearTimeout(debounceTimer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, categoryFilter, statusFilter]);
-
-  // Initial load
-  useEffect(() => {
-    fetchProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /**
-   * Handle page change
-   */
-  const handlePageChange = (page: number) => {
-    fetchProducts(page);
-  };
-
-  /**
-   * Handle delete (placeholder for now)
-   */
-  const handleDelete = (productId: number) => {
-    toast('Delete functionality coming soon!', { icon: '🚧' });
-    // We'll implement this later
-  };
-
-  /**
-   * Get image URL
-   * WHY: Laravel stores images with relative paths, we need full URL
-   */
   const getImageUrl = (photoPath: string | null): string => {
-    if (!photoPath) return '/placeholder-image.png'; // Fallback image
+    if (!photoPath) return PLACEHOLDER_IMAGE;
     const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://127.0.0.1:8000';
     return `${baseUrl}/storage/${photoPath}`;
   };
 
+  // Extract data
+  const products = productsData?.data || [];
+  const pagination = {
+    currentPage: productsData?.current_page || 1,
+    lastPage: productsData?.last_page || 1,
+    total: productsData?.total || 0,
+    perPage: PER_PAGE,
+  };
+
+  // Calculate stats
+  const stats = {
+    total: pagination.total,
+    approved: products.filter(p => p.is_approved === 1).length,
+    pending: products.filter(p => p.is_approved === 0).length,
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Master Products</h1>
-              <p className="mt-1 text-sm text-gray-600">
-                Manage all master products and their supplier offers
-              </p>
-            </div>
-            <Link
-              to="/admin/master-products/add"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-              </svg>
-              Add Product
-            </Link>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-blue-100 rounded-md p-3">
-                <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
+    <DashboardLayout menuItems={menuItems}>
+      <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Master Products</h1>
+                <p className="mt-1 text-sm text-gray-600">
+                  Manage all master products and their supplier offers
+                </p>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Products</p>
-                <p className="text-2xl font-semibold text-gray-900">{pagination.total}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-green-100 rounded-md p-3">
-                <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Approved</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.approved}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 bg-yellow-100 rounded-md p-3">
-                <svg className="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Pending Approval</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.pending}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Search */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Search Products
-              </label>
-              <input
-                type="text"
-                placeholder="Search by name or type..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              <Link
+                to="/admin/master-products/add"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors"
               >
-                <option value="">All Status</option>
-                <option value="approved">Active</option>
-                <option value="pending">Inactive</option>
-              </select>
-            </div>
-
-            {/* Category Filter - Will be populated from API */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Category
-              </label>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Categories</option>
-                {/* TODO: Fetch and populate categories dynamically */}
-                <option value="1">Cats</option>
-              </select>
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Product
+              </Link>
             </div>
           </div>
-        </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-blue-100 rounded-md p-3">
+                  <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Total Products</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
+                </div>
+              </div>
             </div>
-          ) : products.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No products found</h3>
-              <p className="mt-1 text-sm text-gray-500">Get started by creating a new product.</p>
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-green-100 rounded-md p-3">
+                  <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Approved</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.approved}</p>
+                </div>
+              </div>
             </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Product
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Category
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Added By
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Supplier Offers
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {products.map((product) => (
-                      <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                        {/* Product Info */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-12 w-12">
-                              <img
-                                className="h-12 w-12 rounded-lg object-cover border border-gray-200"
-                                src={getImageUrl(product.photo)}
-                                alt={product.product_name}
-                                onError={(e) => {
-                                  e.target.src = '/placeholder-image.png';
-                                }}
-                              />
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {product.product_name}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {product.unit_of_measure}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
 
-                        {/* Type */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{product.product_type}</div>
-                        </td>
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0 bg-yellow-100 rounded-md p-3">
+                  <svg className="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Pending Approval</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.pending}</p>
+                </div>
+              </div>
+            </div>
+          </div>
 
-                        {/* Category */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                            {product.category?.name || 'N/A'}
-                          </span>
-                        </td>
+          {/* Filters */}
+          <div className="bg-white rounded-lg shadow p-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Search */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Search Products
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search by name or type..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
 
-                        {/* Added By */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{product.added_by?.name}</div>
-                          <div className="text-sm text-gray-500">{product.added_by?.email}</div>
-                        </td>
+              {/* Status Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select
+                  value={filters.is_approved !== undefined ? (filters.is_approved === 1 ? 'approved' : 'pending') : ''}
+                  onChange={(e) => handleFilterChange('is_approved', e.target.value ? (e.target.value === 'approved' ? 1 : 0) : undefined)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">All Status</option>
+                  <option value="approved">Active</option>
+                  <option value="pending">Inactive</option>
+                </select>
+              </div>
 
-                        {/* Supplier Offers Count */}
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                            {product.supplierOffersCount || 0}
-                          </span>
-                        </td>
+              {/* Category Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category
+                </label>
+                <select
+                  value={filters.category || ''}
+                  onChange={(e) => handleFilterChange('category', e.target.value || undefined)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">All Categories</option>
+                  <option value="1">Cats</option>
+                </select>
+              </div>
+            </div>
 
-                        {/* Status */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <StatusBadge
-                            isApproved={product.is_approved === 1}
-                            onToggle={() => handleStatusToggle(product.id, product.is_approved === 1)}
-                          />
-                        </td>
+            {/* Clear Filters Button */}
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="mt-4 text-sm text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
 
-                        {/* Actions */}
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => navigate(`/admin/master-products/view/${product.id}`)}
-                              className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"
-                              title="View Details"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => navigate(`/admin/master-products/edit/${product.id}`)}
-                              className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded transition-colors"
-                              title="Edit Product"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDelete(product.id)}
-                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded transition-colors"
-                              title="Delete Product (Coming Soon)"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
+          {/* Table */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            {isLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  <p className="text-gray-500">Loading products...</p>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center py-12 text-red-500">
+                <p className="mb-2">Failed to load products</p>
+                <button 
+                  onClick={() => queryClient.invalidateQueries(['masterProducts'])}
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : products.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <svg className="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <p className="mb-2">No products found</p>
+                {hasActiveFilters && (
+                  <button 
+                    onClick={clearFilters}
+                    className="text-sm text-primary-600 hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Product
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Type
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Category
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Added By
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Supplier Offers
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {products.map((product) => (
+                        <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                          {/* Product Info */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-12 w-12">
+                                <img
+                                  className="h-12 w-12 rounded-lg object-cover border border-gray-200"
+                                  src={getImageUrl(product.photo)}
+                                  alt={product.product_name}
+                                  onError={handleImageError}
+                                />
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {product.product_name}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {product.unit_of_measure}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
 
-              {/* Pagination */}
-              <Pagination
-                currentPage={pagination.currentPage}
-                lastPage={pagination.lastPage}
-                total={pagination.total}
-                perPage={pagination.perPage}
-                onPageChange={handlePageChange}
-                loading={loading}
-              />
-            </>
-          )}
+                          {/* Type */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{product.product_type}</div>
+                          </td>
+
+                          {/* Category */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                              {product.category?.name || 'N/A'}
+                            </span>
+                          </td>
+
+                          {/* Added By */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{product.added_by?.name}</div>
+                            <div className="text-sm text-gray-500">{product.added_by?.email}</div>
+                          </td>
+
+                          {/* Supplier Offers Count */}
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                              {product.supplierOffersCount || 0}
+                            </span>
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <StatusBadge
+                              isApproved={product.is_approved === 1}
+                              onToggle={() => handleStatusToggle(product.id, product.is_approved === 1)}
+                            />
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => navigate(`/admin/master-products/view/${product.id}`)}
+                                className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded transition-colors"
+                                title="View Details"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => navigate(`/admin/master-products/edit/${product.id}`)}
+                                className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded transition-colors"
+                                title="Edit Product"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDelete(product.id)}
+                                className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded transition-colors"
+                                title="Delete Product (Coming Soon)"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  lastPage={pagination.lastPage}
+                  total={pagination.total}
+                  perPage={pagination.perPage}
+                  onPageChange={(next) => setFilters(prev => ({ ...prev, page: next }))}
+                  loading={isLoading}
+                />
+              </>
+            )}
+          </div>
+
+          {/* Confirmation Modal */}
+          <ConfirmModal
+            isOpen={confirmModal.isOpen}
+            onClose={() => setConfirmModal({ isOpen: false, productId: null, currentStatus: null, loading: false })}
+            onConfirm={confirmStatusChange}
+            title={`${confirmModal.currentStatus ? 'Deactivate' : 'Activate'} Product`}
+            message={`Are you sure you want to ${confirmModal.currentStatus ? 'deactivate' : 'activate'} this product? This will change its approval status.`}
+            confirmText={confirmModal.currentStatus ? 'Deactivate' : 'Activate'}
+            cancelText="Cancel"
+            isDanger={confirmModal.currentStatus === true}
+            loading={confirmModal.loading || toggleApprovalMutation.isLoading}
+          />
         </div>
       </div>
-
-      {/* Confirmation Modal */}
-      <ConfirmModal
-        isOpen={confirmModal.isOpen}
-        onClose={() => setConfirmModal({ isOpen: false, productId: null, currentStatus: null, loading: false })}
-        onConfirm={confirmStatusChange}
-        title={`${confirmModal.currentStatus ? 'Deactivate' : 'Activate'} Product`}
-        message={`Are you sure you want to ${confirmModal.currentStatus ? 'deactivate' : 'activate'} this product? This will change its approval status.`}
-        confirmText={confirmModal.currentStatus ? 'Deactivate' : 'Activate'}
-        cancelText="Cancel"
-        isDanger={confirmModal.currentStatus}
-        loading={confirmModal.loading}
-      />
-    </div>
+    </DashboardLayout>
   );
 };
 
@@ -4860,7 +5901,8 @@ const UserCreate = () => {
   const menuItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
     { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { label: 'Products', path: '/admin/products', icon: <Package size={20} /> },
+    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
+    { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
     { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
     { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
     { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
@@ -5268,7 +6310,8 @@ const UserDetail = () => {
   const menuItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
     { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { label: 'Products', path: '/admin/products', icon: <Package size={20} /> },
+    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
+    { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
     { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
     { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
     { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
@@ -5509,7 +6552,8 @@ const UserEdit = () => {
   const menuItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
     { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { label: 'Products', path: '/admin/products', icon: <Package size={20} /> },
+    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
+    { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
     { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
     { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
     { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
@@ -6075,7 +7119,8 @@ const UserManagement = () => {
   const menuItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
     { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { label: 'Products', path: '/admin/products', icon: <Package size={20} /> },
+    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
+    { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
     { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
     { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
     { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
@@ -8463,10 +9508,10 @@ const ProfileSettings = () => {
       return [
         { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
         { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-        { label: 'Products', path: '/admin/products', icon: <Package size={20} /> },
+        { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
+        { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
         { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
         { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
-        { label: 'Profile', path: '/admin/profile', icon: <User size={20} /> },
         { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
       ];
     }
@@ -8813,6 +9858,411 @@ const DeliveryZonesPage = () => {
 };
 
 export default DeliveryZonesPage;
+/* FILE: src/pages/supplier/ProductManagement.tsx */
+// FILE PATH: src/pages/supplier/ProductManagement.tsx
+import { useState, useMemo, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { 
+  Home, 
+  Package, 
+  DollarSign, 
+  MapPin, 
+  Settings, 
+  User,
+  Search,
+  Plus,
+  Filter,
+  Loader2,
+  AlertCircle,
+  X
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+
+import { 
+  supplierProductsAPI, 
+  MasterProduct, 
+  SupplierOffer 
+} from '../../api/handlers/supplierProducts.api';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import ProductCard from '../../components/supplier/ProductCard';
+import AddOfferModal from '../../components/supplier/AddOfferModal';
+import EditOfferModal from '../../components/supplier/EditOfferModal';
+import RequestProductModal from '../../components/supplier/RequestProductModal';
+import Pagination from '../../components/common/Pagination';
+import Button from '../../components/common/Buttons';
+import ConfirmModal from '../../components/common/ConfirmModal';
+
+const PER_PAGE = 10;
+
+const ProductManagement = () => {
+  const queryClient = useQueryClient();
+
+  // State
+  const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [localSearch, setLocalSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
+  const [statusFilter, setStatusFilter] = useState<'all' | 'my_offers' | 'not_added'>('all');
+  
+  // Modal states
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  
+  // Selected items
+  const [selectedProduct, setSelectedProduct] = useState<MasterProduct | null>(null);
+  const [selectedOffer, setSelectedOffer] = useState<SupplierOffer | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(localSearch);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [localSearch]);
+
+  // Fetch products
+  const { data: productsData, isLoading: isLoadingProducts } = useQuery({
+    queryKey: ['supplier-products', page, searchQuery, selectedCategory],
+    queryFn: () => supplierProductsAPI.getProducts({
+      page,
+      per_page: PER_PAGE,
+      search: searchQuery || undefined,
+      category_id: selectedCategory,
+    }),
+  });
+
+  // Fetch categories
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: supplierProductsAPI.getCategories,
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: supplierProductsAPI.deleteSupplierOffer,
+    onSuccess: () => {
+      toast.success('Product removed from your offers');
+      queryClient.invalidateQueries({ queryKey: ['supplier-products'] });
+      setShowDeleteModal(false);
+      setDeleteTarget(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to remove product');
+    },
+  });
+
+  // Menu items
+  const menuItems = [
+    { label: 'Dashboard', path: '/supplier/dashboard', icon: <Home size={20} /> },
+    { label: 'My Products', path: '/supplier/products', icon: <Package size={20} /> },
+    { label: 'Orders', path: '/supplier/orders', icon: <DollarSign size={20} /> },
+    { label: 'Delivery Zones', path: '/supplier/zones', icon: <MapPin size={20} /> },
+    { label: 'Profile', path: '/supplier/profile', icon: <User size={20} /> },
+    { label: 'Settings', path: '/supplier/settings', icon: <Settings size={20} /> },
+  ];
+
+  // Filter products
+  const filteredProducts = useMemo(() => {
+    if (!productsData?.data) return [];
+    
+    let filtered = productsData.data;
+
+    if (statusFilter === 'my_offers') {
+      filtered = filtered.filter(p => p.suppliers.some(s => s.isMe));
+    } else if (statusFilter === 'not_added') {
+      filtered = filtered.filter(p => !p.suppliers.some(s => s.isMe));
+    }
+
+    return filtered;
+  }, [productsData?.data, statusFilter]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const total = filteredProducts.length;
+    const myOffers = filteredProducts.filter(p => p.suppliers.some(s => s.isMe)).length;
+    const notAdded = filteredProducts.filter(p => !p.suppliers.some(s => s.isMe)).length;
+
+    return { total, myOffers, notAdded };
+  }, [filteredProducts]);
+
+  // Modal handlers
+  const handleAddOffer = (product: MasterProduct) => {
+    setSelectedProduct(product);
+    setShowAddModal(true);
+  };
+
+  const handleEditOffer = (product: MasterProduct, offer: SupplierOffer) => {
+    setSelectedProduct(product);
+    setSelectedOffer(offer);
+    setShowEditModal(true);
+  };
+
+  const handleRemoveOffer = (offerId: number, productName: string) => {
+    setDeleteTarget({ id: offerId, name: productName });
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget) {
+      deleteMutation.mutate(deleteTarget.id);
+    }
+  };
+
+  const clearFilters = () => {
+    setLocalSearch('');
+    setSearchQuery('');
+    setSelectedCategory(undefined);
+    setStatusFilter('all');
+    setPage(1);
+  };
+
+  const hasFilters = searchQuery || selectedCategory || statusFilter !== 'all';
+
+  // ✅ FIX: Proper pagination data with fallbacks
+  const pagination = {
+    currentPage: productsData?.current_page || 1,
+    lastPage: productsData?.last_page || 1,
+    total: productsData?.total || 0,
+    perPage: productsData?.per_page || PER_PAGE,
+    from: productsData?.from || 0,
+    to: productsData?.to || 0,
+  };
+
+  return (
+    <DashboardLayout menuItems={menuItems}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-secondary-900">Product Management</h1>
+            <p className="text-secondary-600 mt-1">
+              Manage your product offers and request new products
+            </p>
+          </div>
+          <Button
+            onClick={() => setShowRequestModal(true)}
+            variant="primary"
+            fullWidth={false}
+          >
+            <Plus size={20} />
+            Request Product
+          </Button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-secondary-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-secondary-600 mb-1">Total Products</p>
+                <p className="text-3xl font-bold text-secondary-900">{stats.total}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Package size={24} className="text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-secondary-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-secondary-600 mb-1">My Offers</p>
+                <p className="text-3xl font-bold text-success-600">{stats.myOffers}</p>
+              </div>
+              <div className="w-12 h-12 bg-success-100 rounded-lg flex items-center justify-center">
+                <Package size={24} className="text-success-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-secondary-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-secondary-600 mb-1">Not Added</p>
+                <p className="text-3xl font-bold text-secondary-500">{stats.notAdded}</p>
+              </div>
+              <div className="w-12 h-12 bg-secondary-100 rounded-lg flex items-center justify-center">
+                <Package size={24} className="text-secondary-500" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex flex-col gap-4">
+            {/* Search and Category */}
+            <div className="flex flex-col md:flex-row gap-4">
+              {/* Search */}
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={localSearch}
+                  onChange={(e) => setLocalSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500"
+                />
+              </div>
+
+              {/* Category Filter */}
+              <select
+                value={selectedCategory || ''}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value ? Number(e.target.value) : undefined);
+                  setPage(1);
+                }}
+                className="px-4 py-3 border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500"
+              >
+                <option value="">All Categories</option>
+                {categoriesData?.data.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filters */}
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => { setStatusFilter('all'); setPage(1); }}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  statusFilter === 'all'
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                All Products
+              </button>
+              <button
+                onClick={() => { setStatusFilter('my_offers'); setPage(1); }}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  statusFilter === 'my_offers'
+                    ? 'bg-success-500 text-white'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                My Offers
+              </button>
+              <button
+                onClick={() => { setStatusFilter('not_added'); setPage(1); }}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  statusFilter === 'not_added'
+                    ? 'bg-error-500 text-white'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                Not Added
+              </button>
+              
+              {hasFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="px-4 py-2 rounded-lg font-medium bg-secondary-100 text-secondary-700 hover:bg-secondary-200 transition-colors flex items-center gap-2"
+                >
+                  <X size={16} />
+                  Clear Filters
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Products Grid */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          {isLoadingProducts ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="animate-spin text-primary-500" size={32} />
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="text-center py-12">
+              <AlertCircle className="mx-auto text-secondary-400 mb-4" size={48} />
+              <p className="text-secondary-600 text-lg">No products found</p>
+              <p className="text-secondary-500 text-sm mt-2">
+                Try adjusting your filters or search term
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAddOffer={handleAddOffer}
+                    onEditOffer={handleEditOffer}
+                    onRemoveOffer={handleRemoveOffer}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {pagination.total > 0 && (
+                <div className="mt-6">
+                  <Pagination
+                    currentPage={pagination.currentPage}
+                    lastPage={pagination.lastPage}
+                    total={pagination.total}
+                    perPage={pagination.perPage}
+                    onPageChange={(newPage) => setPage(newPage)}
+                    loading={isLoadingProducts}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Modals */}
+      <AddOfferModal
+        isOpen={showAddModal}
+        onClose={() => {
+          setShowAddModal(false);
+          setSelectedProduct(null);
+        }}
+        product={selectedProduct}
+      />
+
+      <EditOfferModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedProduct(null);
+          setSelectedOffer(null);
+        }}
+        product={selectedProduct}
+        offer={selectedOffer}
+      />
+
+      <RequestProductModal
+        isOpen={showRequestModal}
+        onClose={() => setShowRequestModal(false)}
+        categories={categoriesData?.data || []}
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeleteTarget(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Remove Product from Offers"
+        message={`Are you sure you want to remove "${deleteTarget?.name}" from your offers? This action cannot be undone.`}
+        confirmText="Remove"
+        isLoading={deleteMutation.isPending}
+      />
+    </DashboardLayout>
+  );
+};
+
+export default ProductManagement;
 /* FILE: src/routes/index.tsx */
 // src/routes/index.tsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -8850,6 +10300,7 @@ import ProjectCreate from '../pages/client/projects/ProjectCreate';
 
 //Supplier Delivery Zones
 import DeliveryZonesPage from '../pages/supplier/DeliveryZones';
+import ProductManagement from '../pages/supplier/ProductManagement';
 
 // Shared
 import ProfileSettings from '../pages/shared/ProfileSettings';
@@ -8939,6 +10390,14 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/supplier/products"
+          element={
+            <ProtectedRoute allowedRoles={['supplier']}>
+              <ProductManagement />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Admin Routes - IMPORTANT: ORDER MATTERS! */}
         <Route
@@ -9001,12 +10460,38 @@ const AppRouter = () => {
         />
 
         {/* Master Products Routes */}
-        <Route path="/admin/master-products">
-          <Route index element={<MasterProductsList />} />
-          <Route path="add" element={<AddMasterProduct />} />
-          <Route path="edit/:id" element={<EditMasterProduct />} />
-          <Route path="view/:id" element={<ViewMasterProduct />} />
-        </Route>
+        <Route
+          path="/admin/master-products"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <MasterProductsList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/master-products/add"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AddMasterProduct />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/master-products/edit/:id"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <EditMasterProduct />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/master-products/view/:id"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <ViewMasterProduct />
+            </ProtectedRoute>
+          }
+        />
         
         <Route
           path="/admin/profile"
@@ -9226,6 +10711,54 @@ export const changePasswordSchema = z.object({
   path: ['new_password_confirmation'],
 });
 
+
+
+// ==================== SUPPLIER PRODUCT MANAGEMENT SCHEMAS ====================
+
+/**
+ * Schema for adding a product to supplier offers
+ */
+export const addOfferSchema = z.object({
+  price: z.string()
+    .min(1, 'Price is required')
+    .refine(
+      (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+      { message: 'Price must be a positive number' }
+    ),
+  availability_status: z.enum(['In Stock', 'Out of Stock', 'Limited Stock'], {
+    required_error: 'Availability status is required',
+  }),
+});
+/**
+ * Schema for updating supplier offer
+ */
+export const updateOfferSchema = z.object({
+  price: z.string()
+    .min(1, 'Price is required')
+    .refine(
+      (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+      { message: 'Price must be a positive number' }
+    ),
+  availability_status: z.enum(['In Stock', 'Out of Stock', 'Limited Stock'], {
+    required_error: 'Availability status is required',
+  }),
+});
+
+/**
+ * Schema for requesting new master product
+ */
+export const requestProductSchema = z.object({
+  product_name: z.string().min(3, 'Product name must be at least 3 characters'),
+  product_type: z.string().min(2, 'Product type must be at least 2 characters'),
+  category_id: z.string().min(1, 'Please select a category'),
+  specifications: z.string().min(10, 'Specifications must be at least 10 characters'),
+  unit_of_measurement: z.string().min(1, 'Unit of measurement is required'),
+  photo: z.any().optional(),
+});
+
+
+
+
 // ==================== TYPE EXPORTS ====================
 
 export type LoginFormData = z.infer<typeof loginSchema>;
@@ -9233,6 +10766,9 @@ export type ClientRegistrationFormData = z.infer<typeof clientRegistrationSchema
 export type SupplierRegistrationFormData = z.infer<typeof supplierRegistrationSchema>;
 export type ProfileUpdateFormData = z.infer<typeof profileUpdateSchema>;
 export type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
+export type RequestProductFormData = z.infer<typeof requestProductSchema>;
+export type AddOfferFormData = z.infer<typeof addOfferSchema>;
+export type UpdateOfferFormData = z.infer<typeof updateOfferSchema>;
 /* FILE: src/vite-env.d.ts */
 // src/vite-env.d.ts
 interface ImportMetaEnv {

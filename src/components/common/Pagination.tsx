@@ -32,9 +32,9 @@ const Pagination: React.FC<PaginationProps> = ({
   onPageChange,
   loading = false 
 }) => {
-  // Calculate display range
-  const startItem = total === 0 ? 0 : ((currentPage - 1) * perPage) + 1;
-  const endItem = Math.min(currentPage * perPage, total);
+  // ✅ FIX: Handle edge cases properly
+  const startItem = total === 0 ? 0 : Math.max(1, ((currentPage - 1) * perPage) + 1);
+  const endItem = total === 0 ? 0 : Math.min(currentPage * perPage, total);
 
   const handlePrevious = () => {
     if (currentPage > 1 && !loading) {
@@ -48,7 +48,7 @@ const Pagination: React.FC<PaginationProps> = ({
     }
   };
 
-  const handlePageClick = (page) => {
+  const handlePageClick = (page: number) => {
     if (page !== currentPage && !loading) {
       onPageChange(page);
     }
@@ -145,8 +145,8 @@ const Pagination: React.FC<PaginationProps> = ({
                 </span>
               ) : (
                 <button
-                  key={page}
-                  onClick={() => handlePageClick(page)}
+                  key={`page-${page}`}
+                  onClick={() => handlePageClick(Number(page))}
                   disabled={loading}
                   className={`relative inline-flex items-center px-4 py-2 text-sm font-medium border ${
                     page === currentPage

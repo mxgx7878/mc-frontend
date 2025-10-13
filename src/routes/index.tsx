@@ -34,6 +34,7 @@ import ProjectCreate from '../pages/client/projects/ProjectCreate';
 
 //Supplier Delivery Zones
 import DeliveryZonesPage from '../pages/supplier/DeliveryZones';
+import ProductManagement from '../pages/supplier/ProductManagement';
 
 // Shared
 import ProfileSettings from '../pages/shared/ProfileSettings';
@@ -120,6 +121,14 @@ const AppRouter = () => {
           element={
             <ProtectedRoute allowedRoles={['supplier']}>
               <DeliveryZonesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/supplier/products"
+          element={
+            <ProtectedRoute allowedRoles={['supplier']}>
+              <ProductManagement />
             </ProtectedRoute>
           }
         />
