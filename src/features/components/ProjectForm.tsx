@@ -1,7 +1,8 @@
 // --- src/features/projects/components/ProjectForm.tsx ---
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { projectSchema, ProjectFormValues } from '../projects/validators';
+import { projectSchema } from '../projects/validators';
+import type { ProjectFormValues } from '../projects/validators';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Buttons';
 

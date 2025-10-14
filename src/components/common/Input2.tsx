@@ -1,7 +1,8 @@
 // src/components/common/Input2.tsx
 import { Eye, EyeOff } from 'lucide-react';
-import { useState, InputHTMLAttributes, ReactNode, FC } from 'react';
-import { UseFormRegisterReturn } from 'react-hook-form';
+import { useState } from 'react';
+import type { FC , InputHTMLAttributes} from 'react';
+import type { UseFormRegisterReturn } from 'react-hook-form';
 
 // ✅ Type for Lucide Icon components
 type LucideIconType = FC<{ size?: number | string; className?: string }>;

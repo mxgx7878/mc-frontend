@@ -1,5 +1,5 @@
 // src/pages/public/RegisterSupplier.tsx
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
@@ -10,21 +10,20 @@ import {
   Phone, 
   Building2, 
   MapPin, 
-  Truck,
   UserPlus,
   ArrowLeft
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Autocomplete from 'react-google-autocomplete';
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 
 import { authAPI } from '../../api/handlers/auth.api';
 import { useAuthStore } from '../../store/authStore';
-import { supplierRegistrationSchema, SupplierRegistrationFormData } from '../../utils/validators';
+import { supplierRegistrationSchema } from '../../utils/validators';
+import type { SupplierRegistrationFormData } from '../../utils/validators';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Buttons';
 import ImageUpload from '../../components/common/ImageUpload';
-import LocationPicker from '../../components/common/LocationPickerSimple';
 
 const RegisterSupplier = () => {
   const navigate = useNavigate();
@@ -34,18 +33,15 @@ const RegisterSupplier = () => {
   const {
     register,
     handleSubmit,
-    control,
+
     formState: { errors },
     setError,
     setValue,
-    watch,
   } = useForm<SupplierRegistrationFormData>({
     resolver: zodResolver(supplierRegistrationSchema),
   });
 
-  // Watch lat and long values for real-time updates
-  const watchLat = watch('lat');
-  const watchLong = watch('long');
+
 
   const registerMutation = useMutation({
     mutationFn: authAPI.registerSupplier,
@@ -82,32 +78,11 @@ const RegisterSupplier = () => {
     registerMutation.mutate(submitData);
   };
 
-  // Wrap in useCallback to prevent infinite re-renders
-  const handleLocationSelect = useCallback((location: { lat: number; lng: number }) => {
-    setValue('lat', location.lat);
-    setValue('long', location.lng);
-  }, [setValue]);
 
-  // Wrap Autocomplete handler in useCallback
-  const handlePlaceSelected = useCallback((place: any) => {
-    console.log('📍 Selected Place:', place);
-    
-    if (place.formatted_address) {
-      setValue('location', place.formatted_address);
-    }
-    
-    if (place.geometry && place.geometry.location) {
-      const lat = place.geometry.location.lat();
-      const lng = place.geometry.location.lng();
-      
-      console.log('📍 Coordinates:', { lat, lng });
-      
-      setValue('lat', lat);
-      setValue('long', lng);
-      
-      toast.success(`📍 Location set: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
-    }
-  }, [setValue]);
+  const profileImageError =
+  typeof errors.profile_image?.message === 'string'
+    ? errors.profile_image.message
+    : undefined;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 py-12 px-4">
@@ -136,10 +111,11 @@ const RegisterSupplier = () => {
         <div className="bg-white rounded-2xl shadow-card p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Profile Image */}
+            
             <ImageUpload
               label="Profile Image (Optional)"
               onChange={setProfileImage}
-              error={errors.profile_image?.message}
+              error={profileImageError}
             />
 
             {/* Personal Information Section */}

@@ -1,7 +1,7 @@
 // src/pages/client/projects/ProjectsList.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { 
   Search, 
   Eye, 
@@ -16,17 +16,14 @@ import {
   Filter,
   X,
   Loader2,
-  Home,
-  FolderOpen,
-  ShoppingCart,
-  Package,
-  Settings
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import Button from '../../../components/common/Buttons';
+import type { Paginated, ProjectDTO } from '../../../api/handlers/projects.api';
 import { projectsAPI } from '../../../api/handlers/projects.api';
+import { clientMenuItems } from '../../../utils/menuItems';
 
 // Helper function to format date
 const formatDate = (dateString: string) => {
@@ -40,14 +37,7 @@ const ProjectsList = () => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Menu items
-  const menuItems = [
-    { label: 'Dashboard', path: '/client/dashboard', icon: <Home size={20} /> },
-    { label: 'Projects', path: '/client/projects', icon: <FolderOpen size={20} /> },
-    { label: 'Orders', path: '/client/orders', icon: <ShoppingCart size={20} /> },
-    { label: 'Products', path: '/client/products', icon: <Package size={20} /> },
-    { label: 'Settings', path: '/client/settings', icon: <Settings size={20} /> },
-  ];
+
 
   // State
   const [showFilters, setShowFilters] = useState(false);
@@ -73,17 +63,17 @@ const ProjectsList = () => {
   }, [localSearch]);
 
   // Fetch projects
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<Paginated<ProjectDTO>>({
     queryKey: ['projects', { page, per_page, search, sort, dir, date_from, date_to }],
     queryFn: () => projectsAPI.list({ page, per_page, search, sort, dir, date_from, date_to }),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
-  // Delete mutation
+    // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: projectsAPI.remove,
     onSuccess: () => {
-      queryClient.invalidateQueries(['projects']);
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast.success('✅ Project deleted successfully');
     },
     onError: (error: any) => {
@@ -117,20 +107,19 @@ const ProjectsList = () => {
     }
   };
 
-  const projects = data?.data || [];
-  console.log('Projects data:', data);
+  const projects = data?.data ?? [];
   const pagination = {
-    currentPage: data?.page || 1,
-    lastPage: Math.ceil((data?.total || 0) / per_page),
-    total: data?.total || 0,
+    currentPage: data?.meta?.page ?? 1,
+    lastPage: Math.ceil((data?.meta?.total ?? 0) / (data?.meta?.per_page ?? per_page)),
+    total: data?.meta?.total ?? 0,
     from: ((page - 1) * per_page) + 1,
-    to: Math.min(page * per_page, data?.total || 0),
+    to: Math.min(page * per_page, data?.meta?.total ?? 0),
   };
 
   const hasActiveFilters = search || date_from || date_to || sort !== 'created_at' || dir !== 'desc';
 
   return (
-    <DashboardLayout menuItems={menuItems}>
+    <DashboardLayout menuItems={clientMenuItems}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -255,7 +244,7 @@ const ProjectsList = () => {
               <div className="flex flex-col items-center justify-center py-12 text-error-500">
                 <p className="mb-2">Failed to load projects</p>
                 <button 
-                  onClick={() => queryClient.invalidateQueries(['projects'])}
+                  onClick={() => queryClient.invalidateQueries({queryKey:['projects']})}
                   className="text-sm text-primary-600 hover:underline"
                 >
                   Try again
@@ -365,7 +354,7 @@ const ProjectsList = () => {
                           </button>
                           <button
                             onClick={() => handleDelete(project.id, project.name)}
-                            disabled={deleteMutation.isLoading}
+                            disabled={deleteMutation.isPending}
                             className="p-2 text-error-600 hover:bg-error-50 rounded-lg transition-colors disabled:opacity-50"
                             title="Delete Project"
                           >

@@ -1,7 +1,8 @@
 // src/pages/admin/UserManagement.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import type { PaginatedUsers, User, UserFilters } from '../../api/handlers/users.api';
 import { 
   Search, 
   Eye, 
@@ -15,18 +16,14 @@ import {
   Mail,
   Phone,
   MapPin,
-  Home,
-  Users,
-  Package,
-  ShoppingCart,
-  Settings,
-  BarChart
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/common/Buttons';
-import { usersAPI, companiesAPI, UserFilters } from '../../api/handlers/users.api';
+import { usersAPI, companiesAPI } from '../../api/handlers/users.api';
+import { adminMenuItems } from '../../utils/menuItems';
+
 
 // Role Badge Component
 const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
@@ -74,16 +71,6 @@ const UserManagement = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Menu items for DashboardLayout
-  const menuItems = [
-    { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
-    { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
-    { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
-    { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
-    { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
-    { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
-  ];
 
   // Fetch Companies
   const { data: companies = [] } = useQuery({
@@ -98,18 +85,18 @@ const UserManagement = () => {
     contact_name: debouncedSearch || undefined,
   };
 
-  // Fetch Users
-  const { data: usersData, isLoading, error } = useQuery({
-    queryKey: ['users', queryParams],
-    queryFn: () => usersAPI.getUsers(queryParams),
-    keepPreviousData: true,
-  });
+  // fetch users
+const { data: usersData, isLoading, error } = useQuery<PaginatedUsers>({
+  queryKey: ['users', queryParams],
+  queryFn: () => usersAPI.getUsers(queryParams),
+  placeholderData: keepPreviousData,
+});
 
   // Delete/Restore Mutation
   const deleteRestoreMutation = useMutation({
     mutationFn: usersAPI.deleteRestoreUser,
     onSuccess: (data) => {
-      queryClient.invalidateQueries(['users']);
+      queryClient.invalidateQueries({ queryKey: ['users'] });
       toast.success(data.message || 'User status updated successfully');
     },
     onError: (error: Error) => {
@@ -155,7 +142,7 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
   };
 
   return (
-    <DashboardLayout menuItems={menuItems}>
+    <DashboardLayout menuItems={adminMenuItems}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -282,7 +269,7 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
               <div className="flex flex-col items-center justify-center py-12 text-error-500">
                 <p className="mb-2">Failed to load users</p>
                 <button 
-                  onClick={() => queryClient.invalidateQueries(['users'])}
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ['users'] })}
                   className="text-sm text-primary-600 hover:underline"
                 >
                   Try again
@@ -325,7 +312,7 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-secondary-100">
-                  {users.map((user) => (
+                  {users.map((user: User) => (
                     <tr key={user.id} className="hover:bg-secondary-50 transition-colors">
                       {/* User Info */}
                       <td className="px-6 py-4">
@@ -414,7 +401,7 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
                           </button>
                           <button
                             onClick={() => handleDeleteRestore(user.id, user.isDeleted)}
-                            disabled={deleteRestoreMutation.isLoading}
+                            disabled={deleteRestoreMutation.isPending}
                             className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
                               user.isDeleted
                                 ? 'text-success-600 hover:bg-success-50'

@@ -1,11 +1,8 @@
 // src/pages/client/projects/ProjectDetail.tsx
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  Home, 
   FolderOpen, 
   ShoppingCart, 
-  Package, 
-  Settings, 
   ArrowLeft,
   Edit2,
   Trash2,
@@ -20,6 +17,7 @@ import toast from 'react-hot-toast';
 import { useProject, useDeleteProject } from '../../../features/projects/hooks';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import Button from '../../../components/common/Buttons';
+import { clientMenuItems } from '../../../utils/menuItems';
 
 // Helper function to format date
 const formatDate = (dateString: string) => {
@@ -34,14 +32,6 @@ export default function ProjectDetail() {
   const pid = Number(id);
   const { data, isLoading } = useProject(pid);
   const deleteMutation = useDeleteProject();
-
-  const menuItems = [
-    { label: 'Dashboard', path: '/client/dashboard', icon: <Home size={20} /> },
-    { label: 'Projects', path: '/client/projects', icon: <FolderOpen size={20} /> },
-    { label: 'Orders', path: '/client/orders', icon: <ShoppingCart size={20} /> },
-    { label: 'Products', path: '/client/products', icon: <Package size={20} /> },
-    { label: 'Settings', path: '/client/settings', icon: <Settings size={20} /> },
-  ];
 
   const handleDelete = () => {
     if (window.confirm(`Are you sure you want to delete "${data?.name}"? This action cannot be undone.`)) {
@@ -59,7 +49,7 @@ export default function ProjectDetail() {
 
   if (isLoading) {
     return (
-      <DashboardLayout menuItems={menuItems}>
+      <DashboardLayout menuItems={clientMenuItems}>
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin text-primary-600 mx-auto mb-4" />
@@ -72,7 +62,7 @@ export default function ProjectDetail() {
 
   if (!data) {
     return (
-      <DashboardLayout menuItems={menuItems}>
+      <DashboardLayout menuItems={clientMenuItems}>
         <div className="text-center py-12">
           <p className="text-error-500 mb-4 text-xl">❌ Project not found</p>
           <button
@@ -88,7 +78,7 @@ export default function ProjectDetail() {
   }
 
   return (
-    <DashboardLayout menuItems={menuItems}>
+    <DashboardLayout menuItems={clientMenuItems}>
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -114,10 +104,10 @@ export default function ProjectDetail() {
               variant="outline"
               fullWidth={false}
               className="text-error-600 border-error-600 hover:bg-error-50"
-              disabled={deleteMutation.isLoading}
+              disabled={deleteMutation.isPending }
             >
               <Trash2 size={18} />
-              {deleteMutation.isLoading ? 'Deleting...' : 'Delete'}
+              {deleteMutation.isPending  ? 'Deleting...' : 'Delete'}
             </Button>
           </div>
         </div>
@@ -227,7 +217,7 @@ export default function ProjectDetail() {
             <ShoppingCart size={48} className="text-secondary-400 mx-auto mb-3" />
             <p className="text-secondary-600">No orders yet for this project</p>
             <Button
-              onClick={() => toast.info('Order creation coming soon!')}
+              onClick={() => toast('Order creation coming soon!')}
               variant="outline"
               fullWidth={false}
               className="mt-4"

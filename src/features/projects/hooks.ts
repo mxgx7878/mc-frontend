@@ -1,10 +1,15 @@
 // --- src/features/projects/hooks.ts ---
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { projectsAPI, ProjectDTO, ProjectCreateInput, ProjectUpdateInput, Paginated } from '../../api/handlers/projects.api';
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { projectsAPI } from '../../api/handlers/projects.api';
+import type { ProjectDTO, ProjectCreateInput, Paginated } from '../../api/handlers/projects.api';
 import { projectKeys } from './queryKeys';
 
 export const useProjects = (params: Record<string, unknown>) =>
-  useQuery<Paginated<ProjectDTO>>({ queryKey: projectKeys.list(params), queryFn: () => projectsAPI.list(params), keepPreviousData: true });
+  useQuery<Paginated<ProjectDTO>>({
+    queryKey: projectKeys.list(params),
+    queryFn: () => projectsAPI.list(params),
+    placeholderData: keepPreviousData,
+  });
 
 export const useProject = (id?: number) =>
   useQuery<ProjectDTO>({ queryKey: id ? projectKeys.detail(id) : ['projects','detail','idle'], queryFn: () => projectsAPI.get(id!), enabled: !!id });

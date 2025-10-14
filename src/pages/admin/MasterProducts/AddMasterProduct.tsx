@@ -7,7 +7,6 @@
  * We'll implement the full form in the next step.
  */
 
-import React from 'react';
 import { Link } from 'react-router-dom';
 
 const AddMasterProduct = () => {

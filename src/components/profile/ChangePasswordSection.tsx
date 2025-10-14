@@ -8,7 +8,8 @@ import toast from 'react-hot-toast';
 
 import { profileAPI } from '../../api/handlers/profile.api';
 import { useAuthStore } from '../../store/authStore';
-import { changePasswordSchema, ChangePasswordFormData } from '../../utils/validators';
+import type { ChangePasswordFormData } from '../../utils/validators';
+import { changePasswordSchema } from '../../utils/validators';
 import Input from '../common/Input';
 import Button from '../common/Buttons';
 

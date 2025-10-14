@@ -7,7 +7,6 @@
  * We'll implement the full details view in the next step.
  */
 
-import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 const ViewMasterProduct = () => {

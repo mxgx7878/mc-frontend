@@ -4,9 +4,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, DollarSign, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-import { MasterProduct, supplierProductsAPI } from '../../api/handlers/supplierProducts.api';
-import { addOfferSchema, AddOfferFormData } from '../../utils/validators';
+import type { MasterProduct } from '../../api/handlers/supplierProducts.api';
+import {  supplierProductsAPI } from '../../api/handlers/supplierProducts.api';
+import { addOfferSchema } from '../../utils/validators';
+import type { AddOfferFormData } from '../../utils/validators';
 import Input2 from '../common/Input2'; // ✅ Using Input2 instead of Input
 import Button from '../common/Buttons';
 
@@ -121,7 +122,7 @@ const AddOfferModal = ({ isOpen, onClose, product }: AddOfferModalProps) => {
             >
               <option value="In Stock">In Stock</option>
               <option value="Out of Stock">Out of Stock</option>
-              <option value="Limited Stock">Limited Stock</option>
+              <option value="Limited">Limited Stock</option>
             </select>
             {errors.availability_status && (
               <p className="text-sm text-error-500 mt-1">{errors.availability_status.message}</p>

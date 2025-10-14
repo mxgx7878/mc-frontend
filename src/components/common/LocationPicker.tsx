@@ -1,7 +1,6 @@
 // src/components/common/LocationPicker.tsx
 import { useState, useEffect, useRef } from 'react';
 import { MapPin, Loader2 } from 'lucide-react';
-import { Loader } from '@googlemaps/js-api-loader';
 
 interface LocationPickerProps {
   onLocationSelect: (location: { lat: number; lng: number }) => void;
@@ -20,49 +19,74 @@ const LocationPicker = ({
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(initialLocation);
   const mapRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const initMap = async () => {
-      try {
-        const loader = new Loader({
-          apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-          version: 'weekly',
-        });
+  // useEffect(() => {
+  //   const initMap = async () => {
+  //     try {
+  //       const loader = new Loader({
+  //         apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+  //         version: 'weekly',
+  //       });
 
-        await loader.load();
+  //       await loader.load();
 
-        if (!mapRef.current) return;
+  //       if (!mapRef.current) return;
 
-        const mapInstance = new google.maps.Map(mapRef.current, {
-          center: initialLocation || { lat: 24.8607, lng: 67.0011 }, // Karachi default
-          zoom: 12,
-          mapTypeControl: false,
-        });
+  //       const mapInstance = new google.maps.Map(mapRef.current, {
+  //         center: initialLocation || { lat: 24.8607, lng: 67.0011 }, // Karachi default
+  //         zoom: 12,
+  //         mapTypeControl: false,
+  //       });
 
-        setMap(mapInstance);
+  //       setMap(mapInstance);
 
-        // Add click listener
-        mapInstance.addListener('click', (e: google.maps.MapMouseEvent) => {
-          if (e.latLng) {
-            const lat = e.latLng.lat();
-            const lng = e.latLng.lng();
-            updateLocation(lat, lng, mapInstance);
-          }
-        });
+  //       // Add click listener
+  //       mapInstance.addListener('click', (e: google.maps.MapMouseEvent) => {
+  //         if (e.latLng) {
+  //           const lat = e.latLng.lat();
+  //           const lng = e.latLng.lng();
+  //           updateLocation(lat, lng, mapInstance);
+  //         }
+  //       });
 
-        // Set initial marker if location provided
-        if (initialLocation) {
-          updateLocation(initialLocation.lat, initialLocation.lng, mapInstance);
+  //       // Set initial marker if location provided
+  //       if (initialLocation) {
+  //         updateLocation(initialLocation.lat, initialLocation.lng, mapInstance);
+  //       }
+
+  //       setLoading(false);
+  //     } catch (error) {
+  //       console.error('Error loading Google Maps:', error);
+  //       setLoading(false);
+  //     }
+  //   };
+
+  //   initMap();
+  // }, []);
+
+    useEffect(() => {
+      const initMap = async () => {
+        try {
+          // Dynamically load Maps JS API
+          await google.maps.importLibrary('maps');
+
+          if (!mapRef.current) return;
+
+          const map = new google.maps.Map(mapRef.current, {
+            center: initialLocation ?? { lat: 24.8607, lng: 67.0011 },
+            zoom: 12,
+            mapTypeControl: false,
+          });
+
+          setMap(map);
+          setLoading(false);
+        } catch (err) {
+          console.error('Google Maps failed to load:', err);
+          setLoading(false);
         }
+      };
 
-        setLoading(false);
-      } catch (error) {
-        console.error('Error loading Google Maps:', error);
-        setLoading(false);
-      }
-    };
-
-    initMap();
-  }, []);
+      initMap();
+    }, []);
 
   const updateLocation = (lat: number, lng: number, mapInstance: google.maps.Map) => {
     // Remove old marker

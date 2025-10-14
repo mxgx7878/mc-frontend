@@ -1,7 +1,7 @@
 // src/components/admin/AdminSupplierZonesStats.tsx
 import React, { useMemo } from 'react';
 import { Users, MapPin, Layers, TrendingUp } from 'lucide-react';
-import { SupplierWithZones } from '../../api/handlers/adminSupplierZones.api';
+import type { SupplierWithZones } from '../../api/handlers/adminSupplierZones.api';
 
 interface StatsProps {
   suppliers: SupplierWithZones[];

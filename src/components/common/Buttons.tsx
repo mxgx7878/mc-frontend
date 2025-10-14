@@ -1,6 +1,6 @@
 // src/components/common/Buttons.tsx
 import { Loader2 } from 'lucide-react';
-import { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;

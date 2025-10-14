@@ -1,6 +1,6 @@
 // src/utils/validators.ts
 import { z } from 'zod';
-
+export const AvailabilityEnum = z.enum(["In Stock", "Out of Stock", "Limited"]);
 // ==================== AUTH SCHEMAS ====================
 
 export const loginSchema = z.object({
@@ -29,6 +29,7 @@ export const supplierRegistrationSchema = z.object({
   contact_name: z.string().min(1, 'Contact name is required'),
   contact_number: z.string().min(1, 'Contact number is required'),
   location: z.string().min(1, 'Location is required'),
+  delivery_radius: z.number().positive('Delivery radius must be positive').optional(),
   company_name: z.string().min(1, 'Company name is required'),
   profile_image: z.any().optional(),
 });
@@ -71,77 +72,71 @@ export const changePasswordSchema = z.object({
  * Schema for adding a product to supplier offers
  */
 export const addOfferSchema = z.object({
-  price: z.string()
-    .min(1, 'Price is required')
-    .refine(
-      (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
-      { message: 'Price must be a positive number' }
-    ),
-  
-  availability_status: z.enum(['In Stock', 'Out of Stock', 'Limited Stock'], {
-    required_error: 'Availability status is required',
-  }),
+  price: z
+    .string()
+    .min(1, "Price is required")
+    .refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, {
+      message: "Price must be a positive number",
+    }),
+  availability_status: AvailabilityEnum, // required by presence
 });
 /**
  * Schema for updating supplier offer
  */
 export const updateOfferSchema = z.object({
-  price: z.string()
-    .min(1, 'Price is required')
-    .refine(
-      (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
-      { message: 'Price must be a positive number' }
-    ),
-  
-  availability_status: z.enum(['In Stock', 'Out of Stock', 'Limited Stock'], {
-    required_error: 'Availability status is required',
-  }),
+  price: z
+    .string()
+    .min(1, "Price is required")
+    .refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, {
+      message: "Price must be a positive number",
+    }),
+  availability_status: AvailabilityEnum,
 });
 
 /**
  * Schema for requesting new master product
  */
-export const requestProductSchema = z.object({
-  product_name: z.string()
-    .min(1, 'Product name is required')
-    .min(3, 'Product name must be at least 3 characters')
-    .max(255, 'Product name must not exceed 255 characters'),
+export const requestProductSchema = z
+  .object({
+    product_name: z
+      .string()
+      .min(1, "Product name is required")
+      .min(3, "Product name must be at least 3 characters")
+      .max(255, "Product name must not exceed 255 characters"),
 
-  product_type: z.string()
-    .min(1, 'Product type is required')
-    .max(255, 'Product type must not exceed 255 characters'),
+    product_type: z
+      .string()
+      .min(1, "Product type is required")
+      .max(255, "Product type must not exceed 255 characters"),
 
-  // category_id is NUMBER (as per your API)
-  category_id: z.number({
-    required_error: 'Category is required',
-    invalid_type_error: 'Category must be selected',
-  }).positive('Please select a valid category'),
+    // If you need a custom "required" message, use superRefine below
+    category_id: z.number().positive("Please select a valid category"),
 
-  unit_of_measure: z.string()
-    .min(1, 'Unit of measure is required')
-    .max(50, 'Unit of measure must not exceed 50 characters'),
+    unit_of_measure: z
+      .string()
+      .min(1, "Unit of measure is required")
+      .max(50, "Unit of measure must not exceed 50 characters"),
 
-  specifications: z.string()
-    .max(1000, 'Specifications must not exceed 1000 characters')
-    .optional(),
+    specifications: z.string().max(1000, "Specifications must not exceed 1000 characters").optional(),
 
-  // ========== NEW FIELD: Price ==========
-  price: z.string()
-    .min(1, 'Price is required')
-    .refine(
-      (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
-      { message: 'Price must be a positive number' }
-    ),
+    price: z
+      .string()
+      .min(1, "Price is required")
+      .refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, {
+        message: "Price must be a positive number",
+      }),
 
-  // ========== NEW FIELD: Availability Status ==========
-  availability_status: z.enum(
-    ['In Stock', 'Out of Stock', 'Limited'],
-    {
-      required_error: 'Availability status is required',
-      invalid_type_error: 'Please select a valid availability status',
+    availability_status: AvailabilityEnum,
+  })
+  .superRefine((val, ctx) => {
+    if (val.category_id === undefined || val.category_id === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["category_id"],
+        message: "Category is required",
+      });
     }
-  ),
-});
+  });
 
 
 

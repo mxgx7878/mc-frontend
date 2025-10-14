@@ -1,5 +1,6 @@
 // src/components/layout/DashboardLayout.tsx
-import { ReactNode, useState } from 'react';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Menu, 

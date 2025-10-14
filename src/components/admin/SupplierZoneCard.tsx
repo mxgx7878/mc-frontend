@@ -1,7 +1,7 @@
 // src/components/admin/SupplierZoneCard.tsx
 import React, { useState } from 'react';
 import { MapPin, Mail, ChevronDown, ChevronUp, Layers } from 'lucide-react';
-import { SupplierWithZones } from '../../api/handlers/adminSupplierZones.api';
+import type { SupplierWithZones } from '../../api/handlers/adminSupplierZones.api';
 
 interface SupplierZoneCardProps {
   supplier: SupplierWithZones;

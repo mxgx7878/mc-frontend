@@ -2,13 +2,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface Company {
-  id: number;
-  name: string;
-  created_at: string;
-  updated_at: string;
-}
-
 interface User {
   id: number;
   name: string;

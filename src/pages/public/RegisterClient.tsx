@@ -22,7 +22,8 @@ import Autocomplete from 'react-google-autocomplete';
 
 import { authAPI } from '../../api/handlers/auth.api';
 import { useAuthStore } from '../../store/authStore';
-import { clientRegistrationSchema, ClientRegistrationFormData } from '../../utils/validators';
+import type { ClientRegistrationFormData } from '../../utils/validators';
+import { clientRegistrationSchema } from '../../utils/validators';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Buttons';
 import { useState } from 'react';

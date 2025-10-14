@@ -1,8 +1,10 @@
 // FILE PATH: src/components/supplier/ProductCard.tsx
 import { Package, Edit, Trash2, Plus, AlertCircle, Tag, Layers, CheckCircle2 } from 'lucide-react';
-import { MasterProduct, SupplierOffer } from '../../api/handlers/supplierProducts.api';
-import Button from '../common/Buttons';
-import StatusBadge from '../common/StatusBadge';
+import type { MasterProduct , SupplierOffer} from '../../api/handlers/supplierProducts.api';
+import ApproveStatusBadge from '../common/ApproveStatusBadge';
+import type { BadgeStatus } from '../common/ApproveStatusBadge';
+
+
 
 interface ProductCardProps {
   product: MasterProduct;
@@ -10,6 +12,14 @@ interface ProductCardProps {
   onEditOffer: (product: MasterProduct, offer: SupplierOffer) => void;
   onRemoveOffer: (offerId: number, productName: string) => void;
 }
+
+const toBadgeStatus = (s: string): BadgeStatus => {
+  switch ((s || "").toLowerCase()) {
+    case "approved": return "Approved";
+    case "rejected": return "Rejected";
+    case "pending": default: return "Pending";
+  }
+};
 
 const ProductCard = ({ product, onAddOffer, onEditOffer, onRemoveOffer }: ProductCardProps) => {
   const imageUrl = product.photo 
@@ -111,7 +121,7 @@ const ProductCard = ({ product, onAddOffer, onEditOffer, onRemoveOffer }: Produc
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-green-900">Your Offer</span>
-              <StatusBadge status={myOffer.availability_status} />
+              <ApproveStatusBadge status={toBadgeStatus(myOffer.status)} />
             </div>
             
             <div className="flex items-baseline gap-2">

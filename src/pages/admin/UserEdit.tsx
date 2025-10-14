@@ -9,26 +9,15 @@ import {
   ArrowLeft,
   Save,
   User as UserIcon,
-  Mail,
-  Phone,
-  Building2,
-  MapPin,
-  Truck,
-  Home,
-  Users,
-  Package,
-  ShoppingCart,
-  Settings,
-  BarChart,
-  CreditCard,
   Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Autocomplete from 'react-google-autocomplete';
 
 // ✅ IMPORT YOUR ACTUAL API HANDLERS
-import { usersAPI, companiesAPI } from '../../api/handlers/users.api';
+import { usersAPI } from '../../api/handlers/users.api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import { adminMenuItems } from '../../utils/menuItems';
 
 // Validation Schema
 const userEditSchema = z.object({
@@ -59,15 +48,6 @@ const UserEdit = () => {
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  const menuItems = [
-    { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
-    { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
-    { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
-    { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
-    { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
-    { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
-  ];
 
   const {
     register,
@@ -134,11 +114,7 @@ const UserEdit = () => {
     }
   }, [user, reset]);
 
-  // Fetch Companies
-  const { data: companies = [] } = useQuery({
-    queryKey: ['companies'],
-    queryFn: companiesAPI.getAll,
-  });
+ 
 
   // Update User Mutation
   const updateUserMutation = useMutation({
@@ -228,7 +204,7 @@ const UserEdit = () => {
   // Loading State
   if (isLoading) {
     return (
-      <DashboardLayout menuItems={menuItems}>
+      <DashboardLayout menuItems={adminMenuItems}>
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin text-primary-600 mx-auto mb-4" />
@@ -242,7 +218,7 @@ const UserEdit = () => {
   // Error State
   if (isError || !user) {
     return (
-      <DashboardLayout menuItems={menuItems}>
+      <DashboardLayout menuItems={adminMenuItems}>
         <div className="text-center py-12">
           <p className="text-error-500 mb-4 text-xl">❌ Failed to load user data</p>
           <p className="text-secondary-600 mb-4">
@@ -261,7 +237,7 @@ const UserEdit = () => {
   }
 
   return (
-    <DashboardLayout menuItems={menuItems}>
+    <DashboardLayout menuItems={adminMenuItems}>
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

@@ -1,11 +1,12 @@
 // src/components/common/ImageUpload.tsx
-import { useState, ChangeEvent } from 'react';
+import { useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 
 interface ImageUploadProps {
   label?: string;
   onChange: (file: File | null) => void;
-  error?: string;
+  error?: string | null;
   currentImage?: string | null;
 }
 

@@ -1,7 +1,7 @@
 // src/components/admin/AdminSupplierZonesMapView.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, AlertCircle, MapPin } from 'lucide-react';
-import { SupplierWithZones } from '../../api/handlers/adminSupplierZones.api';
+import type { SupplierWithZones } from '../../api/handlers/adminSupplierZones.api';
 
 interface MapViewProps {
   suppliers: SupplierWithZones[];

@@ -1,26 +1,19 @@
 // src/pages/client/projects/ProjectCreate.tsx
 import { useNavigate } from 'react-router-dom';
-import { Home, FolderOpen, ShoppingCart, Package, Settings, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { useCreateProject } from '../../../features/projects/hooks';
 import ProjectForm from '../../../features/components/ProjectForm';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
+import {clientMenuItems} from '../../../utils/menuItems';
 
 export default function ProjectCreate() {
   const navigate = useNavigate();
   const mut = useCreateProject();
 
-  const menuItems = [
-    { label: 'Dashboard', path: '/client/dashboard', icon: <Home size={20} /> },
-    { label: 'Projects', path: '/client/projects', icon: <FolderOpen size={20} /> },
-    { label: 'Orders', path: '/client/orders', icon: <ShoppingCart size={20} /> },
-    { label: 'Products', path: '/client/products', icon: <Package size={20} /> },
-    { label: 'Settings', path: '/client/settings', icon: <Settings size={20} /> },
-  ];
-
   return (
-    <DashboardLayout menuItems={menuItems}>
+    <DashboardLayout menuItems={clientMenuItems}>
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header with Back Button */}
         <div className="flex items-center justify-between">

@@ -14,9 +14,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Package, Upload, FileText, Layers, DollarSign, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-import { Category, supplierProductsAPI } from '../../api/handlers/supplierProducts.api';
-import { requestProductSchema, RequestProductFormData } from '../../utils/validators';
+import type { Category } from '../../api/handlers/supplierProducts.api';
+import { supplierProductsAPI } from '../../api/handlers/supplierProducts.api';
+import { requestProductSchema } from '../../utils/validators';
+import type { RequestProductFormData } from '../../utils/validators';
 import Input2 from '../common/Input2';
 import Button from '../common/Buttons';
 

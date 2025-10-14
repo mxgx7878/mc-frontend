@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { 
   User, 
   Mail, 
@@ -27,7 +27,8 @@ import Autocomplete from 'react-google-autocomplete';
 
 import { profileAPI } from '../../api/handlers/profile.api';
 import { useAuthStore } from '../../store/authStore';
-import { profileUpdateSchema, ProfileUpdateFormData } from '../../utils/validators';
+import { profileUpdateSchema } from '../../utils/validators';
+import type { ProfileUpdateFormData } from '../../utils/validators';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Buttons';
 import ChangePasswordSection from '../../components/profile/ChangePasswordSection';
@@ -48,20 +49,19 @@ const ProfileSettings = () => {
     handleSubmit,
     formState: { errors, dirtyFields },
     setValue,
-    watch,
     reset,
   } = useForm<ProfileUpdateFormData>({
     resolver: zodResolver(profileUpdateSchema),
   });
 
-  // Refetch user data on mount to ensure fresh data
-  const { refetch } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: profileAPI.getCurrentUser,
-    onSuccess: (data: any) => {
-      updateUser(data.user);
-    },
-  });
+  // // Refetch user data on mount to ensure fresh data
+  // const { refetch } = useQuery({
+  //   queryKey: ['currentUser'],
+  //   queryFn: profileAPI.getCurrentUser,
+  //   onSuccess: (data: any) => {
+  //     updateUser(data.user);
+  //   },
+  // });
 
   // ✅ Update form values whenever user data changes (including company)
   useEffect(() => {
@@ -199,7 +199,7 @@ const ProfileSettings = () => {
 
     // Check if there are any changes
     if (Object.keys(changedData).length === 0) {
-      toast.info('No changes detected');
+      toast('No changes detected', { icon: 'ℹ️' });
       return;
     }
 

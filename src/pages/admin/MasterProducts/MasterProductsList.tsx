@@ -1,18 +1,22 @@
 // FILE PATH: src/pages/admin/MasterProducts/MasterProductsList.tsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Home, Users, Package, ShoppingCart, BarChart, MapPin, Settings } from 'lucide-react';
+
 import {
   masterProductsAPI,
-  MasterProduct,
-  MasterProductsFilters
 } from '../../../api/handlers/masterProducts.api';
+ import type {
+   MasterProductsFilters,
+   PaginatedMasterProductsResponse,
+   MasterProduct,
+ } from '../../../api/handlers/masterProducts.api';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import StatusBadge from '../../../components/common/StatusBadge';
 import Pagination from '../../../components/common/Pagination';
 import ConfirmModal from '../../../components/common/ConfirmModal';
+import { adminMenuItems } from '../../../utils/menuItems';
 
 const PER_PAGE = 10;
 
@@ -23,15 +27,7 @@ const MasterProductsList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const menuItems = useMemo(() => [
-    { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
-    { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
-    { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
-    { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
-    { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
-    { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
-  ], []);
+  
 
   // State - Simple filter management
   const [filters, setFilters] = useState<MasterProductsFilters>({
@@ -71,10 +67,10 @@ const MasterProductsList = () => {
   };
 
   // Fetch Products using React Query
-  const { data: productsData, isLoading, error } = useQuery({
+  const { data: productsData, isLoading, error } = useQuery<PaginatedMasterProductsResponse>({
     queryKey: ['masterProducts', queryParams],
     queryFn: () => masterProductsAPI.getAll(queryParams),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   // Toggle Approval Mutation
@@ -82,7 +78,7 @@ const MasterProductsList = () => {
     mutationFn: ({ id, status }: { id: number; status: boolean }) => 
       masterProductsAPI.toggleApproval(id, status),
     onSuccess: () => {
-      queryClient.invalidateQueries(['masterProducts']);
+      queryClient.invalidateQueries({ queryKey: ['masterProducts'] });
       toast.success('Product status updated successfully');
       setConfirmModal({ isOpen: false, productId: null, currentStatus: null, loading: false });
     },
@@ -110,7 +106,7 @@ const MasterProductsList = () => {
     toggleApprovalMutation.mutate({ id: productId, status: newStatus });
   };
 
-  const handleDelete = (productId: number) => {
+  const handleDelete = (_productId: number) => {
     toast('Delete functionality coming soon', { icon: '🚧' });
   };
 
@@ -144,7 +140,7 @@ const MasterProductsList = () => {
   };
 
   // Extract data
-  const products = productsData?.data || [];
+  const products: MasterProduct[] = productsData?.data ?? [];
   const pagination = {
     currentPage: productsData?.current_page || 1,
     lastPage: productsData?.last_page || 1,
@@ -155,12 +151,12 @@ const MasterProductsList = () => {
   // Calculate stats
   const stats = {
     total: pagination.total,
-    approved: products.filter(p => p.is_approved === 1).length,
-    pending: products.filter(p => p.is_approved === 0).length,
+    approved: products.filter((p: MasterProduct) => p.is_approved === 1).length,
+    pending: products.filter((p: MasterProduct) => p.is_approved === 0).length,
   };
 
   return (
-    <DashboardLayout menuItems={menuItems}>
+    <DashboardLayout menuItems={adminMenuItems}>
       <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
@@ -302,7 +298,7 @@ const MasterProductsList = () => {
               <div className="flex flex-col items-center justify-center py-12 text-red-500">
                 <p className="mb-2">Failed to load products</p>
                 <button 
-                  onClick={() => queryClient.invalidateQueries(['masterProducts'])}
+                  onClick={() => queryClient.invalidateQueries({queryKey: ['masterProducts']})}
                   className="text-sm text-blue-600 hover:underline"
                 >
                   Try again
@@ -353,7 +349,7 @@ const MasterProductsList = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {products.map((product) => (
+                      {products.map((product : MasterProduct) => (
                         <tr key={product.id} className="hover:bg-gray-50 transition-colors">
                           {/* Product Info */}
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -472,7 +468,7 @@ const MasterProductsList = () => {
             confirmText={confirmModal.currentStatus ? 'Deactivate' : 'Activate'}
             cancelText="Cancel"
             isDanger={confirmModal.currentStatus === true}
-            loading={confirmModal.loading || toggleApprovalMutation.isLoading}
+            loading={confirmModal.loading || toggleApprovalMutation.isPending}
           />
         </div>
       </div>

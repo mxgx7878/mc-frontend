@@ -6,8 +6,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, DollarSign, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-import { MasterProduct, SupplierOffer, supplierProductsAPI } from '../../api/handlers/supplierProducts.api';
-import { updateOfferSchema, UpdateOfferFormData } from '../../utils/validators';
+import { supplierProductsAPI } from '../../api/handlers/supplierProducts.api';
+import type { MasterProduct } from '../../api/handlers/supplierProducts.api';
+import type { SupplierOffer } from '../../api/handlers/supplierProducts.api';
+import { updateOfferSchema } from '../../utils/validators';
+import type { UpdateOfferFormData } from '../../utils/validators';
 import Input2 from '../common/Input2'; // ✅ Using Input2 instead of Input
 import Button from '../common/Buttons';
 
@@ -132,7 +135,7 @@ const EditOfferModal = ({ isOpen, onClose, product, offer }: EditOfferModalProps
             >
               <option value="In Stock">In Stock</option>
               <option value="Out of Stock">Out of Stock</option>
-              <option value="Limited Stock">Limited Stock</option>
+              <option value="Limited">Limited Stock</option>
             </select>
             {errors.availability_status && (
               <p className="text-sm text-error-500 mt-1">{errors.availability_status.message}</p>

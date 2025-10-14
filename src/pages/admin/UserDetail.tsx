@@ -11,18 +11,14 @@ import {
   User as UserIcon,
   Calendar,
   Shield,
-  Package,
   Truck,
   Home,
-  Users,
-  ShoppingCart,
-  Settings,
-  BarChart,
   CreditCard
 } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/common/Buttons';
 import { usersAPI } from '../../api/handlers/users.api';
+import { adminMenuItems } from '../../utils/menuItems';
 
 // Role Badge Component
 const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
@@ -63,15 +59,7 @@ const UserDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const menuItems = [
-    { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
-    { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
-    { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
-    { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
-    { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
-    { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
-  ];
+
 
   // Fetch User Details
   const { data: user, isLoading, error } = useQuery({
@@ -82,7 +70,7 @@ const UserDetail = () => {
 
   if (isLoading) {
     return (
-      <DashboardLayout menuItems={menuItems}>
+      <DashboardLayout menuItems={adminMenuItems}>
         <div className="flex items-center justify-center py-12">
           <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
         </div>
@@ -92,7 +80,7 @@ const UserDetail = () => {
 
   if (error || !user) {
     return (
-      <DashboardLayout menuItems={menuItems}>
+      <DashboardLayout menuItems={adminMenuItems}>
         <div className="text-center py-12">
           <p className="text-error-500 mb-4">Failed to load user details</p>
           <Button onClick={() => navigate('/admin/users')} variant="outline" fullWidth={false}>
@@ -105,7 +93,7 @@ const UserDetail = () => {
   }
 
   return (
-    <DashboardLayout menuItems={menuItems}>
+    <DashboardLayout menuItems={adminMenuItems}>
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

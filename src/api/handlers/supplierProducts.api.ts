@@ -196,7 +196,7 @@ export const updateSupplierOffer = async (
   offerId: number,
   payload: UpdateOfferPayload
 ): Promise<{ message: string }> => {
-  const response = await axiosInstance.put(`/update-pricing/${offerId}`, payload);
+  const response = await axiosInstance.post(`/update-pricing/${offerId}`, payload);
   return response.data;
 };
 

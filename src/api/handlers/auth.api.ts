@@ -26,7 +26,7 @@ interface SupplierRegistrationData {
   contact_name: string;
   contact_number: string;
   location: string;
-  delivery_radius: number;
+  delivery_radius?: number;
   company_name: string;
   profile_image?: File;
 }
@@ -46,7 +46,7 @@ export const authAPI = {
   },
 
   // ✅ FIXED: Client Registration with FormData
-  registerClient: async (data) => {
+  registerClient: async (data: ClientRegistrationData) => {
   const formData = new FormData();
   formData.append('name', data.name);
   formData.append('email', data.email);

@@ -1,7 +1,7 @@
 // src/pages/admin/UserCreate.tsx
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -14,12 +14,6 @@ import {
   Building2,
   MapPin,
   Truck,
-  Home,
-  Users,
-  Package,
-  ShoppingCart,
-  Settings,
-  BarChart,
   CreditCard,
   Lock
 } from 'lucide-react';
@@ -30,7 +24,8 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/common/Buttons';
 import Input from '../../components/common/Input';
 import ImageUpload from '../../components/common/ImageUpload';
-import { usersAPI, companiesAPI } from '../../api/handlers/users.api';
+import { usersAPI } from '../../api/handlers/users.api';
+import { adminMenuItems } from '../../utils/menuItems';
 
 // Validation Schema
 const userCreateSchema = z.object({
@@ -59,15 +54,6 @@ const UserCreate = () => {
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  const menuItems = [
-    { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
-    { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
-    { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
-    { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
-    { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
-    { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
-  ];
 
   const {
     register,
@@ -84,17 +70,13 @@ const UserCreate = () => {
 
   const watchedRole = watch('role');
 
-  // Fetch Companies
-  const { data: companies = [] } = useQuery({
-    queryKey: ['companies'],
-    queryFn: companiesAPI.getAll,
-  });
+ 
 
   // Create User Mutation
   const createUserMutation = useMutation({
     mutationFn: (formData: FormData) => usersAPI.createUser(formData),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries(['users']);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
       toast.success('✅ User created successfully!');
       navigate('/admin/users');
     },
@@ -152,7 +134,7 @@ const UserCreate = () => {
   };
 
   return (
-    <DashboardLayout menuItems={menuItems}>
+    <DashboardLayout menuItems={adminMenuItems}>
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

@@ -22,9 +22,9 @@ import toast from 'react-hot-toast';
 
 import { 
   supplierProductsAPI, 
-  MasterProduct, 
-  SupplierOffer 
+   
 } from '../../api/handlers/supplierProducts.api';
+import type { SupplierOffer, MasterProduct } from '../../api/handlers/supplierProducts.api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import ProductCard from '../../components/supplier/ProductCard';
 import AddOfferModal from '../../components/supplier/AddOfferModal';
@@ -426,7 +426,7 @@ const ProductManagement = () => {
         title="Remove Product from Offers"
         message={`Are you sure you want to remove "${deleteTarget?.name}" from your offers? This action cannot be undone.`}
         confirmText="Remove"
-        isLoading={deleteMutation.isPending}
+        loading={deleteMutation.isPending}
       />
     </DashboardLayout>
   );

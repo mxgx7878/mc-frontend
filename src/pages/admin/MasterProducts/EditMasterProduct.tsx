@@ -7,7 +7,6 @@
  * We'll implement the full form with pre-populated data in the next step.
  */
 
-import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 const EditMasterProduct = () => {

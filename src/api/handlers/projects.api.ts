@@ -29,6 +29,6 @@ export const projectsAPI = {
   list: (params: Record<string, unknown>) => api.get<Paginated<ProjectDTO>>(BASE, { params }).then(r => r.data),
   get:  (id: number) => api.get<ProjectDTO>(`${BASE}/${id}`).then(r => r.data),
   create: (payload: ProjectCreateInput) => api.post<ProjectDTO>(BASE, payload).then(r => r.data),
-  update: ({ id, ...payload }: ProjectUpdateInput) => api.put<ProjectDTO>(`${BASE}/${id}`, payload).then(r => r.data),
+  update: ({ id, ...payload }: ProjectUpdateInput) => api.post<ProjectDTO>(`${BASE}/${id}`, payload).then(r => r.data),
   remove: (id: number) => api.delete(`${BASE}/${id}`).then(r => r.data),
 };

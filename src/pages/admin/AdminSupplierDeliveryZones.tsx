@@ -1,6 +1,6 @@
 // src/pages/admin/AdminSupplierDeliveryZones.tsx
-import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import  { useState, useMemo } from 'react';
+import { useQuery, keepPreviousData  } from '@tanstack/react-query';
 import {
   Search,
   Grid3X3,
@@ -9,12 +9,6 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  Home,
-  Users,
-  Package,
-  ShoppingCart,
-  Settings,
-  BarChart,
   MapPin,
 } from 'lucide-react';
 
@@ -23,6 +17,8 @@ import AdminSupplierZonesStats from '../../components/admin/AdminSupplierZonesSt
 import SupplierZoneCard from '../../components/admin/SupplierZoneCard';
 import AdminSupplierZonesMapView from '../../components/admin/AdminSupplierZonesMapView';
 import { adminSupplierZonesAPI } from '../../api/handlers/adminSupplierZones.api';
+import { adminMenuItems } from '../../utils/menuItems';
+import type {PaginatedSuppliersResponse,SupplierWithZones} from '../../api/handlers/adminSupplierZones.api';
 
 // Generate consistent random color per supplier
 const generateSupplierColor = (supplierId: number): string => {
@@ -41,43 +37,34 @@ const AdminSupplierDeliveryZones = () => {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
-  const menuItems = [
-    { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
-    { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
-    { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
-    { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
-    { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
-    { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
-  ];
 
   // Fetch suppliers with zones
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<PaginatedSuppliersResponse>({
     queryKey: ['admin-supplier-zones', page, perPage, searchTerm],
     queryFn: () => adminSupplierZonesAPI.getSuppliersWithZones({
       page,
       per_page: perPage,
       search: searchTerm || undefined,
     }),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   // Generate color map for suppliers
   const supplierColors = useMemo(() => {
     const colorMap = new Map<number, string>();
-    data?.data.forEach((supplier) => {
+    data?.data.forEach((supplier: SupplierWithZones) => {
       colorMap.set(supplier.id, generateSupplierColor(supplier.id));
     });
     return colorMap;
   }, [data]);
 
-  const suppliers = data?.data || [];
+  const suppliers: SupplierWithZones[] = data?.data ?? [];
   const pagination = {
-    currentPage: data?.current_page || 1,
-    lastPage: data?.last_page || 1,
-    total: data?.total || 0,
-    from: data?.from || 0,
-    to: data?.to || 0,
+    currentPage: data?.current_page ?? 1,
+    lastPage: data?.last_page ?? 1,
+    total: data?.total ?? 0,
+    from: data?.from ?? 0,
+    to: data?.to ?? 0,
   };
 
   const handleSearch = (value: string) => {
@@ -91,7 +78,7 @@ const AdminSupplierDeliveryZones = () => {
   };
 
   return (
-    <DashboardLayout menuItems={menuItems}>
+    <DashboardLayout menuItems={adminMenuItems}>
       <div className="min-h-screen bg-secondary-50 p-6">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Header */}
@@ -198,7 +185,7 @@ const AdminSupplierDeliveryZones = () => {
           {/* Card View */}
           {!isLoading && !error && activeView === 'card' && suppliers.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {suppliers.map((supplier) => (
+              {suppliers.map((supplier: SupplierWithZones) => (
                 <SupplierZoneCard
                   key={supplier.id}
                   supplier={supplier}

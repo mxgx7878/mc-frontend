@@ -1,12 +1,12 @@
 // src/pages/client/projects/ProjectEdit.tsx
 import { useNavigate, useParams } from 'react-router-dom';
-import { Home, FolderOpen, ShoppingCart, Package, Settings, ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { useProject, useUpdateProject } from '../../../features/projects/hooks';
 import ProjectForm from '../../../features/components/ProjectForm';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-
+import {clientMenuItems} from '../../../utils/menuItems';
 export default function ProjectEdit() {
   const { id } = useParams();
   const pid = Number(id);
@@ -14,17 +14,9 @@ export default function ProjectEdit() {
   const navigate = useNavigate();
   const mut = useUpdateProject(pid);
 
-  const menuItems = [
-    { label: 'Dashboard', path: '/client/dashboard', icon: <Home size={20} /> },
-    { label: 'Projects', path: '/client/projects', icon: <FolderOpen size={20} /> },
-    { label: 'Orders', path: '/client/orders', icon: <ShoppingCart size={20} /> },
-    { label: 'Products', path: '/client/products', icon: <Package size={20} /> },
-    { label: 'Settings', path: '/client/settings', icon: <Settings size={20} /> },
-  ];
-
   if (isLoading) {
     return (
-      <DashboardLayout menuItems={menuItems}>
+      <DashboardLayout menuItems={clientMenuItems}>
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin text-primary-600 mx-auto mb-4" />
@@ -37,7 +29,7 @@ export default function ProjectEdit() {
 
   if (!data) {
     return (
-      <DashboardLayout menuItems={menuItems}>
+      <DashboardLayout menuItems={clientMenuItems}>
         <div className="text-center py-12">
           <p className="text-error-500 mb-4 text-xl">❌ Project not found</p>
           <button
@@ -53,7 +45,7 @@ export default function ProjectEdit() {
   }
 
   return (
-    <DashboardLayout menuItems={menuItems}>
+    <DashboardLayout menuItems={clientMenuItems}>
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header with Back Button */}
         <div className="flex items-center justify-between">

@@ -17,6 +17,5 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["google.maps"]
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src"]
 }

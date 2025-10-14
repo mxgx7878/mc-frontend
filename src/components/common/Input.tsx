@@ -1,7 +1,9 @@
 // src/components/common/Input.tsx
-import { Eye, EyeOff, LucideIcon } from 'lucide-react';
-import { useState, InputHTMLAttributes } from 'react';
-import { UseFormRegisterReturn } from 'react-hook-form';
+import { Eye, EyeOff } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { useState } from 'react';
+import type { InputHTMLAttributes} from 'react';
+import type { UseFormRegisterReturn } from 'react-hook-form';
 
 interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label?: string;
