@@ -319,7 +319,7 @@ const RegisterClient = () => {
                           trigger(['lat', 'long']);
                         }
                       }}
-                      options={{ types: ['address'], componentRestrictions: { country: 'pk' } }}
+                      options={{ types: ['address'], componentRestrictions: { country: 'au' } }}
                       className={`
                         w-full pl-10 pr-4 py-3 rounded-lg border-2 transition-all
                         ${errors.shipping_address

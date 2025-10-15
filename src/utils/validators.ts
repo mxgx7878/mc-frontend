@@ -1,6 +1,12 @@
-// src/utils/validators.ts
+/* FILE: src/utils/validators.ts */
+// FILE PATH: src/utils/validators.ts
+
 import { z } from 'zod';
+
+// ==================== ENUMS ====================
 export const AvailabilityEnum = z.enum(["In Stock", "Out of Stock", "Limited"]);
+export const DeliveryMethodEnum = z.enum(['Other', 'Tipper', 'Agitator', 'Pump', 'Ute']);
+
 // ==================== AUTH SCHEMAS ====================
 
 export const loginSchema = z.object({
@@ -64,8 +70,6 @@ export const changePasswordSchema = z.object({
   path: ['new_password_confirmation'],
 });
 
-
-
 // ==================== SUPPLIER PRODUCT MANAGEMENT SCHEMAS ====================
 
 /**
@@ -78,8 +82,9 @@ export const addOfferSchema = z.object({
     .refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, {
       message: "Price must be a positive number",
     }),
-  availability_status: AvailabilityEnum, // required by presence
+  availability_status: AvailabilityEnum,
 });
+
 /**
  * Schema for updating supplier offer
  */
@@ -109,7 +114,6 @@ export const requestProductSchema = z
       .min(1, "Product type is required")
       .max(255, "Product type must not exceed 255 characters"),
 
-    // If you need a custom "required" message, use superRefine below
     category_id: z.number().positive("Please select a valid category"),
 
     unit_of_measure: z
@@ -138,8 +142,56 @@ export const requestProductSchema = z
     }
   });
 
+// ==================== ORDER SCHEMAS ====================
 
-
+/**
+ * Schema for order creation form
+ */
+export const orderFormSchema = z.object({
+  // Optional PO number
+  po_number: z.string().optional(),
+  
+  // Required project selection
+  project_id: z.number().positive('Please select a project'),
+  
+  // Required delivery address
+  delivery_address: z.string().min(1, 'Delivery address is required').max(500, 'Address is too long'),
+  
+  // Required latitude
+  delivery_lat: z.number().min(-90, 'Invalid latitude').max(90, 'Invalid latitude'),
+  
+  // Required longitude
+  delivery_long: z.number().min(-180, 'Invalid longitude').max(180, 'Invalid longitude'),
+  
+  // Required delivery date (cannot be in past)
+  delivery_date: z
+    .string()
+    .min(1, 'Delivery date is required')
+    .refine((date) => {
+      const selectedDate = new Date(date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return selectedDate >= today;
+    }, 'Delivery date cannot be in the past'),
+  
+  // Optional delivery time
+  delivery_time: z.string().optional(),
+  
+  // Required delivery method (using enum)
+  delivery_method: DeliveryMethodEnum,
+  
+  // Optional load size
+  load_size: z.string().max(50).optional(),
+  
+  // Optional special equipment
+  special_equipment: z.string().max(255).optional(),
+  
+  // Optional special notes
+  special_notes: z.string().max(1000).optional(),
+  
+  // Optional repeat order flag
+  repeat_order: z.boolean().optional(),
+});
 
 // ==================== TYPE EXPORTS ====================
 
@@ -151,3 +203,4 @@ export type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
 export type RequestProductFormData = z.infer<typeof requestProductSchema>;
 export type AddOfferFormData = z.infer<typeof addOfferSchema>;
 export type UpdateOfferFormData = z.infer<typeof updateOfferSchema>;
+export type OrderFormValues = z.infer<typeof orderFormSchema>;

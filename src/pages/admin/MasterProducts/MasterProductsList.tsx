@@ -27,8 +27,6 @@ const MasterProductsList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  
-
   // State - Simple filter management
   const [filters, setFilters] = useState<MasterProductsFilters>({
     page: 1,
@@ -73,10 +71,15 @@ const MasterProductsList = () => {
     placeholderData: keepPreviousData,
   });
 
+  // Fetch Categories for filter
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => masterProductsAPI.getCategories(),
+  });
+
   // Toggle Approval Mutation
   const toggleApprovalMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: boolean }) => 
-      masterProductsAPI.toggleApproval(id, status),
+    mutationFn: (id: number) => masterProductsAPI.toggleApproval(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['masterProducts'] });
       toast.success('Product status updated successfully');
@@ -98,12 +101,11 @@ const MasterProductsList = () => {
   };
 
   const confirmStatusChange = () => {
-    const { productId, currentStatus } = confirmModal;
-    if (!productId || currentStatus === null) return;
+    const { productId } = confirmModal;
+    if (!productId) return;
 
-    const newStatus = !currentStatus;
     setConfirmModal(prev => ({ ...prev, loading: true }));
-    toggleApprovalMutation.mutate({ id: productId, status: newStatus });
+    toggleApprovalMutation.mutate(productId);
   };
 
   const handleDelete = (_productId: number) => {
@@ -269,7 +271,11 @@ const MasterProductsList = () => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">All Categories</option>
-                  <option value="1">Cats</option>
+                  {categoriesData?.data.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -278,7 +284,7 @@ const MasterProductsList = () => {
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="mt-4 text-sm text-primary-600 hover:text-primary-700 font-medium"
+                className="mt-4 text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
                 Clear all filters
               </button>
@@ -313,7 +319,7 @@ const MasterProductsList = () => {
                 {hasActiveFilters && (
                   <button 
                     onClick={clearFilters}
-                    className="text-sm text-primary-600 hover:underline"
+                    className="text-sm text-blue-600 hover:underline"
                   >
                     Clear filters
                   </button>

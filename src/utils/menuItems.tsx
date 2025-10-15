@@ -10,6 +10,7 @@ import {
   BarChart,
   DollarSign,
   User,
+  PlusCircle
 } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -24,6 +25,7 @@ export const clientMenuItems: MenuItem[] = [
   { label: "Dashboard", path: "/client/dashboard", icon: <Home size={20} /> },
   { label: "Projects", path: "/client/projects", icon: <FolderOpen size={20} /> },
   { label: "Orders", path: "/client/orders", icon: <ShoppingCart size={20} /> },
+  { label: "New Order", path: "/client/orders/create", icon: <PlusCircle size={20} /> },
   { label: "Products", path: "/client/products", icon: <Package size={20} /> },
   { label: "Settings", path: "/client/settings", icon: <Settings size={20} /> },
 ];
