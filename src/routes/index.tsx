@@ -39,6 +39,10 @@ import OrderCreate from '../pages/client/OrderCreate';
 import DeliveryZonesPage from '../pages/supplier/DeliveryZones';
 import ProductManagement from '../pages/supplier/ProductManagement';
 
+//Supplier Orders
+import SupplierOrders from '../pages/supplier/SupplierOrders';
+import SupplierOrderDetail from '../pages/supplier/SupplierOrderDetail';
+
 // Shared
 import ProfileSettings from '../pages/shared/ProfileSettings';
 
@@ -136,10 +140,26 @@ const AppRouter = () => {
           }
         />
         <Route
-          path="/supplier/products"
+            path="/supplier/products"
+            element={
+              <ProtectedRoute allowedRoles={['supplier']}>
+                <ProductManagement />
+              </ProtectedRoute>
+            }
+          />
+        <Route
+          path="/supplier/orders"
           element={
             <ProtectedRoute allowedRoles={['supplier']}>
-              <ProductManagement />
+              <SupplierOrders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/supplier/orders/:id"
+          element={
+            <ProtectedRoute allowedRoles={['supplier']}>
+              <SupplierOrderDetail />
             </ProtectedRoute>
           }
         />

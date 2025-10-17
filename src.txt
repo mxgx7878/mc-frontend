@@ -1,4 +1,4 @@
-// SRC BUNDLE 2025-10-15T11:53:52.983Z
+// SRC BUNDLE 2025-10-17T12:16:37.505Z
 
 /* FILE: src/api/axios.config.ts */
 // src/api/axios.config.ts
@@ -468,7 +468,6 @@ export const masterProductsAPI = {
   },
 };
 /* FILE: src/api/handlers/orders.api.ts */
-/* FILE: src/api/handlers/orders.api.ts */
 // FILE PATH: src/api/handlers/orders.api.ts
 
 /**
@@ -476,18 +475,26 @@ export const masterProductsAPI = {
  * 
  * Handles all API calls related to order creation and management:
  * - Fetch products for client
+ * - Get categories
  * - Get product details
  * - Create orders
- * 
- * Following the project's pattern:
- * - Uses centralized axios config from src/api/axios.config.ts
- * - TypeScript interfaces for type safety
- * - Structured error handling
- * - Returns response.data directly
  */
 
 import api from '../axios.config';
-import { ProductsResponse, Product, OrderFormData, OrderResponse } from '../../types/order.types';
+import type { ProductsResponse, Product, OrderFormData, OrderResponse } from '../../types/order.types';
+
+// ===========================
+// Category Type
+// ===========================
+
+export interface Category {
+  id: number;
+  name: string;
+}
+
+export interface CategoriesResponse {
+  data: Category[];
+}
 
 // ===========================
 // API Functions
@@ -505,37 +512,58 @@ export const ordersAPI = {
     search?: string;
     category?: number;
   }): Promise<ProductsResponse> => {
-    const queryParams = new URLSearchParams();
-    
-    if (params.page) queryParams.append('page', params.page.toString());
-    if (params.per_page) queryParams.append('per_page', params.per_page.toString());
-    if (params.search) queryParams.append('search', params.search);
-    if (params.category) queryParams.append('category', params.category.toString());
-    
-    const response = await api.get(`/client/products?${queryParams.toString()}`);
-    return response.data;
+    try {
+      const response = await api.get('/client/products', { params });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.message || 'Failed to fetch products');
+    }
   },
 
   /**
-   * Get single product detail
-   * @param productId - Product ID
-   * @returns Product details
+   * Get all categories for filtering
+   * @returns List of all product categories
    */
-  getProductDetail: async (productId: number): Promise<Product> => {
-    const response = await api.get(`/client/products/${productId}`);
-    return response.data;
+  getCategories: async (): Promise<CategoriesResponse> => {
+    try {
+      const response = await api.get('/categories');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.message || 'Failed to fetch categories');
+    }
   },
 
   /**
-   * Create new order
-   * @param orderData - Order form data with items
+   * Get single product details
+   * @param id - Product ID
+   * @returns Full product details
+   */
+  getProductById: async (id: number): Promise<{ data: Product }> => {
+    try {
+      const response = await api.get(`/client/products/${id}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.message || 'Failed to fetch product details');
+    }
+  },
+
+  /**
+   * Create a new order
+   * @param orderData - Order form data including items, delivery details
    * @returns Created order response
    */
   createOrder: async (orderData: OrderFormData): Promise<OrderResponse> => {
-    const response = await api.post('/orders', orderData);
-    return response.data;
+    try {
+      const response = await api.post('/orders', orderData);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.message || 'Failed to create order');
+    }
   },
 };
+// ===========================================================================
+// END OF FILE
+// ===========================================================================
 /* FILE: src/api/handlers/profile.api.ts */
 // src/api/handlers/profile.api.ts
 import api from '../axios.config';
@@ -685,6 +713,189 @@ export const projectsAPI = {
   create: (payload: ProjectCreateInput) => api.post<ProjectDTO>(BASE, payload).then(r => r.data),
   update: ({ id, ...payload }: ProjectUpdateInput) => api.post<ProjectDTO>(`${BASE}/${id}`, payload).then(r => r.data),
   remove: (id: number) => api.delete(`${BASE}/${id}`).then(r => r.data),
+};
+/* FILE: src/api/handlers/supplierOrders.api.ts */
+// src/api/handlers/supplierOrders.api.ts
+
+import api from '../axios.config';
+
+// ===========================
+// Types & Interfaces
+// ===========================
+
+export interface SupplierOrderItem {
+  id: number;
+  order_id: number;
+  product_id: number;
+  quantity: string;
+  supplier_id: number;
+  choosen_offer_id: number;
+  custom_blend_mix: string | null;
+  supplier_unit_cost: string;
+  supplier_delivery_cost: string;
+  supplier_discount: string;
+  supplier_delivery_date: string;
+  supplier_confirms: boolean;
+  is_paid: boolean;
+  supplier_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  product: {
+    id: number;
+    product_name: string;
+    photo: string | null;
+    unit_of_measure: string;
+    specifications: string;
+    product_type: string;
+  };
+  chosen_offer: {
+    id: number;
+    supplier_id: number;
+    master_product_id: number;
+    price: string;
+    availability_status: string;
+    status: string;
+  };
+}
+
+export interface SupplierOrder {
+  id: number;
+  order_number: string;
+  workflow: string;
+  total_amount: number;
+  created_at: string;
+  updated_at: string;
+  supplier_items_count: number;
+  supplier_items: SupplierOrderItem[];
+}
+
+export interface OrderMetrics {
+  total_orders_count: number;
+  supplier_confirmed_count: number;
+  awaiting_payment_count: number;
+  delivered_count: number;
+}
+
+export interface ProductFilter {
+  id: number;
+  product_name: string;
+  photo: string | null;
+}
+
+export interface SupplierOrdersResponse {
+  success: boolean;
+  data: {
+    data: SupplierOrder[];
+    pagination: {
+      current_page: number;
+      per_page: number;
+      total: number;
+      last_page: number;
+    };
+    metrics: OrderMetrics;
+    filters?: {
+      products: ProductFilter[];
+    };
+  };
+}
+
+export interface OrderDetailResponse {
+  success: boolean;
+  data: {
+    order: {
+      id: number;
+      po_number: string;
+      project_id: number;
+      client_id: number;
+      workflow: string;
+      delivery_address: string;
+      delivery_date: string;
+      delivery_time: string;
+      delivery_window: string;
+      delivery_method: string;
+      load_size: string;
+      special_equipment: string;
+      special_notes: string;
+      created_at: string;
+      updated_at: string;
+      client: {
+        id: number;
+        name: string;
+        email: string;
+      };
+      project: {
+        id: number;
+        name: string;
+        site_contact_name: string;
+        site_contact_phone: string;
+        site_instructions: string;
+      };
+    };
+    supplier_items: SupplierOrderItem[];
+  };
+}
+
+export interface UpdateOrderItemPayload {
+  supplier_unit_cost?: number;
+  supplier_discount?: number;
+  supplier_delivery_date?: string;
+  supplier_confirms?: boolean;
+  supplier_notes?: string | null;
+}
+
+export interface SupplierOrderFilters {
+  page?: number;
+  per_page?: number;
+  search?: string;
+  product_id?: string;
+  supplier_confirms?: string;
+  supplier_delivery_date?: string;
+}
+
+// ===========================
+// API Handler
+// ===========================
+
+export const supplierOrdersAPI = {
+  /**
+   * Get supplier orders with filters and pagination
+   */
+  getOrders: async (filters: SupplierOrderFilters = {}, includeDetails = false): Promise<SupplierOrdersResponse> => {
+    try {
+      const params: any = { ...filters };
+      if (includeDetails) {
+        params.details = 'true';
+      }
+      const response = await api.get('/supplier-orders', { params });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.message || 'Failed to fetch orders');
+    }
+  },
+
+  /**
+   * Get single order details
+   */
+  getOrderDetails: async (orderId: number): Promise<OrderDetailResponse> => {
+    try {
+      const response = await api.get(`/supplier-orders/${orderId}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.error || 'Failed to fetch order details');
+    }
+  },
+
+  /**
+   * Update order item
+   */
+  updateOrderItem: async (orderItemId: number, payload: UpdateOrderItemPayload): Promise<any> => {
+    try {
+      const response = await api.post(`/supplier-orders/update-pricing/${orderItemId}`, payload);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.message || 'Failed to update order item');
+    }
+  },
 };
 /* FILE: src/api/handlers/supplierProducts.api.ts */
 // FILE PATH: src/api/handlers/supplierProducts.api.ts
@@ -3121,382 +3332,402 @@ const DashboardLayout = ({ children, menuItems }: DashboardLayoutProps) => {
 };
 
 export default DashboardLayout;
-/* FILE: src/components/order/OrderForm.tsx */
-// src/components/order/OrderForm.tsx
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { MapPin, Calendar, Clock, Truck, Package, FileText } from 'lucide-react';
-import Autocomplete from 'react-google-autocomplete';
-import { orderFormSchema, OrderFormValues } from '../../utils/validators';
-import { CartItem, Project } from '../../types/order.types';
+/* FILE: src/components/order/FloatingCartBadge.tsx */
+// src/components/order/FloatingCartBadge.tsx
+import React, { useState } from 'react';
+import { ShoppingCart, X, Plus, Minus, Trash2, Package } from 'lucide-react';
+import type { CartItem } from '../../types/order.types';
 import Button from '../common/Buttons';
-import Input from '../common/Input';
 
-interface OrderFormProps {
+interface FloatingCartBadgeProps {
+  itemCount: number;
   cartItems: CartItem[];
-  projects: Project[];
-  isSubmitting: boolean;
-  onSubmit: (data: OrderFormValues) => void;
-  onBack: () => void;
-  onUpdateCustomBlend: (productId: number, blend: string) => void;
+  onUpdateQuantity: (productId: number, quantity: number) => void;
+  onRemoveItem: (productId: number) => void;
+  onProceedToCheckout: () => void;
 }
 
-const OrderFormComponent = ({
+const FloatingCartBadge: React.FC<FloatingCartBadgeProps> = ({
+  itemCount,
   cartItems,
-  projects,
-  isSubmitting,
-  onSubmit,
-  onBack,
-  onUpdateCustomBlend,
-}: OrderFormProps) => {
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<OrderFormValues>({
-    resolver: zodResolver(orderFormSchema),
-  });
+  onUpdateQuantity,
+  onRemoveItem,
+  onProceedToCheckout,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
 
-  const watchDeliveryLat = watch('delivery_lat');
-  const watchDeliveryLong = watch('delivery_long');
-
-  const handlePlaceSelected = (place: any) => {
-    if (place.formatted_address) {
-      setValue('delivery_address', place.formatted_address, { shouldValidate: true });
-    }
-    if (place.geometry?.location) {
-      const lat = place.geometry.location.lat();
-      const lng = place.geometry.location.lng();
-      setValue('delivery_lat', lat, { shouldValidate: true });
-      setValue('delivery_long', lng, { shouldValidate: true });
-    }
+  const getImageUrl = (photo: string) => {
+    return photo.startsWith('http')
+      ? photo
+      : `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '/storage')}/${photo}`;
   };
 
-  const getTodayDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+  const handleProceed = () => {
+    setIsOpen(false);
+    onProceedToCheckout();
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-secondary-900">Order Details</h2>
-          <p className="text-sm text-secondary-600 mt-1">Complete the details to submit your order</p>
-        </div>
+    <>
+      {/* Floating Badge Button */}
+      <button
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-6 right-6 z-40 bg-primary-600 hover:bg-primary-700 text-white rounded-full p-4 shadow-2xl hover:shadow-primary-300 transition-all hover:scale-110 active:scale-95"
+        aria-label="View cart"
+      >
+        <ShoppingCart size={24} />
+        {itemCount > 0 && (
+          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-7 h-7 flex items-center justify-center border-2 border-white animate-bounce">
+            {itemCount}
+          </span>
+        )}
+      </button>
 
-        <div>
-          <label className="block text-sm font-medium text-secondary-700 mb-2">
-            Project <span className="text-error-500">*</span>
-          </label>
-          <select
-            {...register('project_id', { valueAsNumber: true })}
-            className={`w-full px-4 py-3 rounded-lg border-2 transition-all ${
-              errors.project_id
-                ? 'border-error-500 focus:border-error-500'
-                : 'border-secondary-200 focus:border-primary-500'
-            } focus:outline-none focus:ring-2 focus:ring-opacity-20`}
-          >
-            <option value="">Select a project</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.project_name} - {project.address}
-              </option>
-            ))}
-          </select>
-          {errors.project_id && (
-            <p className="text-sm text-error-500 mt-1">{errors.project_id.message}</p>
-          )}
-        </div>
+      {/* Sidebar Overlay */}
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 animate-fadeIn"
+            onClick={() => setIsOpen(false)}
+          />
 
-        <Input
-          label="PO Number (Optional)"
-          type="text"
-          placeholder="PO-2025-001"
-          icon={FileText}
-          register={register('po_number')}
-          error={errors.po_number?.message}
-        />
-
-        <div className="border-t pt-6">
-          <h3 className="text-lg font-semibold text-secondary-900 mb-4 flex items-center gap-2">
-            <MapPin className="text-primary-600" size={20} />
-            Delivery Information
-          </h3>
-
-          <div className="space-y-2 mb-4">
-            <label className="block text-sm font-medium text-secondary-700">
-              Delivery Address <span className="text-error-500">*</span>
-            </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-3.5 text-secondary-400 z-10" size={20} />
-              <Autocomplete
-                apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-                onPlaceSelected={handlePlaceSelected}
-                options={{
-                  types: ['address'],
-                  componentRestrictions: { country: 'au' },
-                }}
-                className={`w-full pl-10 pr-4 py-3 rounded-lg border-2 transition-all ${
-                  errors.delivery_address
-                    ? 'border-error-500 focus:border-error-500'
-                    : 'border-secondary-200 focus:border-primary-500'
-                } focus:outline-none focus:ring-2 focus:ring-opacity-20`}
-                placeholder="Start typing delivery address..."
-              />
-            </div>
-            {errors.delivery_address && (
-              <p className="text-sm text-error-500">{errors.delivery_address.message}</p>
-            )}
-            {watchDeliveryLat && watchDeliveryLong && (
-              <p className="text-xs text-success-600">
-                📍 Coordinates: {watchDeliveryLat.toFixed(6)}, {watchDeliveryLong.toFixed(6)}
-              </p>
-            )}
-          </div>
-
-          <input type="hidden" {...register('delivery_lat', { valueAsNumber: true })} />
-          <input type="hidden" {...register('delivery_long', { valueAsNumber: true })} />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
-                Delivery Date <span className="text-error-500">*</span>
-              </label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-3.5 text-secondary-400 z-10" size={20} />
-                <input
-                  type="date"
-                  {...register('delivery_date')}
-                  min={getTodayDate()}
-                  className={`w-full pl-10 pr-4 py-3 rounded-lg border-2 transition-all ${
-                    errors.delivery_date
-                      ? 'border-error-500 focus:border-error-500'
-                      : 'border-secondary-200 focus:border-primary-500'
-                  } focus:outline-none focus:ring-2 focus:ring-opacity-20`}
-                />
+          {/* Sidebar */}
+          <div className="fixed top-0 right-0 h-full w-full sm:w-96 bg-white shadow-2xl z-50 animate-slideInRight overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-primary-600 to-primary-700 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <ShoppingCart className="text-white" size={24} />
+                <div>
+                  <h3 className="text-white font-bold text-lg">Your Cart</h3>
+                  <p className="text-primary-100 text-xs">{itemCount} item(s)</p>
+                </div>
               </div>
-              {errors.delivery_date && (
-                <p className="text-sm text-error-500 mt-1">{errors.delivery_date.message}</p>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-white/80 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Cart Items */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {cartItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                  <div className="w-20 h-20 bg-secondary-100 rounded-full flex items-center justify-center">
+                    <Package className="text-secondary-400" size={40} />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-secondary-900">Your cart is empty</p>
+                    <p className="text-sm text-secondary-600 mt-1">Add some products to get started</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {cartItems.map((item) => (
+                    <div
+                      key={item.product_id}
+                      className="bg-white border-2 border-secondary-200 rounded-xl p-3 hover:border-primary-300 transition-all"
+                    >
+                      <div className="flex gap-3">
+                        {/* Product Image */}
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary-100 flex-shrink-0">
+                          <img
+                            src={getImageUrl(item.product_photo)}
+                            alt={item.product_name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZTVlN2ViIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+                            }}
+                          />
+                        </div>
+
+                        {/* Product Info */}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-secondary-900 text-sm truncate">
+                            {item.product_name}
+                          </h4>
+                          <p className="text-xs text-secondary-600">{item.product_type}</p>
+                          <p className="text-xs text-primary-600 font-medium mt-1">
+                            Unit: {item.unit_of_measure}
+                          </p>
+
+                          {/* Quantity Controls */}
+                          <div className="flex items-center gap-2 mt-2">
+                            <button
+                              onClick={() => onUpdateQuantity(item.product_id, item.quantity - 1)}
+                              className="w-7 h-7 rounded-lg bg-secondary-100 hover:bg-secondary-200 flex items-center justify-center transition-colors"
+                              disabled={item.quantity <= 1}
+                            >
+                              <Minus size={14} />
+                            </button>
+                            <span className="w-10 text-center font-semibold text-sm">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => onUpdateQuantity(item.product_id, item.quantity + 1)}
+                              className="w-7 h-7 rounded-lg bg-primary-100 hover:bg-primary-200 flex items-center justify-center transition-colors text-primary-700"
+                            >
+                              <Plus size={14} />
+                            </button>
+                            <button
+                              onClick={() => onRemoveItem(item.product_id)}
+                              className="ml-auto w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors text-red-600"
+                              title="Remove item"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Custom Blend Note */}
+                      {item.custom_blend_mix && (
+                        <div className="mt-2 text-xs bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                          <span className="font-semibold text-amber-900">Custom Mix:</span>
+                          <span className="text-amber-800 ml-1">{item.custom_blend_mix}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
-                Delivery Time (Optional)
-              </label>
-              <div className="relative">
-                <Clock className="absolute left-3 top-3.5 text-secondary-400 z-10" size={20} />
-                <input
-                  type="time"
-                  {...register('delivery_time')}
-                  className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20"
-                />
-              </div>
-            </div>
-          </div>
+            {/* Footer */}
+            {cartItems.length > 0 && (
+              <div className="border-t border-secondary-200 p-4 bg-secondary-50 space-y-3">
+                {/* Pricing Note */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-900 leading-relaxed">
+                    💡 <span className="font-semibold">Pricing:</span> Final costs will be 
+                    calculated based on delivery location. You'll receive an invoice within 
+                    20 minutes after placing your order.
+                  </p>
+                </div>
 
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              Delivery Method <span className="text-error-500">*</span>
-            </label>
-            <div className="relative">
-              <Truck className="absolute left-3 top-3.5 text-secondary-400 z-10" size={20} />
-              <select
-                {...register('delivery_method')}
-                className={`w-full pl-10 pr-4 py-3 rounded-lg border-2 transition-all ${
-                  errors.delivery_method
-                    ? 'border-error-500 focus:border-error-500'
-                    : 'border-secondary-200 focus:border-primary-500'
-                } focus:outline-none focus:ring-2 focus:ring-opacity-20`}
-              >
-                <option value="">Select delivery method</option>
-                <option value="Tipper">Tipper</option>
-                <option value="Agitator">Agitator</option>
-                <option value="Pump">Pump</option>
-                <option value="Ute">Ute</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            {errors.delivery_method && (
-              <p className="text-sm text-error-500 mt-1">{errors.delivery_method.message}</p>
+                {/* Proceed Button */}
+                <Button
+                  onClick={handleProceed}
+                  variant="primary"
+                  fullWidth
+                  className="py-3 text-base font-semibold"
+                >
+                  Proceed to Checkout →
+                </Button>
+              </div>
             )}
           </div>
+        </>
+      )}
+    </>
+  );
+};
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <Input
-              label="Load Size (Optional)"
-              type="text"
-              placeholder="e.g., 6m³"
-              icon={Package}
-              register={register('load_size')}
-              error={errors.load_size?.message}
-            />
+export default FloatingCartBadge;
+/* FILE: src/components/order/OrderWizard.tsx */
+// src/components/order/OrderWizard.tsx
+import React from 'react';
+import { ShoppingCart, MapPin, CheckCircle } from 'lucide-react';
 
-            <Input
-              label="Special Equipment (Optional)"
-              type="text"
-              placeholder="e.g., Chute extension"
-              icon={Truck}
-              register={register('special_equipment')}
-              error={errors.special_equipment?.message}
-            />
-          </div>
-        </div>
 
-        <div className="border-t pt-6">
-          <h3 className="text-lg font-semibold text-secondary-900 mb-4">Order Items</h3>
-          <div className="space-y-3">
-            {cartItems.map((item) => (
-              <div key={item.product_id} className="bg-secondary-50 rounded-lg p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h4 className="font-semibold text-secondary-900">{item.product_name}</h4>
-                    <p className="text-sm text-secondary-600">
-                      Quantity: {item.quantity} {item.unit_of_measure}
+interface OrderWizardProps {
+  currentStep: number;
+  onStepChange: (step: number) => void;
+  children: React.ReactNode;
+}
+
+const steps = [
+  { number: 1, title: 'Products', icon: ShoppingCart, description: 'Select items' },
+  { number: 2, title: 'Details', icon: MapPin, description: 'Project & delivery' },
+  { number: 3, title: 'Review', icon: CheckCircle, description: 'Confirm order' },
+];
+
+const OrderWizard: React.FC<OrderWizardProps> = ({ currentStep, onStepChange, children }) => {
+  return (
+    <div className="space-y-6">
+      {/* Progress Steps - Mobile & Desktop */}
+      <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+        {/* Desktop: Horizontal Steps */}
+        <div className="hidden md:flex items-center justify-between">
+          {steps.map((step, index) => {
+            const isActive = currentStep === step.number;
+            const isCompleted = currentStep > step.number;
+            const Icon = step.icon;
+
+            return (
+              <React.Fragment key={step.number}>
+                {/* Step Circle */}
+                <div className="flex flex-col items-center flex-1">
+                  <button
+                    onClick={() => {
+                      // Only allow going back to previous steps
+                      if (step.number < currentStep) {
+                        onStepChange(step.number);
+                      }
+                    }}
+                    disabled={step.number > currentStep}
+                    className={`
+                      flex items-center justify-center w-14 h-14 rounded-full border-2 transition-all
+                      ${isActive 
+                        ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-200' 
+                        : isCompleted 
+                        ? 'bg-green-500 border-green-500 text-white' 
+                        : 'bg-white border-secondary-300 text-secondary-400'
+                      }
+                      ${step.number < currentStep ? 'cursor-pointer hover:scale-110' : 'cursor-not-allowed'}
+                    `}
+                  >
+                    <Icon size={24} />
+                  </button>
+                  <div className="mt-3 text-center">
+                    <p className={`text-sm font-semibold ${isActive ? 'text-primary-600' : 'text-secondary-600'}`}>
+                      {step.title}
                     </p>
+                    <p className="text-xs text-secondary-500">{step.description}</p>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-secondary-700 mb-1">
-                    Custom Blend Mix (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., 32MPa, 20mm agg, slump 80"
-                    value={item.custom_blend_mix || ''}
-                    onChange={(e) => onUpdateCustomBlend(item.product_id, e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded border border-secondary-300 focus:border-primary-500 focus:outline-none"
-                  />
+
+                {/* Connector Line */}
+                {index < steps.length - 1 && (
+                  <div className={`h-0.5 flex-1 mx-4 transition-all ${
+                    currentStep > step.number ? 'bg-green-500' : 'bg-secondary-200'
+                  }`} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* Mobile: Vertical Steps */}
+        <div className="md:hidden space-y-4">
+          {steps.map((step) => {
+            const isActive = currentStep === step.number;
+            const isCompleted = currentStep > step.number;
+            const Icon = step.icon;
+
+            return (
+              <div
+                key={step.number}
+                className={`flex items-center gap-4 p-3 rounded-lg transition-all ${
+                  isActive ? 'bg-primary-50 border-2 border-primary-300' : 'bg-secondary-50'
+                }`}
+              >
+                <div
+                  className={`
+                    flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all
+                    ${isActive 
+                      ? 'bg-primary-600 border-primary-600 text-white' 
+                      : isCompleted 
+                      ? 'bg-green-500 border-green-500 text-white' 
+                      : 'bg-white border-secondary-300 text-secondary-400'
+                    }
+                  `}
+                >
+                  <Icon size={20} />
                 </div>
+                <div className="flex-1">
+                  <p className={`font-semibold ${isActive ? 'text-primary-600' : 'text-secondary-900'}`}>
+                    Step {step.number}: {step.title}
+                  </p>
+                  <p className="text-xs text-secondary-600">{step.description}</p>
+                </div>
+                {isCompleted && (
+                  <CheckCircle className="text-green-500" size={20} />
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-secondary-700 mb-2">
-            Special Notes (Optional)
-          </label>
-          <textarea
-            {...register('special_notes')}
-            rows={3}
-            placeholder="Any special instructions or notes..."
-            className="w-full px-4 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20"
-          />
-          {errors.special_notes && (
-            <p className="text-sm text-error-500 mt-1">{errors.special_notes.message}</p>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            {...register('repeat_order')}
-            id="repeat_order"
-            className="w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-          />
-          <label htmlFor="repeat_order" className="text-sm text-secondary-700">
-            Mark as repeat order
-          </label>
-        </div>
-
-        <div className="flex gap-3 pt-4 border-t">
-          <Button type="button" variant="outline" onClick={onBack} fullWidth={false}>
-            ← Back to Products
-          </Button>
-          <Button onClick={handleSubmit(onSubmit)} isLoading={isSubmitting} disabled={isSubmitting} fullWidth>
-            {isSubmitting ? 'Submitting Order...' : 'Submit Order'}
-          </Button>
-        </div>
+      {/* Step Content */}
+      <div className="animate-fadeIn">
+        {children}
       </div>
     </div>
   );
 };
 
-export default OrderFormComponent;
+export default OrderWizard;
 /* FILE: src/components/order/ProductCard.tsx */
 // src/components/order/ProductCard.tsx
-import { ShoppingCart, Check } from 'lucide-react';
-import { Product } from '../../types/order.types';
+import { ShoppingCart, Check, Eye } from 'lucide-react';
+import type { Product } from '../../types/order.types';
 import Button from '../common/Buttons';
 
 interface ProductCardProps {
   product: Product;
   isInCart: boolean;
   onAddToCart: (product: Product) => void;
+  onViewDetails?: (product: Product) => void;
 }
 
-const ProductCard = ({ product, isInCart, onAddToCart }: ProductCardProps) => {
+const ProductCard = ({ product, isInCart, onAddToCart, onViewDetails }: ProductCardProps) => {
   const imageUrl = product.photo.startsWith('http') 
     ? product.photo 
     : `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '/storage')}/${product.photo}`;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-secondary-200 hover:shadow-md transition-all duration-200 overflow-hidden group">
+    <div className="group bg-white rounded-xl border-2 border-secondary-200 hover:border-primary-300 hover:shadow-lg transition-all overflow-hidden">
       {/* Product Image */}
-      <div className="relative h-48 bg-secondary-100 overflow-hidden">
+      <div className="relative aspect-square overflow-hidden bg-secondary-100">
         <img
           src={imageUrl}
           alt={product.product_name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=No+Image';
+            const target = e.target as HTMLImageElement;
+            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
           }}
         />
         
         {/* Category Badge */}
         <div className="absolute top-3 left-3">
-          <span className="px-3 py-1 bg-primary-500 text-white text-xs font-semibold rounded-full shadow-lg">
+          <span className="bg-white/90 backdrop-blur-sm text-xs font-semibold text-primary-700 px-3 py-1 rounded-full shadow-sm">
             {product.category.name}
           </span>
         </div>
 
-        {/* In Cart Indicator */}
-        {isInCart && (
-          <div className="absolute top-3 right-3 bg-success-500 text-white p-2 rounded-full shadow-lg">
-            <Check size={16} />
+        {/* Quick Actions Overlay */}
+        {onViewDetails && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
+            <button
+              onClick={() => onViewDetails(product)}
+              className="bg-white hover:bg-primary-50 text-primary-700 px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-transform"
+            >
+              <Eye size={16} />
+              View Details
+            </button>
           </div>
         )}
       </div>
 
-      {/* Product Details */}
+      {/* Product Info */}
       <div className="p-4 space-y-3">
-        {/* Product Name */}
-        <h3 className="text-lg font-bold text-secondary-900 line-clamp-1">
-          {product.product_name}
-        </h3>
+        <div>
+          <h3 className="font-bold text-secondary-900 text-lg truncate">
+            {product.product_name}
+          </h3>
+          <p className="text-sm text-secondary-600">{product.product_type}</p>
+        </div>
 
-        {/* Product Type */}
-        <p className="text-sm text-secondary-600 font-medium">
-          Type: {product.product_type}
-        </p>
+        {/* Unit of Measure */}
+        <div className="flex items-center justify-between py-2 px-3 bg-secondary-50 rounded-lg">
+          <span className="text-xs text-secondary-600 font-medium">Unit:</span>
+          <span className="text-sm font-bold text-secondary-900">{product.unit_of_measure}</span>
+        </div>
 
-        {/* Specifications */}
-        <p className="text-sm text-secondary-600 line-clamp-2 min-h-[40px]">
+        {/* Specifications Preview */}
+        <p className="text-xs text-secondary-600 line-clamp-2">
           {product.specifications}
         </p>
 
-        {/* Price & Unit */}
-        <div className="flex items-center justify-between pt-2 border-t border-secondary-100">
-          <div>
-            {product.price ? (
-              <p className="text-lg font-bold text-primary-600">
-                {product.price}
-              </p>
-            ) : (
-              <p className="text-sm text-secondary-500">Price on request</p>
-            )}
-            <p className="text-xs text-secondary-500">per {product.unit_of_measure}</p>
-          </div>
-        </div>
-
         {/* Add to Cart Button */}
         <Button
-          onClick={() => onAddToCart(product)}
+          onClick={() => !isInCart && onAddToCart(product)}
           disabled={isInCart}
           variant={isInCart ? 'outline' : 'primary'}
           fullWidth
@@ -3520,162 +3751,1021 @@ const ProductCard = ({ product, isInCart, onAddToCart }: ProductCardProps) => {
 };
 
 export default ProductCard;
-/* FILE: src/components/order/ShoppingCart.tsx */
-// src/components/order/ShoppingCart.tsx
-import { ShoppingCart, Trash2, Plus, Minus, X, Package } from 'lucide-react';
-import { CartItem } from '../../types/order.types';
+/* FILE: src/components/order/ProductDetailModal.tsx */
+// src/components/order/ProductDetailModal.tsx
+import React from 'react';
+import { X, Package, Tag, Ruler, FileText, Info } from 'lucide-react';
+import type { Product } from '../../types/order.types';
 import Button from '../common/Buttons';
 
-interface ShoppingCartProps {
-  items: CartItem[];
-  onUpdateQuantity: (productId: number, quantity: number) => void;
-  onRemoveItem: (productId: number) => void;
-  onClearCart: () => void;
-  onProceedToOrder: () => void;
+interface ProductDetailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  product: Product | null;
+  isInCart: boolean;
+  onAddToCart: (product: Product) => void;
 }
 
-const ShoppingCartComponent = ({
-  items,
-  onUpdateQuantity,
-  onRemoveItem,
-  onClearCart,
-  onProceedToOrder,
-}: ShoppingCartProps) => {
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
+  isOpen,
+  onClose,
+  product,
+  isInCart,
+  onAddToCart,
+}) => {
+  if (!isOpen || !product) return null;
 
   const getImageUrl = (photo: string) => {
-    return photo.startsWith('http') 
-      ? photo 
-      : `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '')}/${photo}`;
+    return photo.startsWith('http')
+      ? photo
+      : `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '/storage')}/${photo}`;
   };
 
-  if (items.length === 0) {
-    return (
-      <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-8">
-        <div className="text-center space-y-4">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-secondary-100 rounded-full">
-            <Package className="text-secondary-400" size={32} />
-          </div>
-          <h3 className="text-lg font-semibold text-secondary-900">Your cart is empty</h3>
-          <p className="text-sm text-secondary-600">Add products to get started</p>
-        </div>
-      </div>
-    );
-  }
+  const getTechDocUrl = (techDoc: string | null) => {
+    if (!techDoc) return null;
+    return techDoc.startsWith('http')
+      ? techDoc
+      : `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '')}/${techDoc}`;
+  };
+
+  const handleAddToCart = () => {
+    onAddToCart(product);
+    onClose();
+  };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-secondary-200 sticky top-4">
-      {/* Header */}
-      <div className="p-4 border-b border-secondary-200 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <ShoppingCart className="text-primary-600" size={24} />
-          <div>
-            <h2 className="text-lg font-bold text-secondary-900">Shopping Cart</h2>
-            <p className="text-xs text-secondary-600">{totalItems} item(s)</p>
-          </div>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-fadeIn">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">Product Details</h2>
+          <button
+            onClick={onClose}
+            className="text-white/80 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg"
+          >
+            <X size={24} />
+          </button>
         </div>
-        <button
-          onClick={onClearCart}
-          className="text-error-500 hover:text-error-600 text-sm font-medium transition-colors"
-          title="Clear cart"
-        >
-          Clear
-        </button>
-      </div>
 
-      {/* Cart Items */}
-      <div className="max-h-[500px] overflow-y-auto">
-        <div className="divide-y divide-secondary-100">
-          {items.map((item) => (
-            <div key={item.product_id} className="p-4 hover:bg-secondary-50 transition-colors">
-              <div className="flex gap-3">
-                {/* Product Image */}
-                <div className="flex-shrink-0 w-16 h-16 bg-secondary-100 rounded-lg overflow-hidden">
-                  <img
-                    src={getImageUrl(item.product_photo)}
-                    alt={item.product_name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/64?text=N/A';
-                    }}
-                  />
-                </div>
+        {/* Content */}
+        <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
+          <div className="grid md:grid-cols-2 gap-6 p-6">
+            {/* Left: Image */}
+            <div className="space-y-4">
+              <div className="aspect-square rounded-xl overflow-hidden bg-secondary-100 border-2 border-secondary-200">
+                <img
+                  src={getImageUrl(product.photo)}
+                  alt={product.product_name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+                  }}
+                />
+              </div>
 
-                {/* Product Details */}
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-semibold text-secondary-900 truncate">
-                    {item.product_name}
-                  </h4>
-                  <p className="text-xs text-secondary-600">{item.product_type}</p>
-
-                  {/* Quantity Controls */}
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="flex items-center border border-secondary-300 rounded-lg">
-                      <button
-                        onClick={() => onUpdateQuantity(item.product_id, item.quantity - 1)}
-                        className="p-1.5 hover:bg-secondary-100 transition-colors rounded-l-lg"
-                        disabled={item.quantity <= 0.01}
-                      >
-                        <Minus size={14} className="text-secondary-600" />
-                      </button>
-                      <input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => {
-                          const value = parseFloat(e.target.value);
-                          if (!isNaN(value) && value >= 0.01) {
-                            onUpdateQuantity(item.product_id, value);
-                          }
-                        }}
-                        className="w-16 text-center text-sm font-medium border-x border-secondary-300 py-1 focus:outline-none"
-                        step="0.1"
-                        min="0.01"
-                      />
-                      <button
-                        onClick={() => onUpdateQuantity(item.product_id, item.quantity + 1)}
-                        className="p-1.5 hover:bg-secondary-100 transition-colors rounded-r-lg"
-                      >
-                        <Plus size={14} className="text-secondary-600" />
-                      </button>
-                    </div>
-                    <span className="text-xs text-secondary-600">{item.unit_of_measure}</span>
-                  </div>
-                </div>
-
-                {/* Remove Button */}
-                <button
-                  onClick={() => onRemoveItem(item.product_id)}
-                  className="flex-shrink-0 text-error-500 hover:text-error-600 transition-colors"
-                  title="Remove item"
-                >
-                  <X size={18} />
-                </button>
+              {/* Category Badge */}
+              <div className="flex items-center gap-2 bg-primary-50 border border-primary-200 rounded-lg px-4 py-2">
+                <Tag className="text-primary-600" size={18} />
+                <span className="text-sm font-medium text-primary-700">
+                  {product.category.name}
+                </span>
               </div>
             </div>
-          ))}
+
+            {/* Right: Details */}
+            <div className="space-y-6">
+              {/* Product Name */}
+              <div>
+                <h3 className="text-2xl font-bold text-secondary-900 mb-2">
+                  {product.product_name}
+                </h3>
+                <div className="flex items-center gap-2 text-secondary-600">
+                  <Package size={18} />
+                  <span className="font-medium">{product.product_type}</span>
+                </div>
+              </div>
+
+              {/* Unit of Measure */}
+              <div className="bg-secondary-50 rounded-lg p-4 border border-secondary-200">
+                <div className="flex items-center gap-2 mb-1">
+                  <Ruler className="text-secondary-600" size={18} />
+                  <span className="text-sm font-semibold text-secondary-700">
+                    Unit of Measure
+                  </span>
+                </div>
+                <p className="text-lg font-bold text-secondary-900 ml-7">
+                  {product.unit_of_measure}
+                </p>
+              </div>
+
+              {/* Specifications */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Info className="text-secondary-600" size={20} />
+                  <h4 className="font-semibold text-secondary-900">Specifications</h4>
+                </div>
+                <p className="text-secondary-700 leading-relaxed bg-secondary-50 rounded-lg p-4 border border-secondary-200">
+                  {product.specifications}
+                </p>
+              </div>
+
+              {/* Technical Documentation */}
+              {product.tech_doc && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="text-blue-600" size={18} />
+                    <span className="text-sm font-semibold text-blue-900">
+                      Technical Documentation
+                    </span>
+                  </div>
+                  <a
+                    href={getTechDocUrl(product.tech_doc) || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:text-blue-700 underline"
+                  >
+                    Download Technical Specifications →
+                  </a>
+                </div>
+              )}
+
+              {/* Pricing Note */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-sm text-amber-900 leading-relaxed">
+                  <span className="font-semibold">📋 Note:</span> Final pricing will be 
+                  calculated after order placement based on delivery location and supplier 
+                  availability. You'll receive a detailed invoice within 20 minutes of 
+                  order confirmation.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-secondary-200 space-y-3">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-secondary-600">Total Items:</span>
-          <span className="font-bold text-secondary-900">{totalItems}</span>
+        {/* Footer */}
+        <div className="border-t border-secondary-200 px-6 py-4 bg-secondary-50">
+          <div className="flex items-center justify-between gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              fullWidth={false}
+              className="px-6"
+            >
+              Close
+            </Button>
+            <Button
+              type="button"
+              variant={isInCart ? 'outline' : 'primary'}
+              onClick={handleAddToCart}
+              disabled={isInCart}
+              fullWidth={false}
+              className="px-8"
+            >
+              {isInCart ? '✓ Already in Cart' : '+ Add to Cart'}
+            </Button>
+          </div>
         </div>
-
-        <Button onClick={onProceedToOrder} fullWidth>
-          Proceed to Order Details
-        </Button>
-
-        <p className="text-xs text-secondary-500 text-center">
-          Prices will be calculated after supplier assignment
-        </p>
       </div>
     </div>
   );
 };
 
-export default ShoppingCartComponent;
+export default ProductDetailModal;
+/* FILE: src/components/order/Step2_ProjectDelivery.tsx */
+// src/components/order/Step2_ProjectDelivery.tsx
+import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  MapPin,
+  Calendar,
+  Clock,
+  Truck,
+  FileText,
+  Building2,
+  Plus,
+  ChevronDown,
+  Search,
+  User,
+  Phone,
+  AlertCircle,
+} from 'lucide-react';
+import Autocomplete from 'react-google-autocomplete';
+import { orderFormSchema } from '../../utils/validators';
+import type { OrderFormValues } from '../../utils/validators';
+import type { CartItem, Project } from '../../types/order.types';
+import Button from '../common/Buttons';
+import Input from '../common/Input';
+
+interface Step2Props {
+  cartItems: CartItem[];
+  projects: Project[];
+  onSubmit: (data: OrderFormValues) => void;
+  onBack: () => void;
+  isSubmitting: boolean;
+  onCreateProject?: () => void;
+}
+
+const Step2_ProjectDelivery: React.FC<Step2Props> = ({
+  cartItems,
+  projects,
+  onSubmit,
+  onBack,
+  isSubmitting,
+  onCreateProject,
+}) => {
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const [projectSearchTerm, setProjectSearchTerm] = useState('');
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<OrderFormValues>({
+    resolver: zodResolver(orderFormSchema),
+  });
+
+  const watchDeliveryLat = watch('delivery_lat');
+  const watchDeliveryLong = watch('delivery_long');
+
+  // Auto-select if only one project
+  useEffect(() => {
+    if (projects.length === 1 && !selectedProject) {
+      handleProjectSelect(projects[0]);
+    }
+  }, [projects]);
+
+  const handleProjectSelect = (project: Project) => {
+    setSelectedProject(project);
+    setValue('project_id', project.id, { shouldValidate: true });
+    
+    // Auto-fill delivery address if available
+    // Note: Projects don't have lat/long in the current schema
+    // But when they do, this will auto-fill
+    
+    setShowProjectDropdown(false);
+    setProjectSearchTerm('');
+  };
+
+  const handlePlaceSelected = (place: any) => {
+    if (place.formatted_address) {
+      setValue('delivery_address', place.formatted_address, { shouldValidate: true });
+    }
+    if (place.geometry?.location) {
+      const lat = place.geometry.location.lat();
+      const lng = place.geometry.location.lng();
+      setValue('delivery_lat', lat, { shouldValidate: true });
+      setValue('delivery_long', lng, { shouldValidate: true });
+    }
+  };
+
+  const filteredProjects = projects.filter((project) =>
+    project.name.toLowerCase().includes(projectSearchTerm.toLowerCase())
+  );
+
+  // Get delivery methods from schema
+  const deliveryMethods = ['Other', 'Tipper', 'Agitator', 'Pump', 'Ute'];
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* LEFT: Order Summary (Sticky on desktop) */}
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-5 lg:sticky lg:top-6">
+            <h3 className="font-bold text-secondary-900 mb-4 flex items-center gap-2">
+              <FileText size={20} className="text-primary-600" />
+              Order Summary
+            </h3>
+
+            <div className="space-y-3">
+              {cartItems.map((item) => (
+                <div
+                  key={item.product_id}
+                  className="flex items-start gap-3 pb-3 border-b border-secondary-100 last:border-0"
+                >
+                  <div className="w-12 h-12 rounded-lg bg-secondary-100 flex-shrink-0 overflow-hidden">
+                    <img
+                      src={
+                        item.product_photo.startsWith('http')
+                          ? item.product_photo
+                          : `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '/storage')}/${item.product_photo}`
+                      }
+                      alt={item.product_name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZTVlN2ViIi8+PC9zdmc+';
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-secondary-900 truncate">
+                      {item.product_name}
+                    </p>
+                    <p className="text-xs text-secondary-600">{item.product_type}</p>
+                    <p className="text-xs text-primary-600 font-medium mt-1">
+                      Qty: {item.quantity} {item.unit_of_measure}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pricing Note */}
+            <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs text-blue-900 leading-relaxed">
+                <span className="font-semibold">💡 Note:</span> Final pricing will be 
+                calculated after order placement based on delivery location and availability. 
+                You'll receive a detailed invoice within 20 minutes.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT: Form Fields */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Section 1: Project Selection */}
+          <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Building2 className="text-primary-600" size={22} />
+              <h3 className="font-bold text-secondary-900">Select Project</h3>
+            </div>
+
+            {/* Project Selector */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowProjectDropdown(!showProjectDropdown)}
+                className={`w-full px-4 py-3 rounded-lg border-2 transition-colors text-left flex items-center justify-between ${
+                  errors.project_id
+                    ? 'border-red-300 bg-red-50'
+                    : selectedProject
+                    ? 'border-primary-300 bg-primary-50'
+                    : 'border-secondary-300 hover:border-secondary-400'
+                }`}
+              >
+                <span className={selectedProject ? 'text-secondary-900 font-medium' : 'text-secondary-500'}>
+                  {selectedProject ? selectedProject.name : 'Select a project...'}
+                </span>
+                <ChevronDown
+                  size={20}
+                  className={`transition-transform ${showProjectDropdown ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {/* Dropdown */}
+              {showProjectDropdown && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-secondary-200 rounded-lg shadow-xl z-30 max-h-80 overflow-hidden">
+                  {/* Search */}
+                  <div className="p-3 border-b border-secondary-200">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={18} />
+                      <input
+                        type="text"
+                        placeholder="Search projects..."
+                        value={projectSearchTerm}
+                        onChange={(e) => setProjectSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2 rounded-lg border border-secondary-300 focus:border-primary-500 focus:outline-none text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Project List */}
+                  <div className="max-h-60 overflow-y-auto">
+                    {filteredProjects.length === 0 ? (
+                      <div className="p-4 text-center text-secondary-600 text-sm">
+                        No projects found
+                      </div>
+                    ) : (
+                      filteredProjects.map((project) => (
+                        <button
+                          key={project.id}
+                          type="button"
+                          onClick={() => handleProjectSelect(project)}
+                          className="w-full text-left px-4 py-3 hover:bg-secondary-50 transition-colors border-b border-secondary-100 last:border-0"
+                        >
+                          <p className="font-semibold text-secondary-900">{project.name}</p>
+                          {(project.site_contact_name || project.site_contact_phone) && (
+                            <div className="mt-1 space-y-1">
+                              {project.site_contact_name && (
+                                <p className="text-xs text-secondary-600 flex items-center gap-1">
+                                  <User size={12} />
+                                  {project.site_contact_name}
+                                </p>
+                              )}
+                              {project.site_contact_phone && (
+                                <p className="text-xs text-secondary-600 flex items-center gap-1">
+                                  <Phone size={12} />
+                                  {project.site_contact_phone}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Create New Project */}
+                  {onCreateProject && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProjectDropdown(false);
+                        onCreateProject();
+                      }}
+                      className="w-full px-4 py-3 bg-primary-50 hover:bg-primary-100 transition-colors border-t-2 border-primary-200 text-primary-700 font-semibold text-sm flex items-center justify-center gap-2"
+                    >
+                      <Plus size={18} />
+                      Create New Project
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {errors.project_id && (
+                <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                  <AlertCircle size={14} />
+                  {errors.project_id.message}
+                </p>
+              )}
+            </div>
+
+            {/* Selected Project Info */}
+            {selectedProject && (
+              <div className="mt-4 bg-primary-50 border border-primary-200 rounded-lg p-4">
+                <p className="font-semibold text-primary-900 mb-2">✓ Project Selected</p>
+                {selectedProject.site_contact_name && (
+                  <p className="text-sm text-primary-700 flex items-center gap-2">
+                    <User size={14} />
+                    {selectedProject.site_contact_name}
+                  </p>
+                )}
+                {selectedProject.site_contact_phone && (
+                  <p className="text-sm text-primary-700 flex items-center gap-2 mt-1">
+                    <Phone size={14} />
+                    {selectedProject.site_contact_phone}
+                  </p>
+                )}
+                {selectedProject.site_instructions && (
+                  <p className="text-sm text-primary-700 mt-2">
+                    <span className="font-medium">Instructions:</span> {selectedProject.site_instructions}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Section 2: Delivery Details */}
+          <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin className="text-primary-600" size={22} />
+              <h3 className="font-bold text-secondary-900">Delivery Information</h3>
+            </div>
+
+            <div className="space-y-4">
+              {/* PO Number (Optional) */}
+              <Input
+                label="PO Number (Optional)"
+                placeholder="e.g., PO-2025-001"
+                {...register('po_number')}
+                error={errors.po_number?.message}
+              />
+
+              {/* Delivery Address with Google Autocomplete */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Delivery Address <span className="text-red-500">*</span>
+                </label>
+                <Autocomplete
+                  apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                  onPlaceSelected={handlePlaceSelected}
+                  options={{
+                    types: ['address'],
+                    componentRestrictions: { country: 'au' }, // Adjust country as needed
+                  }}
+                  placeholder="Start typing address..."
+                  className="w-full px-4 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20"
+                />
+                {errors.delivery_address && (
+                  <p className="text-sm text-red-600 mt-1">{errors.delivery_address.message}</p>
+                )}
+                {watchDeliveryLat && watchDeliveryLong && (
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    ✓ Location confirmed
+                  </p>
+                )}
+              </div>
+
+              {/* Date & Time Row */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    <Calendar size={16} className="inline mr-1" />
+                    Delivery Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    {...register('delivery_date')}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none"
+                  />
+                  {errors.delivery_date && (
+                    <p className="text-sm text-red-600 mt-1">{errors.delivery_date.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    <Clock size={16} className="inline mr-1" />
+                    Preferred Time (Optional)
+                  </label>
+                  <input
+                    type="time"
+                    {...register('delivery_time')}
+                    className="w-full px-4 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none"
+                  />
+                  {errors.delivery_time && (
+                    <p className="text-sm text-red-600 mt-1">{errors.delivery_time.message}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Delivery Method */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  <Truck size={16} className="inline mr-1" />
+                  Delivery Method <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {deliveryMethods.map((method) => (
+                    <label
+                      key={method}
+                      className="relative flex items-center justify-center px-4 py-3 rounded-lg border-2 cursor-pointer transition-all hover:border-primary-300"
+                    >
+                      <input
+                        type="radio"
+                        value={method}
+                        {...register('delivery_method')}
+                        className="sr-only peer"
+                      />
+                      <span className="text-sm font-medium text-secondary-700 peer-checked:text-primary-700">
+                        {method}
+                      </span>
+                      <div className="absolute inset-0 rounded-lg border-2 border-transparent peer-checked:border-primary-600 peer-checked:bg-primary-50 pointer-events-none" />
+                    </label>
+                  ))}
+                </div>
+                {errors.delivery_method && (
+                  <p className="text-sm text-red-600 mt-1">{errors.delivery_method.message}</p>
+                )}
+              </div>
+
+              {/* Load Size & Special Equipment */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <Input
+                  label="Load Size (Optional)"
+                  placeholder="e.g., 6m³"
+                  {...register('load_size')}
+                  error={errors.load_size?.message}
+                />
+                <Input
+                  label="Special Equipment (Optional)"
+                  placeholder="e.g., Extension chute"
+                  {...register('special_equipment')}
+                  error={errors.special_equipment?.message}
+                />
+              </div>
+
+              {/* Special Notes */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Special Instructions (Optional)
+                </label>
+                <textarea
+                  {...register('special_notes')}
+                  rows={3}
+                  placeholder="Any special instructions or notes..."
+                  className="w-full px-4 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20"
+                />
+                {errors.special_notes && (
+                  <p className="text-sm text-red-600 mt-1">{errors.special_notes.message}</p>
+                )}
+              </div>
+
+              {/* Repeat Order Checkbox */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  {...register('repeat_order')}
+                  id="repeat_order"
+                  className="w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
+                />
+                <label htmlFor="repeat_order" className="text-sm text-secondary-700">
+                  Mark as repeat order (for faster reordering in future)
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <Button type="button" variant="outline" onClick={onBack} fullWidth={false} className="px-8">
+              ← Back
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isSubmitting}
+              disabled={isSubmitting}
+              fullWidth
+              className="py-3 text-base font-semibold"
+            >
+              {isSubmitting ? 'Processing...' : 'Review Order →'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </form>
+  );
+};
+
+export default Step2_ProjectDelivery;
+/* FILE: src/components/order/Step3_ReviewOrder.tsx */
+// src/components/order/Step3_ReviewOrder.tsx
+/**
+ * STEP 3: REVIEW ORDER
+ * 
+ * Final review screen before order submission
+ * - Shows complete order summary
+ * - Displays all cart items
+ * - Shows project and delivery details
+ * - Confirms pricing note
+ * - Has final "Place Order" button
+ */
+
+import React from 'react';
+import { 
+  Package, 
+  MapPin, 
+  Calendar, 
+  Clock, 
+  Truck, 
+  FileText, 
+  Building2,
+  User,
+  Phone,
+  Edit,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react';
+import type { CartItem, Project } from '../../types/order.types';
+import type { OrderFormValues } from '../../utils/validators';
+import Button from '../common/Buttons';
+
+interface Step3Props {
+  cartItems: CartItem[];
+  orderDetails: OrderFormValues;
+  selectedProject: Project | null;
+  onBack: () => void;
+  onConfirm: () => void;
+  isSubmitting: boolean;
+}
+
+const Step3_ReviewOrder: React.FC<Step3Props> = ({
+  cartItems,
+  orderDetails,
+  selectedProject,
+  onBack,
+  onConfirm,
+  isSubmitting,
+}) => {
+  const getImageUrl = (photo: string) => {
+    return photo.startsWith('http')
+      ? photo
+      : `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '/storage')}/${photo}`;
+  };
+
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  const deliveryMethods: Record<string, string> = {
+    Other: 'Other',
+    Tipper: '🚛 Tipper',
+    Agitator: '🔄 Agitator',
+    Pump: '⚙️ Pump',
+    Ute: '🚐 Ute',
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200 rounded-xl p-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+            <CheckCircle2 className="text-white" size={28} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-secondary-900">Review Your Order</h2>
+            <p className="text-secondary-600">Please review all details before placing your order</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* LEFT COLUMN: Order Items */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* Cart Items */}
+          <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Package className="text-primary-600" size={24} />
+                <h3 className="font-bold text-secondary-900">Order Items</h3>
+              </div>
+              <span className="text-sm font-semibold text-primary-600 bg-primary-50 px-3 py-1 rounded-full">
+                {totalItems} item{totalItems !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {cartItems.map((item) => (
+                <div
+                  key={item.product_id}
+                  className="flex items-start gap-4 p-4 bg-secondary-50 rounded-lg border border-secondary-200"
+                >
+                  {/* Product Image */}
+                  <div className="w-20 h-20 rounded-lg overflow-hidden bg-white flex-shrink-0 border border-secondary-200">
+                    <img
+                      src={getImageUrl(item.product_photo)}
+                      alt={item.product_name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZTVlN2ViIi8+PC9zdmc+';
+                      }}
+                    />
+                  </div>
+
+                  {/* Product Details */}
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-secondary-900">{item.product_name}</h4>
+                    <p className="text-sm text-secondary-600 mt-1">{item.product_type}</p>
+                    
+                    <div className="flex items-center gap-4 mt-2">
+                      <div className="text-sm">
+                        <span className="text-secondary-600">Quantity:</span>
+                        <span className="font-semibold text-secondary-900 ml-2">
+                          {item.quantity} {item.unit_of_measure}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Custom Blend */}
+                    {item.custom_blend_mix && (
+                      <div className="mt-2 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                        <p className="text-xs font-semibold text-amber-900">Custom Blend Mix:</p>
+                        <p className="text-sm text-amber-800">{item.custom_blend_mix}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Project Details */}
+          {selectedProject && (
+            <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Building2 className="text-primary-600" size={24} />
+                <h3 className="font-bold text-secondary-900">Project Information</h3>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="font-semibold text-blue-900 mb-3">{selectedProject.name}</p>
+                
+                <div className="space-y-2">
+                  {selectedProject.site_contact_name && (
+                    <div className="flex items-center gap-2 text-sm text-blue-800">
+                      <User size={16} />
+                      <span>{selectedProject.site_contact_name}</span>
+                    </div>
+                  )}
+                  
+                  {selectedProject.site_contact_phone && (
+                    <div className="flex items-center gap-2 text-sm text-blue-800">
+                      <Phone size={16} />
+                      <span>{selectedProject.site_contact_phone}</span>
+                    </div>
+                  )}
+                  
+                  {selectedProject.site_instructions && (
+                    <div className="mt-3 pt-3 border-t border-blue-300">
+                      <p className="text-xs font-semibold text-blue-900 mb-1">Site Instructions:</p>
+                      <p className="text-sm text-blue-800">{selectedProject.site_instructions}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Delivery Details */}
+          <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Truck className="text-primary-600" size={24} />
+              <h3 className="font-bold text-secondary-900">Delivery Information</h3>
+            </div>
+
+            <div className="space-y-4">
+              {/* PO Number */}
+              {orderDetails.po_number && (
+                <div className="flex items-start gap-3">
+                  <FileText className="text-secondary-500 flex-shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <p className="text-sm font-medium text-secondary-600">PO Number</p>
+                    <p className="text-base font-semibold text-secondary-900">{orderDetails.po_number}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Address */}
+              <div className="flex items-start gap-3">
+                <MapPin className="text-secondary-500 flex-shrink-0 mt-0.5" size={18} />
+                <div>
+                  <p className="text-sm font-medium text-secondary-600">Delivery Address</p>
+                  <p className="text-base text-secondary-900">{orderDetails.delivery_address}</p>
+                </div>
+              </div>
+
+              {/* Date & Time */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3">
+                  <Calendar className="text-secondary-500 flex-shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <p className="text-sm font-medium text-secondary-600">Delivery Date</p>
+                    <p className="text-base font-semibold text-secondary-900">
+                      {new Date(orderDetails.delivery_date).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                </div>
+
+                {orderDetails.delivery_time && (
+                  <div className="flex items-start gap-3">
+                    <Clock className="text-secondary-500 flex-shrink-0 mt-0.5" size={18} />
+                    <div>
+                      <p className="text-sm font-medium text-secondary-600">Preferred Time</p>
+                      <p className="text-base font-semibold text-secondary-900">{orderDetails.delivery_time}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Delivery Method */}
+              <div className="flex items-start gap-3">
+                <Truck className="text-secondary-500 flex-shrink-0 mt-0.5" size={18} />
+                <div>
+                  <p className="text-sm font-medium text-secondary-600">Delivery Method</p>
+                  <p className="text-base font-semibold text-secondary-900">
+                    {deliveryMethods[orderDetails.delivery_method] || orderDetails.delivery_method}
+                  </p>
+                </div>
+              </div>
+
+              {/* Load Size */}
+              {orderDetails.load_size && (
+                <div className="flex items-start gap-3">
+                  <Package className="text-secondary-500 flex-shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <p className="text-sm font-medium text-secondary-600">Load Size</p>
+                    <p className="text-base text-secondary-900">{orderDetails.load_size}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Special Equipment */}
+              {orderDetails.special_equipment && (
+                <div className="flex items-start gap-3">
+                  <FileText className="text-secondary-500 flex-shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <p className="text-sm font-medium text-secondary-600">Special Equipment</p>
+                    <p className="text-base text-secondary-900">{orderDetails.special_equipment}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Special Notes */}
+              {orderDetails.special_notes && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-amber-900 mb-1">Special Instructions:</p>
+                  <p className="text-sm text-amber-800">{orderDetails.special_notes}</p>
+                </div>
+              )}
+
+              {/* Repeat Order Flag */}
+              {orderDetails.repeat_order && (
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                  <CheckCircle2 size={16} />
+                  <span className="font-medium">Marked as repeat order</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Summary & Actions */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-6 space-y-4">
+            
+            {/* Order Summary Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+              <h3 className="font-bold text-secondary-900 mb-4">Order Summary</h3>
+              
+              <div className="space-y-3 mb-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-secondary-600">Total Items:</span>
+                  <span className="font-semibold text-secondary-900">{totalItems}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-secondary-600">Products:</span>
+                  <span className="font-semibold text-secondary-900">{cartItems.length}</span>
+                </div>
+              </div>
+
+              {/* Pricing Note */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-2 mb-2">
+                  <AlertCircle className="text-blue-600 flex-shrink-0 mt-0.5" size={18} />
+                  <p className="text-sm font-semibold text-blue-900">Pricing Information</p>
+                </div>
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  Final pricing will be calculated after order placement based on delivery location and supplier 
+                  availability. You'll receive a detailed invoice within 20 minutes of order confirmation.
+                </p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <Button
+                onClick={onConfirm}
+                variant="primary"
+                isLoading={isSubmitting}
+                disabled={isSubmitting}
+                fullWidth
+                className="py-4 text-lg font-bold shadow-lg hover:shadow-xl"
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="animate-spin mr-2">⚙️</span>
+                    Placing Order...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={24} className="mr-2" />
+                    Place Order
+                  </>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onBack}
+                disabled={isSubmitting}
+                fullWidth
+                className="py-3"
+              >
+                <Edit size={18} className="mr-2" />
+                Edit Order Details
+              </Button>
+            </div>
+
+            {/* Confirmation Note */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-xs text-green-800 leading-relaxed">
+                ✅ By placing this order, you confirm that all details are correct and agree to receive 
+                pricing and delivery confirmation via email.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Step3_ReviewOrder;
 /* FILE: src/components/profile/ChangePasswordSection.tsx */
 // src/components/profile/ChangePasswordSection.tsx
 import { useState } from 'react';
@@ -5097,6 +6187,701 @@ const EditOfferModal = ({ isOpen, onClose, product, offer }: EditOfferModalProps
 };
 
 export default EditOfferModal;
+/* FILE: src/components/supplier/OrderFilters.tsx */
+// src/components/supplier/OrderFilters.tsx
+
+import React from 'react';
+import { Search, X } from 'lucide-react';
+import type { ProductFilter } from '../../api/handlers/supplierOrders.api';
+
+interface OrderFiltersProps {
+  filters: {
+    search: string;
+    product_id: string;
+    supplier_confirms: string;
+    supplier_delivery_date: string;
+  };
+  onFilterChange: (key: string, value: string) => void;
+  onClearFilters: () => void;
+  products: ProductFilter[];
+}
+
+const OrderFilters: React.FC<OrderFiltersProps> = ({
+  filters,
+  onFilterChange,
+  onClearFilters,
+  products,
+}) => {
+  const hasActiveFilters =
+    filters.search ||
+    filters.product_id ||
+    filters.supplier_confirms !== '' ||
+    filters.supplier_delivery_date;
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Search Input */}
+        <div className="relative">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Search Product
+          </label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              value={filters.search}
+              onChange={(e) => onFilterChange('search', e.target.value)}
+              placeholder="Search by product name..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        {/* Product Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Product
+          </label>
+          <select
+            value={filters.product_id}
+            onChange={(e) => onFilterChange('product_id', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">All Products</option>
+            {products?.map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.product_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Confirmation Status Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Confirmation Status
+          </label>
+          <select
+            value={filters.supplier_confirms}
+            onChange={(e) => onFilterChange('supplier_confirms', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">All Status</option>
+            <option value="true">Confirmed</option>
+            <option value="false">Pending</option>
+          </select>
+        </div>
+
+        {/* Delivery Date Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Delivery Date
+          </label>
+          <input
+            type="date"
+            value={filters.supplier_delivery_date}
+            onChange={(e) => onFilterChange('supplier_delivery_date', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+      </div>
+
+      {/* Clear Filters Button */}
+      {hasActiveFilters && (
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={onClearFilters}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+          >
+            <X className="w-4 h-4" />
+            Clear Filters
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default OrderFilters;
+/* FILE: src/components/supplier/OrderItemEditModal.tsx */
+// src/components/supplier/OrderItemEditModal.tsx
+
+import { useState, useEffect } from 'react';
+import { X, Save } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useUpdateOrderItem } from '../../features/supplierOrders/hooks';
+import type { SupplierOrderItem } from '../../api/handlers/supplierOrders.api';
+
+interface OrderItemEditModalProps {
+  item: SupplierOrderItem | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    supplier_unit_cost: '',
+    supplier_discount: '',
+    supplier_delivery_date: '',
+    supplier_notes: '',
+    supplier_confirms: false,
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const updateMutation = useUpdateOrderItem();
+
+  useEffect(() => {
+    if (item) {
+      setFormData({
+        supplier_unit_cost: item.supplier_unit_cost || '',
+        supplier_discount: item.supplier_discount || '0',
+        supplier_delivery_date: item.supplier_delivery_date?.split('T')[0] || '',
+        supplier_notes: item.supplier_notes || '',
+        supplier_confirms: item.supplier_confirms || false,
+      });
+    }
+  }, [item]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+    
+    // Clear error for this field
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.supplier_unit_cost || parseFloat(formData.supplier_unit_cost) < 0) {
+      newErrors.supplier_unit_cost = 'Unit cost must be a positive number';
+    }
+
+    if (parseFloat(formData.supplier_discount) < 0) {
+      newErrors.supplier_discount = 'Discount cannot be negative';
+    }
+
+    if (!formData.supplier_delivery_date) {
+      newErrors.supplier_delivery_date = 'Delivery date is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validate()) {
+      toast.error('Please fix the errors before submitting');
+      return;
+    }
+
+    if (!item) return;
+
+    updateMutation.mutate(
+      {
+        orderItemId: item.id,
+        payload: {
+          supplier_unit_cost: parseFloat(formData.supplier_unit_cost),
+          supplier_discount: parseFloat(formData.supplier_discount),
+          supplier_delivery_date: formData.supplier_delivery_date,
+          supplier_notes: formData.supplier_notes,
+          supplier_confirms: formData.supplier_confirms,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success('Order item updated successfully');
+          onSuccess();
+          onClose();
+        },
+        onError: (error: Error) => {
+          toast.error(error.message || 'Failed to update order item');
+        },
+      }
+    );
+  };
+
+  if (!isOpen || !item) return null;
+
+  const calculateItemTotal = () => {
+    const unitCost = parseFloat(formData.supplier_unit_cost) || 0;
+    const discount = parseFloat(formData.supplier_discount) || 0;
+    return unitCost * item.quantity - discount;
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-900">Edit Order Item</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Product Info */}
+        <div className="p-6 bg-gray-50 border-b border-gray-200">
+          <div className="flex items-center gap-4">
+            {item.product?.photo && (
+              <img
+                src={item.product.photo}
+                alt={item.product.product_name}
+                className="w-16 h-16 object-cover rounded-lg"
+              />
+            )}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {item.product?.product_name}
+              </h3>
+              <p className="text-sm text-gray-600">
+                Quantity: {item.quantity} {item.product?.unit_of_measure}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Unit Cost */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Supplier Unit Cost <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="supplier_unit_cost"
+              value={formData.supplier_unit_cost}
+              onChange={handleChange}
+              step="0.01"
+              min="0"
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.supplier_unit_cost ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="0.00"
+            />
+            {errors.supplier_unit_cost && (
+              <p className="text-red-500 text-sm mt-1">{errors.supplier_unit_cost}</p>
+            )}
+          </div>
+
+          {/* Discount */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Discount
+            </label>
+            <input
+              type="number"
+              name="supplier_discount"
+              value={formData.supplier_discount}
+              onChange={handleChange}
+              step="0.01"
+              min="0"
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.supplier_discount ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="0.00"
+            />
+            {errors.supplier_discount && (
+              <p className="text-red-500 text-sm mt-1">{errors.supplier_discount}</p>
+            )}
+          </div>
+
+          {/* Delivery Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Delivery Date <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              name="supplier_delivery_date"
+              value={formData.supplier_delivery_date}
+              onChange={handleChange}
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.supplier_delivery_date ? 'border-red-500' : 'border-gray-300'
+              }`}
+            />
+            {errors.supplier_delivery_date && (
+              <p className="text-red-500 text-sm mt-1">{errors.supplier_delivery_date}</p>
+            )}
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              name="supplier_notes"
+              value={formData.supplier_notes}
+              onChange={handleChange}
+              rows={3}
+              maxLength={500}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Add any special notes or instructions..."
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              {formData.supplier_notes.length}/500 characters
+            </p>
+          </div>
+
+          {/* Item Total Preview */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">Item Total:</span>
+              <span className="text-lg font-bold text-blue-600">
+                ${calculateItemTotal().toFixed(2)}
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 mt-1">
+              ({item.quantity} × ${formData.supplier_unit_cost || 0}) - ${formData.supplier_discount || 0}
+            </p>
+          </div>
+
+          {/* Confirmation Checkbox */}
+          <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <input
+              type="checkbox"
+              id="supplier_confirms"
+              name="supplier_confirms"
+              checked={formData.supplier_confirms}
+              onChange={handleChange}
+              disabled={item.supplier_confirms}
+              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            <label htmlFor="supplier_confirms" className="text-sm text-gray-700">
+              <span className="font-medium">I confirm this item</span>
+              <p className="text-gray-500 mt-1">
+                {item.supplier_confirms
+                  ? 'This item has been confirmed and cannot be unconfirmed.'
+                  : 'Once confirmed, you will not be able to unconfirm this item.'}
+              </p>
+            </label>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={updateMutation.isPending}
+              className="px-6 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={updateMutation.isPending}
+              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {updateMutation.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Save Changes
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default OrderItemEditModal;
+/* FILE: src/components/supplier/OrderMetricsCards.tsx */
+// src/components/supplier/OrderMetricsCards.tsx
+
+import React from 'react';
+import { Package, CheckCircle, Clock, Truck } from 'lucide-react';
+import type { OrderMetrics } from '../../api/handlers/supplierOrders.api';
+
+interface OrderMetricsCardsProps {
+  metrics: OrderMetrics | null;
+  loading: boolean;
+}
+
+const OrderMetricsCards: React.FC<OrderMetricsCardsProps> = ({ metrics, loading }) => {
+  const metricsData = [
+    {
+      title: 'Total Orders',
+      value: metrics?.total_orders_count || 0,
+      icon: Package,
+      color: 'bg-blue-500',
+      bgLight: 'bg-blue-50',
+      textColor: 'text-blue-600',
+    },
+    {
+      title: 'Confirmed',
+      value: metrics?.supplier_confirmed_count || 0,
+      icon: CheckCircle,
+      color: 'bg-green-500',
+      bgLight: 'bg-green-50',
+      textColor: 'text-green-600',
+    },
+    {
+      title: 'Awaiting Payment',
+      value: metrics?.awaiting_payment_count || 0,
+      icon: Clock,
+      color: 'bg-orange-500',
+      bgLight: 'bg-orange-50',
+      textColor: 'text-orange-600',
+    },
+    {
+      title: 'Delivered',
+      value: metrics?.delivered_count || 0,
+      icon: Truck,
+      color: 'bg-purple-500',
+      bgLight: 'bg-purple-50',
+      textColor: 'text-purple-600',
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {metricsData.map((metric, index) => {
+        const Icon = metric.icon;
+        return (
+          <div
+            key={index}
+            className={`${metric.bgLight} rounded-lg p-6 border border-gray-200 transition-all hover:shadow-md`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">
+                  {metric.title}
+                </p>
+                {loading ? (
+                  <div className="h-8 w-16 bg-gray-200 animate-pulse rounded"></div>
+                ) : (
+                  <p className={`text-3xl font-bold ${metric.textColor}`}>
+                    {metric.value}
+                  </p>
+                )}
+              </div>
+              <div className={`${metric.color} p-3 rounded-full`}>
+                <Icon className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+export default OrderMetricsCards;
+/* FILE: src/components/supplier/OrdersTable.tsx */
+// src/components/supplier/OrdersTable.tsx
+
+import React from 'react';
+import { Eye, Package } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+import type { SupplierOrder } from '../../api/handlers/supplierOrders.api';
+
+interface OrdersTableProps {
+  orders: SupplierOrder[];
+  loading: boolean;
+  pagination: {
+    current_page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+  } | null;
+  onPageChange: (page: number) => void;
+}
+
+const OrdersTable: React.FC<OrdersTableProps> = ({ orders, loading, pagination, onPageChange }) => {
+  const navigate = useNavigate();
+
+  const handleViewOrder = (orderId: number) => {
+    console.log('Navigating to order:', orderId);
+    navigate(`/supplier/orders/${orderId}`);
+  };
+
+  const getStatusColor = (workflow: string) => {
+    const statusColors: Record<string, string> = {
+      'Requested': 'bg-gray-100 text-gray-800',
+      'Supplier Assigned': 'bg-blue-100 text-blue-800',
+      'Supplier Missing': 'bg-red-100 text-red-800',
+      'Payment Requested': 'bg-yellow-100 text-yellow-800',
+      'Paid': 'bg-green-100 text-green-800',
+      'In Transit': 'bg-purple-100 text-purple-800',
+      'Delivered': 'bg-green-100 text-green-800',
+    };
+    return statusColors[workflow] || 'bg-gray-100 text-gray-800';
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount || 0);
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'MMM dd, yyyy');
+    } catch {
+      return '-';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="animate-pulse">
+          <div className="h-12 bg-gray-100"></div>
+          {[...Array(5)].map((_, index) => (
+            <div key={index} className="h-16 border-t border-gray-200 bg-white"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!orders || orders.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No Orders Found</h3>
+        <p className="text-gray-500">There are no orders matching your filters.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden relative">
+      {/* Loading Overlay for Filtering - More Visible */}
+      {loading && (
+        <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+          <div className="flex flex-col items-center gap-3 bg-white p-6 rounded-lg shadow-lg">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
+            <p className="text-base font-medium text-gray-900">Loading orders...</p>
+          </div>
+        </div>
+      )}
+      
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Order Number
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Items
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Total Amount
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Created Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Action
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {orders.map((order) => (
+              <tr key={order.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-gray-900">
+                    {order.po_number}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.workflow)}`}>
+                    {order.workflow}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center text-sm text-gray-900">
+                    <Package className="w-4 h-4 mr-2 text-gray-400" />
+                    {order.supplier_items_count} {order.supplier_items_count === 1 ? 'item' : 'items'}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-gray-900">
+                    {formatCurrency(order.total_amount)}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-500">
+                    {formatDate(order.created_at)}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <button
+                    onClick={() => handleViewOrder(order.id)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    <Eye className="w-4 h-4" />
+                    View
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {pagination && pagination.last_page > 1 && (
+        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            Showing page {pagination.current_page} of {pagination.last_page}
+            <span className="ml-2 text-gray-500">
+              ({pagination.total} total orders)
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onPageChange(pagination.current_page - 1)}
+              disabled={pagination.current_page === 1}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => onPageChange(pagination.current_page + 1)}
+              disabled={pagination.current_page === pagination.last_page}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default OrdersTable;
 /* FILE: src/components/supplier/ProductCard.tsx */
 // FILE PATH: src/components/supplier/ProductCard.tsx
 import { Package, Edit, Trash2, Plus, AlertCircle, Tag, Layers, CheckCircle2 } from 'lucide-react';
@@ -5634,6 +7419,375 @@ const RequestProductModal = ({ isOpen, onClose, categories }: RequestProductModa
 };
 
 export default RequestProductModal;
+/* FILE: src/components/supplier/SupplierOrderDetail.tsx */
+// src/pages/supplier/SupplierOrderDetail.tsx
+
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  Clock,
+  Truck,
+  User,
+  Phone,
+  Mail,
+  Edit,
+  CheckCircle,
+  XCircle,
+  Package,
+  Loader2,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import { format } from 'date-fns';
+import { useSupplierOrderDetail } from '../../features/supplierOrders/hooks';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import OrderItemEditModal from '../../components/supplier/OrderItemEditModal';
+import { supplierMenuItems } from '../../utils/menuItems';
+import type { SupplierOrderItem } from '../../api/handlers/supplierOrders.api';
+
+const SupplierOrderDetail = () => {
+  const { orderId } = useParams();
+  const navigate = useNavigate();
+  
+  console.log('SupplierOrderDetail - orderId from params:', orderId);
+  
+  const { data, isLoading, refetch, error } = useSupplierOrderDetail(Number(orderId));
+  const [editingItem, setEditingItem] = useState<SupplierOrderItem | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  console.log('Order detail data:', data);
+  console.log('Loading state:', isLoading);
+  console.log('Error:', error);
+
+  const handleEditItem = (item: SupplierOrderItem) => {
+    setEditingItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleUpdateSuccess = () => {
+    refetch();
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    try {
+      // Handle ISO format with timezone
+      const date = new Date(dateString);
+      return format(date, 'MMM dd, yyyy');
+    } catch {
+      return '-';
+    }
+  };
+
+  const formatDateTime = (dateString: string, timeString?: string) => {
+    if (!dateString) return '-';
+    try {
+      const date = format(new Date(dateString), 'MMM dd, yyyy');
+      return timeString ? `${date} at ${timeString}` : date;
+    } catch {
+      return '-';
+    }
+  };
+
+  const getStatusColor = (workflow: string) => {
+    const colors: Record<string, string> = {
+      'Requested': 'bg-gray-100 text-gray-800',
+      'Supplier Assigned': 'bg-blue-100 text-blue-800',
+      'Supplier Missing': 'bg-red-100 text-red-800',
+      'Payment Requested': 'bg-yellow-100 text-yellow-800',
+      'Paid': 'bg-green-100 text-green-800',
+      'In Transit': 'bg-purple-100 text-purple-800',
+      'Delivered': 'bg-green-100 text-green-800',
+    };
+    return colors[workflow] || 'bg-gray-100 text-gray-800';
+  };
+
+  const calculateItemTotal = (item: SupplierOrderItem) => {
+    const unitCost = parseFloat(item.supplier_unit_cost);
+    const quantity = parseFloat(item.quantity);
+    const discount = parseFloat(item.supplier_discount);
+    return (unitCost * quantity) - discount;
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount || 0);
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout menuItems={supplierMenuItems}>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+            <p className="text-gray-600">Loading order details...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!data?.data) {
+    return (
+      <DashboardLayout menuItems={supplierMenuItems}>
+        <div className="text-center py-12">
+          <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Order Not Found</h3>
+          {error && (
+            <p className="text-red-600 mb-4">{(error as Error).message}</p>
+          )}
+          <p className="text-gray-600 mb-4">
+            Order ID: {orderId} | Data: {JSON.stringify(data)}
+          </p>
+          <button
+            onClick={() => navigate('/supplier/orders')}
+            className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Orders
+          </button>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const { order, supplier_items } = data.data;
+
+  return (
+    <DashboardLayout menuItems={supplierMenuItems}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => navigate('/supplier/orders')}
+            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back to Orders
+          </button>
+          <span className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(order.workflow)}`}>
+            {order.workflow}
+          </span>
+        </div>
+
+        {/* Order Header */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Order #{order.po_number || order.id}</h1>
+              <p className="text-gray-600 mt-1">Order details and your items</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Order Info */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Delivery Information */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Truck className="w-5 h-5 text-blue-600" />
+                Delivery Information
+              </h2>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Address</p>
+                    <p className="text-gray-900">{order.delivery_address || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Delivery Date</p>
+                    <p className="text-gray-900">{formatDateTime(order.delivery_date, order.delivery_time)}</p>
+                  </div>
+                </div>
+                {order.delivery_window && (
+                  <div className="flex items-start gap-3">
+                    <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Delivery Window</p>
+                      <p className="text-gray-900">{order.delivery_window}</p>
+                    </div>
+                  </div>
+                )}
+                {order.delivery_method && (
+                  <div className="flex items-start gap-3">
+                    <Truck className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Delivery Method</p>
+                      <p className="text-gray-900">{order.delivery_method}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {order.special_notes && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Special Notes</p>
+                  <p className="text-gray-600 text-sm">{order.special_notes}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Your Items */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Package className="w-5 h-5 text-blue-600" />
+                Your Items
+              </h2>
+              <div className="space-y-4">
+                {supplier_items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start gap-4">
+                      {item.product?.photo && (
+                        <img
+                          src={item.product.photo}
+                          alt={item.product.product_name}
+                          className="w-20 h-20 object-cover rounded-lg"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{item.product?.product_name}</h3>
+                            <p className="text-sm text-gray-600">
+                              Quantity: {item.quantity} {item.product?.unit_of_measure}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {item.supplier_confirms ? (
+                              <span className="flex items-center gap-1 text-green-600 text-sm">
+                                <CheckCircle className="w-4 h-4" />
+                                Confirmed
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-orange-600 text-sm">
+                                <XCircle className="w-4 h-4" />
+                                Pending
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-gray-600">Unit Cost</p>
+                            <p className="font-medium text-gray-900">{formatCurrency(item.supplier_unit_cost)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Discount</p>
+                            <p className="font-medium text-gray-900">{formatCurrency(item.supplier_discount)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Delivery Date</p>
+                            <p className="font-medium text-gray-900">{formatDate(item.supplier_delivery_date)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Item Total</p>
+                            <p className="font-bold text-blue-600">{formatCurrency(calculateItemTotal(item))}</p>
+                          </div>
+                        </div>
+                        {item.supplier_notes && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">Notes:</span> {item.supplier_notes}
+                            </p>
+                          </div>
+                        )}
+                        <div className="mt-4">
+                          <button
+                            onClick={() => handleEditItem(item)}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                          >
+                            <Edit className="w-4 h-4" />
+                            Edit Item
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Client & Project Info */}
+          <div className="space-y-6">
+            {/* Client Information */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <User className="w-5 h-5 text-blue-600" />
+                Client Information
+              </h2>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-600">Name</p>
+                  <p className="font-medium text-gray-900">{order.client?.name || 'N/A'}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-gray-400" />
+                  <p className="text-sm text-gray-900">{order.client?.email || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Project Information */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Project Information</h2>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-600">Project Name</p>
+                  <p className="font-medium text-gray-900">{order.project?.name || 'N/A'}</p>
+                </div>
+                {order.project?.site_contact_name && (
+                  <div>
+                    <p className="text-sm text-gray-600">Site Contact</p>
+                    <p className="text-gray-900">{order.project.site_contact_name}</p>
+                  </div>
+                )}
+                {order.project?.site_contact_phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <p className="text-sm text-gray-900">{order.project.site_contact_phone}</p>
+                  </div>
+                )}
+                {order.project?.site_instructions && (
+                  <div className="pt-3 border-t border-gray-200">
+                    <p className="text-sm font-medium text-gray-700 mb-1">Site Instructions</p>
+                    <p className="text-sm text-gray-600">{order.project.site_instructions}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Edit Modal */}
+      <OrderItemEditModal
+        item={editingItem}
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onSuccess={handleUpdateSuccess}
+      />
+    </DashboardLayout>
+  );
+};
+
+export default SupplierOrderDetail;
 /* FILE: src/features/components/ProjectForm.tsx */
 // --- src/features/projects/components/ProjectForm.tsx ---
 import { useForm } from 'react-hook-form';
@@ -5730,6 +7884,76 @@ export const projectSchema = z.object({
   site_instructions: z.string().optional().or(z.literal('').transform(() => undefined)),
 });
 export type ProjectFormValues = z.infer<typeof projectSchema>;
+/* FILE: src/features/supplierOrders/hooks.ts */
+// src/features/supplierOrders/hooks.ts
+
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { supplierOrdersAPI } from '../../api/handlers/supplierOrders.api';
+import type {
+  SupplierOrdersResponse,
+  OrderDetailResponse,
+  UpdateOrderItemPayload,
+  SupplierOrderFilters,
+} from '../../api/handlers/supplierOrders.api';
+import { supplierOrderKeys } from './queryKeys';
+
+/**
+ * Hook to fetch supplier orders list with filters
+ */
+export const useSupplierOrders = (filters: SupplierOrderFilters, includeDetails: boolean = false) =>
+  useQuery<SupplierOrdersResponse>({
+    queryKey: supplierOrderKeys.list(filters),
+    queryFn: () => supplierOrdersAPI.getOrders(filters, includeDetails),
+    placeholderData: keepPreviousData,
+  });
+
+/**
+ * Hook to fetch single order details
+ */
+export const useSupplierOrderDetail = (orderId?: number) => {
+  console.log('useSupplierOrderDetail called with orderId:', orderId, 'type:', typeof orderId);
+  
+  const isValidId = orderId !== undefined && !isNaN(orderId) && orderId > 0;
+  console.log('Is valid ID:', isValidId);
+  
+  return useQuery<OrderDetailResponse>({
+    queryKey: isValidId ? supplierOrderKeys.detail(orderId) : ['supplierOrders', 'detail', 'idle'],
+    queryFn: async () => {
+      console.log('Fetching order details for ID:', orderId);
+      const result = await supplierOrdersAPI.getOrderDetails(orderId!);
+      console.log('API result:', result);
+      return result;
+    },
+    enabled: isValidId,
+  });
+};
+
+/**
+ * Hook to update order item
+ */
+export const useUpdateOrderItem = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderItemId, payload }: { orderItemId: number; payload: UpdateOrderItemPayload }) =>
+      supplierOrdersAPI.updateOrderItem(orderItemId, payload),
+    onSuccess: (_, variables) => {
+      // Invalidate both list and detail queries
+      queryClient.invalidateQueries({ queryKey: supplierOrderKeys.lists() });
+      // We don't have direct access to orderId here, so invalidate all details
+      queryClient.invalidateQueries({ queryKey: supplierOrderKeys.details() });
+    },
+  });
+};
+/* FILE: src/features/supplierOrders/queryKeys.ts */
+// src/features/supplierOrders/queryKeys.ts
+
+export const supplierOrderKeys = {
+  all: ['supplierOrders'] as const,
+  lists: () => [...supplierOrderKeys.all, 'list'] as const,
+  list: (params: Record<string, unknown>) => [...supplierOrderKeys.lists(), params] as const,
+  details: () => [...supplierOrderKeys.all, 'detail'] as const,
+  detail: (id: number) => [...supplierOrderKeys.details(), id] as const,
+};
 /* FILE: src/hooks/useGoogleMaps.ts */
 // src/hooks/useGoogleMaps.ts
 import { useEffect, useState } from 'react';
@@ -5780,7 +8004,7 @@ export const useGoogleMaps = (apiKey: string): UseGoogleMapsResult => {
         setIsLoaded(true);
       });
 
-      existingScript.addEventListener('error', (e) => {
+      existingScript.addEventListener('error', () => {
         setLoadError(new Error('Failed to load Google Maps script'));
       });
 
@@ -9469,47 +11693,83 @@ const ClientDashboard = () => {
 
 export default ClientDashboard;
 /* FILE: src/pages/client/OrderCreate.tsx */
-/* FILE: src/pages/client/OrderCreate.tsx */
-// FILE PATH: src/pages/client/OrderCreate.tsx
+// src/pages/client/OrderCreate.tsx
+/**
+ * REDESIGNED ORDER CREATE PAGE - MULTI-STEP WIZARD
+ * 
+ * Architecture:
+ * - Step 1: Product Selection (with floating cart + product detail modal)
+ * - Step 2: Project & Delivery Details (smart form with auto-fill)
+ * - Step 3: Review & Confirm (order summary before submission)
+ * 
+ * Key Features:
+ * ✅ Multi-step wizard with progress indicator
+ * ✅ Product detail modal for full specifications
+ * ✅ Floating cart badge with slide-in sidebar
+ * ✅ Smart project selection with search
+ * ✅ Mobile-first responsive design
+ * ✅ LocalStorage cart persistence
+ * ✅ Professional UX matching e-commerce standards
+ */
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, X, Filter, Loader2, AlertCircle, MapPin, Phone, User, Info } from 'lucide-react';
+import { Search, X, Filter, Loader2, AlertCircle, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import OrderWizard from '../../components/order/OrderWizard';
 import ProductCard from '../../components/order/ProductCard';
-import ShoppingCartComponent from '../../components/order/ShoppingCart';
-import OrderFormComponent from '../../components/order/ORderForm';
+import ProductDetailModal from '../../components/order/ProductDetailModal';
+import FloatingCartBadge from '../../components/order/FloatingCartBadge';
+import Step2_ProjectDelivery from '../../components/order/Step2_ProjectDelivery';
+import Step3_ReviewOrder from '../../components/order/Step3_ReviewOrder';
 import Button from '../../components/common/Buttons';
 import { ordersAPI } from '../../api/handlers/orders.api';
 import { projectsAPI } from '../../api/handlers/projects.api';
 import { cartUtils } from '../../utils/cartUtils';
-import { CartItem, Product, Project } from '../../types/order.types';
-import { OrderFormValues } from '../../utils/validators';
+import type { CartItem, Product, Project } from '../../types/order.types';
+import type { OrderFormValues } from '../../utils/validators';
 import { clientMenuItems } from '../../utils/menuItems';
-import { Package } from 'lucide-react';
 
 const OrderCreate = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // State Management
+  // Wizard State
+  const [currentStep, setCurrentStep] = useState(1);
+  
+  // Step 2 & 3 State
+  const [orderFormData, setOrderFormData] = useState<OrderFormValues | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
+  // Product Selection State
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [showOrderForm, setShowOrderForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
+  // Product Detail Modal
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [showProductModal, setShowProductModal] = useState(false);
 
   // Load cart from localStorage on mount
   useEffect(() => {
     setCartItems(cartUtils.getCart());
   }, []);
 
-  // Fetch Products with search and pagination
+  // ==================== DATA FETCHING ====================
+
+  // Fetch Categories
+  const { data: categoriesData } = useQuery({
+    queryKey: ['product-categories'],
+    queryFn: () => ordersAPI.getCategories(),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  // Fetch Products
   const { data: productsData, isLoading: loadingProducts, error: productsError } = useQuery({
     queryKey: ['client-products', currentPage, searchTerm, selectedCategory],
     queryFn: () => ordersAPI.getClientProducts({
@@ -9518,24 +11778,27 @@ const OrderCreate = () => {
       search: searchTerm || undefined,
       category: selectedCategory,
     }),
+    enabled: currentStep === 1, // Only fetch when on product selection step
   });
 
   // Fetch Projects
-  const { data: projectsData, isLoading: loadingProjects } = useQuery({
+  const { data: projectsData } = useQuery({
     queryKey: ['client-projects'],
     queryFn: () => projectsAPI.list({}),
+    enabled: currentStep === 2, // Only fetch when on project/delivery step
   });
 
   // Create Order Mutation
   const createOrderMutation = useMutation({
     mutationFn: ordersAPI.createOrder,
-    onSuccess: (response) => {
+    onSuccess: () => {
       toast.success('✅ Order created successfully!');
       cartUtils.clearCart();
       setCartItems([]);
-      setSelectedProject(null);
       queryClient.invalidateQueries({ queryKey: ['client-orders'] });
-      navigate(`/client/orders/${response.order.id}`);
+      
+      // Redirect to dashboard
+      navigate('/client/dashboard');
     },
     onError: (error: any) => {
       const errorMsg = error?.response?.data?.message || error?.message || 'Failed to create order';
@@ -9543,12 +11806,8 @@ const OrderCreate = () => {
     },
   });
 
-  // Get unique categories from products
-  const categories = Array.from(
-    new Set(productsData?.data.map(p => JSON.stringify({ id: p.category.id, name: p.category.name })))
-  ).map(c => JSON.parse(c));
+  // ==================== CART ACTIONS ====================
 
-  // Cart Actions
   const handleAddToCart = (product: Product) => {
     const updated = cartUtils.addItem({
       id: product.id,
@@ -9566,41 +11825,53 @@ const OrderCreate = () => {
     setCartItems(updated);
   };
 
-  const handleUpdateCustomBlend = (productId: number, blend: string) => {
-    const updated = cartUtils.updateCustomBlend(productId, blend);
-    setCartItems(updated);
-  };
-
   const handleRemoveItem = (productId: number) => {
     const updated = cartUtils.removeItem(productId);
     setCartItems(updated);
     toast.success('Item removed from cart');
   };
 
-  const handleClearCart = () => {
-    if (window.confirm('Are you sure you want to clear your cart?')) {
-      cartUtils.clearCart();
-      setCartItems([]);
-      toast.success('Cart cleared');
-    }
-  };
+  
 
-  const handleProceedToOrder = () => {
+  // ==================== WIZARD NAVIGATION ====================
+
+  const handleProceedToStep2 = () => {
     if (cartItems.length === 0) {
-      toast.error('Your cart is empty');
+      toast.error('Your cart is empty. Please add some products.');
       return;
     }
-    setShowOrderForm(true);
+    setCurrentStep(2);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleBackToProducts = () => {
-    setShowOrderForm(false);
+  const handleBackToStep1 = () => {
+    setCurrentStep(1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleOrderSubmit = (formData: OrderFormValues) => {
+  const handleBackToStep2 = () => {
+    setCurrentStep(2);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleStep2Submit = (formData: OrderFormValues) => {
+    // Save form data and move to review step (Step 3)
+    setOrderFormData(formData);
+    
+    // Find and save selected project
+    const project = projects.find(p => p.id === formData.project_id);
+    setSelectedProject(project || null);
+    
+    // Move to Step 3 (Review)
+    setCurrentStep(3);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleFinalOrderSubmit = () => {
+    if (!orderFormData) return;
+    
     const orderPayload = {
-      ...formData,
+      ...orderFormData,
       items: cartItems.map(item => ({
         product_id: item.product_id,
         quantity: item.quantity,
@@ -9610,317 +11881,273 @@ const OrderCreate = () => {
     createOrderMutation.mutate(orderPayload);
   };
 
-  // Handle category filter
+  // ==================== FILTERS ====================
+
   const handleCategorySelect = (categoryId: number | undefined) => {
     setSelectedCategory(categoryId);
     setCurrentPage(1);
     setShowCategoryDropdown(false);
   };
 
-  // Handle project selection
-  const handleProjectSelect = (projectId: number) => {
-    const project = projectsData?.data.find(p => p.id === projectId);
-    setSelectedProject(project || null);
+  // ==================== PRODUCT MODAL ====================
+
+  const handleViewProductDetails = (product: Product) => {
+    setSelectedProduct(product);
+    setShowProductModal(true);
   };
+
+  const handleCloseProductModal = () => {
+    setShowProductModal(false);
+    setSelectedProduct(null);
+  };
+
+  // ==================== DATA PREPARATION ====================
 
   const products = productsData?.data || [];
   const meta = productsData?.meta;
   const projects = projectsData?.data || [];
+
+  // Get categories from API
+  const categories = categoriesData?.data || [];
+
+  const totalCartItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  // ==================== RENDER ====================
 
   return (
     <DashboardLayout menuItems={clientMenuItems}>
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-secondary-900">
-            {showOrderForm ? 'Complete Order' : 'Create Order'}
-          </h1>
+          <h1 className="text-3xl font-bold text-secondary-900">Create Order</h1>
           <p className="text-secondary-600 mt-1">
-            {showOrderForm
-              ? 'Fill in the delivery details to submit your order'
-              : 'Browse products and add them to your cart'}
+            {currentStep === 1 && 'Select products and add them to your cart'}
+            {currentStep === 2 && 'Enter project and delivery details'}
+            {currentStep === 3 && 'Review your order before final submission'}
           </p>
         </div>
 
-        {!showOrderForm ? (
-          <>
-            {/* Search & Filters Section */}
-            <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                {/* Search Input */}
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
-                  <input
-                    type="text"
-                    placeholder="Search products by name or type..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="w-full pl-10 pr-10 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none transition-colors"
-                  />
-                  {searchTerm && (
-                    <button
-                      onClick={() => {
-                        setSearchTerm('');
+        {/* Wizard Progress */}
+        <OrderWizard currentStep={currentStep} onStepChange={setCurrentStep}>
+          
+          {/* ==================== STEP 1: PRODUCT SELECTION ==================== */}
+          {currentStep === 1 && (
+            <div className="space-y-6">
+              {/* Search & Filters */}
+              <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+                <div className="flex flex-col md:flex-row gap-4">
+                  {/* Search Input */}
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                    <input
+                      type="text"
+                      placeholder="Search products by name or type..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600 transition-colors"
-                    >
-                      <X size={20} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Category Filter Dropdown */}
-                <div className="relative">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                    className="w-full md:w-auto"
-                  >
-                    <Filter size={18} />
-                    {selectedCategory 
-                      ? categories.find(c => c.id === selectedCategory)?.name 
-                      : 'All Categories'}
-                  </Button>
-
-                  {showCategoryDropdown && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white border border-secondary-200 rounded-lg shadow-lg z-50">
+                      className="w-full pl-10 pr-10 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none transition-colors"
+                    />
+                    {searchTerm && (
                       <button
-                        onClick={() => handleCategorySelect(undefined)}
-                        className={`w-full text-left px-4 py-2 hover:bg-secondary-50 transition-colors ${
-                          !selectedCategory ? 'bg-primary-50 text-primary-700 font-medium' : ''
-                        }`}
+                        onClick={() => {
+                          setSearchTerm('');
+                          setCurrentPage(1);
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600 transition-colors"
                       >
-                        All Categories
+                        <X size={20} />
                       </button>
-                      {categories.map((category) => (
+                    )}
+                  </div>
+
+                  {/* Category Filter Dropdown */}
+                  <div className="relative">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                      className="w-full md:w-auto"
+                    >
+                      <Filter size={18} />
+                      {selectedCategory 
+                        ? categories.find(c => c.id === selectedCategory)?.name 
+                        : 'All Categories'}
+                    </Button>
+
+                    {showCategoryDropdown && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white border border-secondary-200 rounded-lg shadow-lg z-50">
                         <button
-                          key={category.id}
-                          onClick={() => handleCategorySelect(category.id)}
+                          onClick={() => handleCategorySelect(undefined)}
                           className={`w-full text-left px-4 py-2 hover:bg-secondary-50 transition-colors ${
-                            selectedCategory === category.id ? 'bg-primary-50 text-primary-700 font-medium' : ''
+                            !selectedCategory ? 'bg-primary-50 text-primary-700 font-semibold' : ''
                           }`}
                         >
-                          {category.name}
+                          All Categories
                         </button>
-                      ))}
-                    </div>
-                  )}
+                        {categories.map((category) => (
+                          <button
+                            key={category.id}
+                            onClick={() => handleCategorySelect(category.id)}
+                            className={`w-full text-left px-4 py-2 hover:bg-secondary-50 transition-colors border-t border-secondary-100 ${
+                              selectedCategory === category.id ? 'bg-primary-50 text-primary-700 font-semibold' : ''
+                            }`}
+                          >
+                            {category.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Active Filters */}
-              {(searchTerm || selectedCategory) && (
-                <div className="flex items-center gap-2 mt-4">
-                  <span className="text-sm text-secondary-600">Active filters:</span>
-                  {searchTerm && (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm">
-                      Search: "{searchTerm}"
-                      <X
-                        size={14}
-                        className="cursor-pointer hover:text-primary-900"
-                        onClick={() => setSearchTerm('')}
-                      />
-                    </span>
-                  )}
-                  {selectedCategory && (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm">
-                      {categories.find(c => c.id === selectedCategory)?.name}
-                      <X
-                        size={14}
-                        className="cursor-pointer hover:text-primary-900"
-                        onClick={() => setSelectedCategory(undefined)}
-                      />
-                    </span>
-                  )}
+              {/* Products Grid */}
+              {loadingProducts ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <Loader2 className="animate-spin text-primary-600 mb-4" size={48} />
+                  <p className="text-secondary-600">Loading products...</p>
                 </div>
-              )}
-            </div>
-
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Products Section */}
-              <div className="lg:col-span-3 space-y-6">
-                {loadingProducts ? (
-                  <div className="flex items-center justify-center py-20">
-                    <Loader2 className="animate-spin text-primary-600" size={48} />
-                  </div>
-                ) : productsError ? (
-                  <div className="bg-error-50 border border-error-200 rounded-xl p-8 text-center">
-                    <AlertCircle className="mx-auto text-error-500 mb-3" size={48} />
-                    <h3 className="text-lg font-semibold text-error-900 mb-2">Failed to load products</h3>
-                    <p className="text-error-700">Please try again later.</p>
-                  </div>
-                ) : products.length === 0 ? (
-                  <div className="bg-secondary-50 border border-secondary-200 rounded-xl p-12 text-center">
-                    <Package className="mx-auto text-secondary-400 mb-4" size={64} />
-                    <h3 className="text-xl font-semibold text-secondary-900 mb-2">No products found</h3>
-                    <p className="text-secondary-600 mb-4">
-                      {searchTerm || selectedCategory
-                        ? 'Try adjusting your filters'
-                        : 'No products available at the moment'}
+              ) : productsError ? (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-6 flex items-center gap-3">
+                  <AlertCircle className="text-red-600 flex-shrink-0" size={24} />
+                  <div>
+                    <p className="font-semibold text-red-900">Failed to load products</p>
+                    <p className="text-sm text-red-700 mt-1">
+                      {(productsError as any)?.message || 'Please try refreshing the page'}
                     </p>
+                  </div>
+                </div>
+              ) : products.length === 0 ? (
+                <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-12">
+                  <div className="text-center space-y-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-secondary-100 rounded-full">
+                      <Package className="text-secondary-400" size={32} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-secondary-900">No products found</h3>
+                      <p className="text-sm text-secondary-600 mt-1">
+                        {searchTerm || selectedCategory 
+                          ? 'Try adjusting your search or filters' 
+                          : 'No products available at the moment'}
+                      </p>
+                    </div>
                     {(searchTerm || selectedCategory) && (
                       <Button
-                        variant="outline"
                         onClick={() => {
                           setSearchTerm('');
                           setSelectedCategory(undefined);
-                          setCurrentPage(1);
                         }}
+                        variant="outline"
                       >
                         Clear Filters
                       </Button>
                     )}
                   </div>
-                ) : (
-                  <>
-                    {/* Results Count */}
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-secondary-600">
-                        Showing <span className="font-semibold">{products.length}</span> of{' '}
-                        <span className="font-semibold">{meta?.total || 0}</span> products
-                      </p>
-                    </div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {products.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        isInCart={cartUtils.isInCart(product.id)}
+                        onAddToCart={handleAddToCart}
+                        onViewDetails={handleViewProductDetails}
+                      />
+                    ))}
+                  </div>
 
-                    {/* Product Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                      {products.map((product) => (
-                        <ProductCard
-                          key={product.id}
-                          product={product}
-                          isInCart={cartUtils.isInCart(product.id)}
-                          onAddToCart={handleAddToCart}
-                        />
-                      ))}
-                    </div>
-
-                    {/* Pagination */}
-                    {meta && meta.last_page > 1 && (
-                      <div className="flex items-center justify-center gap-3 pt-4">
+                  {/* Pagination */}
+                  {meta && meta.last_page > 1 && (
+                    <div className="flex justify-center mt-8">
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                           disabled={currentPage === 1}
-                          size="sm"
                         >
                           Previous
                         </Button>
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: Math.min(5, meta.last_page) }, (_, i) => {
-                            const page = i + 1;
-                            return (
-                              <button
-                                key={page}
-                                onClick={() => setCurrentPage(page)}
-                                className={`px-3 py-1 rounded ${
-                                  currentPage === page
-                                    ? 'bg-primary-600 text-white'
-                                    : 'bg-white border border-secondary-200 text-secondary-700 hover:bg-secondary-50'
-                                }`}
-                              >
-                                {page}
-                              </button>
-                            );
-                          })}
-                        </div>
+                        <span className="px-4 py-2 text-sm text-secondary-600">
+                          Page {currentPage} of {meta.last_page}
+                        </span>
                         <Button
                           variant="outline"
-                          onClick={() => setCurrentPage((p) => Math.min(meta.last_page, p + 1))}
+                          onClick={() => setCurrentPage(prev => Math.min(meta.last_page, prev + 1))}
                           disabled={currentPage === meta.last_page}
-                          size="sm"
                         >
                           Next
                         </Button>
                       </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Cart Section */}
-              <div className="lg:col-span-1">
-                <ShoppingCartComponent
-                  items={cartItems}
-                  onUpdateQuantity={handleUpdateQuantity}
-                  onRemoveItem={handleRemoveItem}
-                  onClearCart={handleClearCart}
-                  onProceedToOrder={handleProceedToOrder}
-                />
-              </div>
-            </div>
-          </>
-        ) : (
-          /* Order Form View */
-          <div className="max-w-5xl mx-auto">
-            {loadingProjects ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="animate-spin text-primary-600" size={48} />
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Project Selection Card */}
-                <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
-                  <h3 className="text-lg font-semibold text-secondary-900 mb-4">Select Project</h3>
-                  <select
-                    value={selectedProject?.id || ''}
-                    onChange={(e) => handleProjectSelect(Number(e.target.value))}
-                    className="w-full px-4 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none"
-                  >
-                    <option value="">Choose a project...</option>
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Selected Project Details */}
-                  {selectedProject && (
-                    <div className="mt-4 p-4 bg-primary-50 border border-primary-200 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <Info className="text-primary-600 flex-shrink-0 mt-0.5" size={20} />
-                        <div className="space-y-2 text-sm">
-                          <p className="font-semibold text-primary-900">{selectedProject.name}</p>
-                          {selectedProject.site_contact_name && (
-                            <p className="text-primary-700 flex items-center gap-2">
-                              <User size={14} />
-                              {selectedProject.site_contact_name}
-                            </p>
-                          )}
-                          {selectedProject.site_contact_phone && (
-                            <p className="text-primary-700 flex items-center gap-2">
-                              <Phone size={14} />
-                              {selectedProject.site_contact_phone}
-                            </p>
-                          )}
-                          {selectedProject.site_instructions && (
-                            <p className="text-primary-700">
-                              <span className="font-medium">Instructions:</span> {selectedProject.site_instructions}
-                            </p>
-                          )}
-                        </div>
-                      </div>
                     </div>
                   )}
-                </div>
+                </>
+              )}
 
-                {/* Order Form */}
-                <OrderFormComponent
-                  cartItems={cartItems}
-                  projects={projects}
-                  isSubmitting={createOrderMutation.isPending}
-                  onSubmit={handleOrderSubmit}
-                  onBack={handleBackToProducts}
-                  onUpdateCustomBlend={handleUpdateCustomBlend}
-                />
-              </div>
-            )}
-          </div>
+              {/* Proceed to Next Step Button (Fixed at bottom on mobile) */}
+              {cartItems.length > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 lg:relative bg-white border-t border-secondary-200 p-4 shadow-xl lg:shadow-none z-30">
+                  <div className="max-w-7xl mx-auto">
+                    <Button
+                      onClick={handleProceedToStep2}
+                      variant="primary"
+                      fullWidth
+                      className="py-4 text-lg font-semibold"
+                    >
+                      Continue to Delivery Details ({totalCartItems} items) →
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==================== STEP 2: PROJECT & DELIVERY ==================== */}
+          {currentStep === 2 && (
+            <Step2_ProjectDelivery
+              cartItems={cartItems}
+              projects={projects}
+              onSubmit={handleStep2Submit}
+              onBack={handleBackToStep1}
+              isSubmitting={false}
+            />
+          )}
+
+          {/* ==================== STEP 3: REVIEW ORDER ==================== */}
+          {currentStep === 3 && orderFormData && (
+            <Step3_ReviewOrder
+              cartItems={cartItems}
+              orderDetails={orderFormData}
+              selectedProject={selectedProject}
+              onBack={handleBackToStep2}
+              onConfirm={handleFinalOrderSubmit}
+              isSubmitting={createOrderMutation.isPending}
+            />
+          )}
+
+        </OrderWizard>
+
+        {/* Floating Cart Badge (Only on Step 1) */}
+        {currentStep === 1 && (
+          <FloatingCartBadge
+            itemCount={totalCartItems}
+            cartItems={cartItems}
+            onUpdateQuantity={handleUpdateQuantity}
+            onRemoveItem={handleRemoveItem}
+            onProceedToCheckout={handleProceedToStep2}
+          />
         )}
+
+        {/* Product Detail Modal */}
+        <ProductDetailModal
+          isOpen={showProductModal}
+          onClose={handleCloseProductModal}
+          product={selectedProduct}
+          isInCart={selectedProduct ? cartUtils.isInCart(selectedProduct.id) : false}
+          onAddToCart={handleAddToCart}
+        />
       </div>
     </DashboardLayout>
   );
@@ -12602,6 +14829,513 @@ const ProductManagement = () => {
 };
 
 export default ProductManagement;
+/* FILE: src/pages/supplier/SupplierOrderDetail.tsx */
+// src/pages/supplier/SupplierOrderDetail.tsx
+
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  Clock,
+  Truck,
+  User,
+  Phone,
+  Mail,
+  Edit,
+  CheckCircle,
+  XCircle,
+  Package,
+  Loader2,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import { format } from 'date-fns';
+import { useSupplierOrderDetail } from '../../features/supplierOrders/hooks';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import OrderItemEditModal from '../../components/supplier/OrderItemEditModal';
+import { supplierMenuItems } from '../../utils/menuItems';
+import type { SupplierOrderItem } from '../../api/handlers/supplierOrders.api';
+
+const SupplierOrderDetail = () => {
+  const { orderId } = useParams<{ orderId: string }>();
+  const navigate = useNavigate();
+  
+  // Parse orderId properly - useParams returns string
+  const orderIdNumber = orderId ? parseInt(orderId, 10) : undefined;
+  
+  console.log('SupplierOrderDetail - orderId from params (string):', orderId);
+  console.log('SupplierOrderDetail - parsed to number:', orderIdNumber);
+  
+  const { data, isLoading, refetch, error } = useSupplierOrderDetail(orderIdNumber);
+  const [editingItem, setEditingItem] = useState<SupplierOrderItem | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  console.log('Order detail data:', data);
+  console.log('Loading state:', isLoading);
+  console.log('Error:', error);
+
+  const handleEditItem = (item: SupplierOrderItem) => {
+    setEditingItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleUpdateSuccess = () => {
+    refetch();
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    try {
+      // Handle ISO format with timezone
+      const date = new Date(dateString);
+      return format(date, 'MMM dd, yyyy');
+    } catch {
+      return '-';
+    }
+  };
+
+  const formatDateTime = (dateString: string, timeString?: string) => {
+    if (!dateString) return '-';
+    try {
+      const date = format(new Date(dateString), 'MMM dd, yyyy');
+      return timeString ? `${date} at ${timeString}` : date;
+    } catch {
+      return '-';
+    }
+  };
+
+  const getStatusColor = (workflow: string) => {
+    const colors: Record<string, string> = {
+      'Requested': 'bg-gray-100 text-gray-800',
+      'Supplier Assigned': 'bg-blue-100 text-blue-800',
+      'Supplier Missing': 'bg-red-100 text-red-800',
+      'Payment Requested': 'bg-yellow-100 text-yellow-800',
+      'Paid': 'bg-green-100 text-green-800',
+      'In Transit': 'bg-purple-100 text-purple-800',
+      'Delivered': 'bg-green-100 text-green-800',
+    };
+    return colors[workflow] || 'bg-gray-100 text-gray-800';
+  };
+
+  const calculateItemTotal = (item: SupplierOrderItem) => {
+    const unitCost = parseFloat(item.supplier_unit_cost);
+    const quantity = parseFloat(item.quantity);
+    const discount = parseFloat(item.supplier_discount);
+    return (unitCost * quantity) - discount;
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount || 0);
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout menuItems={supplierMenuItems}>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+            <p className="text-gray-600">Loading order details...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!data?.data) {
+    return (
+      <DashboardLayout menuItems={supplierMenuItems}>
+        <div className="text-center py-12">
+          <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Order Not Found</h3>
+          {error && (
+            <p className="text-red-600 mb-4">{(error as Error).message}</p>
+          )}
+          <p className="text-gray-600 mb-4">
+            Order ID: {orderId} | Data: {JSON.stringify(data)}
+          </p>
+          <button
+            onClick={() => navigate('/supplier/orders')}
+            className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Orders
+          </button>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const { order, supplier_items } = data.data;
+
+  return (
+    <DashboardLayout menuItems={supplierMenuItems}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => navigate('/supplier/orders')}
+            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back to Orders
+          </button>
+          <span className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(order.workflow)}`}>
+            {order.workflow}
+          </span>
+        </div>
+
+        {/* Order Header */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Order #{order.po_number || order.id}</h1>
+              <p className="text-gray-600 mt-1">Order details and your items</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Order Info */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Delivery Information */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Truck className="w-5 h-5 text-blue-600" />
+                Delivery Information
+              </h2>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Address</p>
+                    <p className="text-gray-900">{order.delivery_address || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Delivery Date</p>
+                    <p className="text-gray-900">{formatDateTime(order.delivery_date, order.delivery_time)}</p>
+                  </div>
+                </div>
+                {order.delivery_window && (
+                  <div className="flex items-start gap-3">
+                    <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Delivery Window</p>
+                      <p className="text-gray-900">{order.delivery_window}</p>
+                    </div>
+                  </div>
+                )}
+                {order.delivery_method && (
+                  <div className="flex items-start gap-3">
+                    <Truck className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Delivery Method</p>
+                      <p className="text-gray-900">{order.delivery_method}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {order.special_notes && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Special Notes</p>
+                  <p className="text-gray-600 text-sm">{order.special_notes}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Your Items */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Package className="w-5 h-5 text-blue-600" />
+                Your Items
+              </h2>
+              <div className="space-y-4">
+                {supplier_items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start gap-4">
+                      {item.product?.photo && (
+                        <img
+                          src={item.product.photo}
+                          alt={item.product.product_name}
+                          className="w-20 h-20 object-cover rounded-lg"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{item.product?.product_name}</h3>
+                            <p className="text-sm text-gray-600">
+                              Quantity: {item.quantity} {item.product?.unit_of_measure}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {item.supplier_confirms ? (
+                              <span className="flex items-center gap-1 text-green-600 text-sm">
+                                <CheckCircle className="w-4 h-4" />
+                                Confirmed
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-orange-600 text-sm">
+                                <XCircle className="w-4 h-4" />
+                                Pending
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-gray-600">Unit Cost</p>
+                            <p className="font-medium text-gray-900">{formatCurrency(item.supplier_unit_cost)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Discount</p>
+                            <p className="font-medium text-gray-900">{formatCurrency(item.supplier_discount)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Delivery Date</p>
+                            <p className="font-medium text-gray-900">{formatDate(item.supplier_delivery_date)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Item Total</p>
+                            <p className="font-bold text-blue-600">{formatCurrency(calculateItemTotal(item))}</p>
+                          </div>
+                        </div>
+                        {item.supplier_notes && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">Notes:</span> {item.supplier_notes}
+                            </p>
+                          </div>
+                        )}
+                        <div className="mt-4">
+                          <button
+                            onClick={() => handleEditItem(item)}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                          >
+                            <Edit className="w-4 h-4" />
+                            Edit Item
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Client & Project Info */}
+          <div className="space-y-6">
+            {/* Client Information */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <User className="w-5 h-5 text-blue-600" />
+                Client Information
+              </h2>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-600">Name</p>
+                  <p className="font-medium text-gray-900">{order.client?.name || 'N/A'}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-gray-400" />
+                  <p className="text-sm text-gray-900">{order.client?.email || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Project Information */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Project Information</h2>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-600">Project Name</p>
+                  <p className="font-medium text-gray-900">{order.project?.name || 'N/A'}</p>
+                </div>
+                {order.project?.site_contact_name && (
+                  <div>
+                    <p className="text-sm text-gray-600">Site Contact</p>
+                    <p className="text-gray-900">{order.project.site_contact_name}</p>
+                  </div>
+                )}
+                {order.project?.site_contact_phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <p className="text-sm text-gray-900">{order.project.site_contact_phone}</p>
+                  </div>
+                )}
+                {order.project?.site_instructions && (
+                  <div className="pt-3 border-t border-gray-200">
+                    <p className="text-sm font-medium text-gray-700 mb-1">Site Instructions</p>
+                    <p className="text-sm text-gray-600">{order.project.site_instructions}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Edit Modal */}
+      <OrderItemEditModal
+        item={editingItem}
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onSuccess={handleUpdateSuccess}
+      />
+    </DashboardLayout>
+  );
+};
+
+export default SupplierOrderDetail;
+/* FILE: src/pages/supplier/SupplierOrders.tsx */
+// src/pages/supplier/SupplierOrders.tsx
+
+import { useState, useEffect } from 'react';
+import { RefreshCw } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { useSupplierOrders } from '../../features/supplierOrders/hooks';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import OrderMetricsCards from '../../components/supplier/OrderMetricsCards';
+import OrderFilters from '../../components/supplier/OrderFilters';
+import OrdersTable from '../../components/supplier/OrdersTable';
+import { supplierMenuItems } from '../../utils/menuItems';
+import type { ProductFilter } from '../../api/handlers/supplierOrders.api';
+
+const SupplierOrders = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [products, setProducts] = useState<ProductFilter[]>([]);
+
+  // Initialize filters from URL params
+  const [filters, setFilters] = useState({
+    search: searchParams.get('search') || '',
+    product_id: searchParams.get('product_id') || '',
+    supplier_confirms: searchParams.get('supplier_confirms') || '',
+    supplier_delivery_date: searchParams.get('supplier_delivery_date') || '',
+    page: parseInt(searchParams.get('page') || '1'),
+    per_page: 10,
+  });
+
+  // Fetch orders with includeDetails on first load
+  const { data, isLoading, isFetching, refetch } = useSupplierOrders(filters, isFirstLoad);
+
+  // Store products from first load
+  useEffect(() => {
+    if (isFirstLoad && data?.data?.filters?.products) {
+      setProducts(data.data.filters.products);
+      setIsFirstLoad(false);
+    }
+  }, [data, isFirstLoad]);
+
+  // Update URL params when filters change
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    if (filters.search) params.search = filters.search;
+    if (filters.product_id) params.product_id = filters.product_id;
+    if (filters.supplier_confirms !== '') params.supplier_confirms = filters.supplier_confirms;
+    if (filters.supplier_delivery_date) params.supplier_delivery_date = filters.supplier_delivery_date;
+    if (filters.page > 1) params.page = filters.page.toString();
+
+    setSearchParams(params);
+  }, [filters, setSearchParams]);
+
+  // Handle filter changes
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value,
+      page: 1, // Reset to first page
+    }));
+  };
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    setFilters({
+      search: '',
+      product_id: '',
+      supplier_confirms: '',
+      supplier_delivery_date: '',
+      page: 1,
+      per_page: 10,
+    });
+  };
+
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    setFilters((prev) => ({
+      ...prev,
+      page: newPage,
+    }));
+  };
+
+  // Handle refresh
+  const handleRefresh = () => {
+    refetch();
+    toast.success('Orders refreshed');
+  };
+
+  return (
+    <DashboardLayout menuItems={supplierMenuItems}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Supplier Orders</h1>
+            <p className="text-gray-600 mt-1">Manage and track your order items</p>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
+
+        {/* Metrics Cards */}
+        <OrderMetricsCards 
+          metrics={data?.data?.metrics || null} 
+          loading={isLoading} 
+        />
+
+        {/* Filters */}
+        <OrderFilters
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onClearFilters={handleClearFilters}
+          products={products}
+        />
+
+        {/* Orders Table */}
+        <OrdersTable
+          orders={data?.data?.data || []}
+          loading={isLoading}
+          pagination={data?.data?.pagination || null}
+          onPageChange={handlePageChange}
+        />
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default SupplierOrders;
 /* FILE: src/routes/index.tsx */
 // src/routes/index.tsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -12643,6 +15377,10 @@ import OrderCreate from '../pages/client/OrderCreate';
 //Supplier Delivery Zones
 import DeliveryZonesPage from '../pages/supplier/DeliveryZones';
 import ProductManagement from '../pages/supplier/ProductManagement';
+
+//Supplier Orders
+import SupplierOrders from '../pages/supplier/SupplierOrders';
+import SupplierOrderDetail from '../pages/supplier/SupplierOrderDetail';
 
 // Shared
 import ProfileSettings from '../pages/shared/ProfileSettings';
@@ -12741,10 +15479,26 @@ const AppRouter = () => {
           }
         />
         <Route
-          path="/supplier/products"
+            path="/supplier/products"
+            element={
+              <ProtectedRoute allowedRoles={['supplier']}>
+                <ProductManagement />
+              </ProtectedRoute>
+            }
+          />
+        <Route
+          path="/supplier/orders"
           element={
             <ProtectedRoute allowedRoles={['supplier']}>
-              <ProductManagement />
+              <SupplierOrders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/supplier/orders/:id"
+          element={
+            <ProtectedRoute allowedRoles={['supplier']}>
+              <SupplierOrderDetail />
             </ProtectedRoute>
           }
         />
@@ -12988,6 +15742,174 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+/* FILE: src/styles/animation.css */
+/* src/styles/animations.css */
+
+/**
+ * CUSTOM ANIMATIONS FOR ORDER WIZARD
+ * Add these animations to your main CSS file or Tailwind config
+ */
+
+/* Fade In Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Slide In From Right */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s ease-out;
+}
+
+/* Slide In From Left */
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+/* Scale In */
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.2s ease-out;
+}
+
+/* Bounce */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 0.6s ease-in-out infinite;
+}
+
+/* Pulse */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Spin */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Modal Backdrop */
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+.animate-backdropFadeIn {
+  animation: backdropFadeIn 0.3s ease-out;
+}
+
+/* Progress Bar Fill */
+@keyframes progressFill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.animate-progressFill {
+  animation: progressFill 0.5s ease-out;
+}
+
+/* Shake (for validation errors) */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+/* Glow Effect */
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(var(--primary-600), 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(var(--primary-600), 0.8);
+  }
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
 /* FILE: src/types/order.types.ts */
 /* FILE: src/types/order.types.ts */
 // FILE PATH: src/types/order.types.ts
@@ -13106,7 +16028,7 @@ export interface OrderResponse {
 }
 /* FILE: src/utils/cartUtils.ts */
 // src/utils/cartUtils.ts
-import { CartItem } from '../types/order.types';
+import type { CartItem } from '../types/order.types';
 
 const CART_STORAGE_KEY = 'client_order_cart';
 
