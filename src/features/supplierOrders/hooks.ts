@@ -49,7 +49,7 @@ export const useUpdateOrderItem = () => {
   return useMutation({
     mutationFn: ({ orderItemId, payload }: { orderItemId: number; payload: UpdateOrderItemPayload }) =>
       supplierOrdersAPI.updateOrderItem(orderItemId, payload),
-    onSuccess: (_, variables) => {
+    onSuccess: (_) => {
       // Invalidate both list and detail queries
       queryClient.invalidateQueries({ queryKey: supplierOrderKeys.lists() });
       // We don't have direct access to orderId here, so invalidate all details

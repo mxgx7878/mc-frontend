@@ -17,7 +17,6 @@ import {
   Package,
   Loader2,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useSupplierOrderDetail } from '../../features/supplierOrders/hooks';
 import DashboardLayout from '../../components/layout/DashboardLayout';
