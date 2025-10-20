@@ -99,6 +99,7 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
           onClose();
         },
         onError: (error: Error) => {
+      
           toast.error(error.message || 'Failed to update order item');
         },
       }

@@ -175,9 +175,11 @@ export const supplierOrdersAPI = {
   updateOrderItem: async (orderItemId: number, payload: UpdateOrderItemPayload): Promise<any> => {
     try {
       const response = await api.post(`/supplier-orders/update-pricing/${orderItemId}`, payload);
+      console.log('Update order item response:', response);
       return response.data;
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || 'Failed to update order item');
+     
+      throw new Error(error?.message || 'Failed to update order item');
     }
   },
 };

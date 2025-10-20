@@ -34,6 +34,8 @@ import ProjectCreate from '../pages/client/projects/ProjectCreate';
 
 //Client Orders
 import OrderCreate from '../pages/client/OrderCreate';
+import ClientOrders from '../pages/client/ClientOrders';
+import ClientOrderView from '../pages/client/ClientOrderView';
 
 //Supplier Delivery Zones
 import DeliveryZonesPage from '../pages/supplier/DeliveryZones';
@@ -45,10 +47,11 @@ import SupplierOrderDetail from '../pages/supplier/SupplierOrderDetail';
 
 // Shared
 import ProfileSettings from '../pages/shared/ProfileSettings';
+const basePath = import.meta.env.VITE_BASE_PATH || '/';
 
 const AppRouter = () => {
   return (
-    <BrowserRouter>
+      <BrowserRouter basename={basePath}>
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
@@ -111,6 +114,22 @@ const AppRouter = () => {
               <ProjectEdit />
             </ProtectedRoute>
           }
+        />
+        <Route 
+          path="/client/orders" 
+          element={
+          <ProtectedRoute allowedRoles={['client']}>
+          <ClientOrders />
+          </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/client/orders/:orderId" 
+          element={
+            <ProtectedRoute allowedRoles={['client']}>
+            <ClientOrderView />
+            </ProtectedRoute>
+          } 
         />
 
 
