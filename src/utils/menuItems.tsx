@@ -4,10 +4,10 @@ import {
   FolderOpen,
   ShoppingCart,
   Package,
-  Settings,
+  // Settings,
   Users,
   MapPin,
-  BarChart,
+  // BarChart,
   DollarSign,
   User,
   PlusCircle
@@ -26,8 +26,8 @@ export const clientMenuItems: MenuItem[] = [
   { label: "Projects", path: "/client/projects", icon: <FolderOpen size={20} /> },
   { label: "Orders", path: "/client/orders", icon: <ShoppingCart size={20} /> },
   { label: "New Order", path: "/client/orders/create", icon: <PlusCircle size={20} /> },
-  { label: "Products", path: "/client/products", icon: <Package size={20} /> },
-  { label: "Settings", path: "/client/settings", icon: <Settings size={20} /> },
+  // { label: "Products", path: "/client/products", icon: <Package size={20} /> },
+  // { label: "Settings", path: "/client/settings", icon: <Settings size={20} /> },
 ];
 
 // Admin menu
@@ -37,8 +37,8 @@ export const adminMenuItems: MenuItem[] = [
   { label: "Products", path: "/admin/master-products", icon: <Package size={20} /> },
   { label: "Supplier Delivery Zones", path: "/admin/supplier-zones", icon: <MapPin size={20} /> },
   { label: "Orders", path: "/admin/orders", icon: <ShoppingCart size={20} /> },
-  { label: "Reports", path: "/admin/reports", icon: <BarChart size={20} /> },
-  { label: "Settings", path: "/admin/settings", icon: <Settings size={20} /> },
+  // { label: "Reports", path: "/admin/reports", icon: <BarChart size={20} /> },
+  // { label: "Settings", path: "/admin/settings", icon: <Settings size={20} /> },
 ];
 
 // Supplier menu
@@ -48,7 +48,7 @@ export const supplierMenuItems: MenuItem[] = [
   { label: "Orders", path: "/supplier/orders", icon: <DollarSign size={20} /> },
   { label: "Delivery Zones", path: "/supplier/zones", icon: <MapPin size={20} /> },
   { label: "Profile", path: "/supplier/profile", icon: <User size={20} /> },
-  { label: "Settings", path: "/supplier/settings", icon: <Settings size={20} /> },
+  // { label: "Settings", path: "/supplier/settings", icon: <Settings size={20} /> },
 ];
 
 export type { MenuItem };

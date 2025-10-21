@@ -121,6 +121,7 @@ export interface OrderDetailResponse {
 
 export interface UpdateOrderItemPayload {
   supplier_unit_cost?: number;
+  supplier_delivery_cost?: number;
   supplier_discount?: number;
   supplier_delivery_date?: string;
   supplier_confirms?: boolean;

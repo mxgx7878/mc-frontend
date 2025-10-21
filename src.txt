@@ -1,4 +1,4 @@
-// SRC BUNDLE 2025-10-17T12:16:37.505Z
+// SRC BUNDLE 2025-10-21T13:28:54.484Z
 
 /* FILE: src/api/axios.config.ts */
 // src/api/axios.config.ts
@@ -195,6 +195,214 @@ export const authAPI = {
 
   checkAuth: async () => {
     return await api.get('/user');
+  },
+};
+/* FILE: src/api/handlers/clientOrders.api.ts */
+// ============================================================================
+// FILE: src/api/handlers/clientOrders.api.ts - UPDATED WITH MARK REPEAT
+// ============================================================================
+
+import api from '../axios.config';
+
+export interface ClientOrderItem {
+  id: number;
+  order_id: number;
+  product_id: number;
+  quantity: string;
+  supplier_id: number | null;
+  choosen_offer_id: number;
+  custom_blend_mix: string | null;
+  supplier_unit_cost: string;
+  supplier_delivery_cost: string;
+  supplier_discount: string;
+  supplier_delivery_date: string;
+  supplier_confirms: boolean;
+  is_paid: boolean;
+  created_at: string;
+  updated_at: string;
+  product: {
+    id: number;
+    product_name: string;
+    product_type: string;
+    specifications: string;
+    unit_of_measure: string;
+    photo: string | null;
+  };
+  supplier: {
+    id: number;
+    name: string;
+    email: string;
+    profile_image: string | null;
+  } | null;
+}
+
+export interface ClientOrder {
+  id: number;
+  po_number: string;
+  client_id: number;
+  project_id: number;
+  delivery_address: string;
+  delivery_lat: number;
+  delivery_long: number;
+  delivery_date: string;
+  delivery_time: string;
+  delivery_window: string | null;
+  delivery_method: string;
+  load_size: string;
+  special_equipment: string;
+  subtotal: string;
+  fuel_levy: string;
+  other_charges: string;
+  gst_tax: string;
+  discount: string;
+  total_price: string;
+  supplier_cost: string;
+  customer_cost: string;
+  admin_margin: string;
+  payment_status: string;
+  order_status: string;
+  workflow: string;
+  reason: string | null;
+  repeat_order: boolean;
+  generate_invoice: boolean;
+  order_process: string;
+  special_notes: string | null;
+  created_at: string;
+  updated_at: string;
+  order_info?: string;
+  project: {
+    id: number;
+    name: string;
+    site_contact_name: string;
+    site_contact_phone: string;
+    site_instructions: string;
+  };
+  items: ClientOrderItem[];
+}
+
+export interface OrderMetrics {
+  total_orders_count: number;
+  supplier_missing_count: number;
+  supplier_assigned_count: number;
+  awaiting_payment_count: number;
+  delivered_count: number;
+}
+
+export interface ProjectFilter {
+  id: number;
+  name: string;
+}
+
+export interface ClientOrdersResponse {
+  data: ClientOrder[];
+  pagination: {
+    per_page: number;
+    current_page: number;
+    total_pages: number;
+    total_items: number;
+    has_more_pages: boolean;
+  };
+  metrics: OrderMetrics;
+  projects?: ProjectFilter[];
+}
+
+export interface OrderDetailResponse {
+  success: boolean;
+  data: {
+    order: {
+      id: number;
+      po_number: string;
+      project_id: number;
+      client_id: number;
+      workflow: string;
+      delivery_address: string;
+      delivery_date: string;
+      delivery_time: string;
+      delivery_method: string;
+      created_at: string;
+      updated_at: string;
+      gst_tax: string;
+      total_price: string;
+      repeat_order: boolean;
+      special_notes: string | null;
+      fuel_levy: string;
+      other_charges: string;
+      discount: string;
+      subtotal: string;
+      payment_status: string;
+      order_status: string;
+      project?: {
+        id: number;
+        name: string;
+        site_contact_name: string;
+        site_contact_phone: string;
+        site_instructions: string;
+      };
+      order_info?: string;
+    };
+    items: ClientOrderItem[];
+  };
+}
+
+export interface ClientOrderFilters {
+  page?: number;
+  per_page?: number;
+  search?: string;
+  project_id?: string;
+  workflow?: string;
+  delivery_date?: string;
+  repeat_order?: string;
+  sort?: string;
+  dir?: string;
+}
+
+export interface RepeatOrderPayload {
+  items: {
+    product_id: number;
+    quantity: number;
+    custom_blend_mix?: string;
+  }[];
+}
+
+export const clientOrdersAPI = {
+  getOrders: async (filters: ClientOrderFilters = {}, includeDetails = false): Promise<ClientOrdersResponse> => {
+    try {
+      const params: any = { ...filters };
+      if (includeDetails) {
+        params.details = 'true';
+      }
+      const response = await api.get('/my-orders', { params });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.message || 'Failed to fetch orders');
+    }
+  },
+
+  getOrderDetails: async (orderId: number): Promise<OrderDetailResponse> => {
+    try {
+      const response = await api.get(`/orders/${orderId}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.error || 'Failed to fetch order details');
+    }
+  },
+
+  repeatOrder: async (orderId: number, payload: RepeatOrderPayload): Promise<any> => {
+    try {
+      const response = await api.post(`/repeat-order/${orderId}`, payload);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.message || 'Failed to repeat order');
+    }
+  },
+
+  markRepeatOrder: async (orderId: number): Promise<any> => {
+    try {
+      const response = await api.get(`/mark-repeat-order/${orderId}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.message || 'Failed to mark order as repeat');
+    }
   },
 };
 /* FILE: src/api/handlers/masterProducts.api.ts */
@@ -760,7 +968,8 @@ export interface SupplierOrderItem {
 
 export interface SupplierOrder {
   id: number;
-  order_number: string;
+  order_number?: string;  // From listing API (backend generated)
+  po_number?: string;      // From detail API (database field)
   workflow: string;
   total_amount: number;
   created_at: string;
@@ -837,6 +1046,7 @@ export interface OrderDetailResponse {
 
 export interface UpdateOrderItemPayload {
   supplier_unit_cost?: number;
+  supplier_delivery_cost?: number;
   supplier_discount?: number;
   supplier_delivery_date?: string;
   supplier_confirms?: boolean;
@@ -891,9 +1101,11 @@ export const supplierOrdersAPI = {
   updateOrderItem: async (orderItemId: number, payload: UpdateOrderItemPayload): Promise<any> => {
     try {
       const response = await api.post(`/supplier-orders/update-pricing/${orderItemId}`, payload);
+      console.log('Update order item response:', response);
       return response.data;
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || 'Failed to update order item');
+     
+      throw new Error(error?.message || 'Failed to update order item');
     }
   },
 };
@@ -1964,6 +2176,563 @@ const SupplierZoneCard: React.FC<SupplierZoneCardProps> = ({ supplier, color }) 
 };
 
 export default SupplierZoneCard;
+/* FILE: src/components/client/ClientOrderFilters.tsx */
+// ============================================================================
+// FILE: src/components/client/ClientOrderFilters.tsx - UPDATED WITH REPEAT FILTER
+// ============================================================================
+
+import { Search, X, Calendar } from 'lucide-react';
+
+const ClientOrderFilters = ({ filters, onFilterChange, onClearFilters, projects }: any) => {
+  const hasActiveFilters = 
+    filters.search || 
+    filters.project_id || 
+    filters.workflow || 
+    filters.delivery_date ||
+    filters.repeat_order;
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+        {hasActiveFilters && (
+          <button
+            onClick={onClearFilters}
+            className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700 font-medium"
+          >
+            <X className="w-4 h-4" />
+            Clear Filters
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search by PO Number..."
+            value={filters.search || ''}
+            onChange={(e) => onFilterChange('search', e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+
+        <div>
+          <select
+            value={filters.project_id || ''}
+            onChange={(e) => onFilterChange('project_id', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Projects</option>
+            {projects.map((project: any) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <select
+            value={filters.workflow || ''}
+            onChange={(e) => onFilterChange('workflow', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Statuses</option>
+            <option value="Supplier Missing">Supplier Missing</option>
+            <option value="Supplier Assigned">Supplier Assigned</option>
+            <option value="Payment Requested">Payment Requested</option>
+            <option value="Delivered">Delivered</option>
+          </select>
+        </div>
+
+        <div>
+          <select
+            value={filters.repeat_order || ''}
+            onChange={(e) => onFilterChange('repeat_order', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Orders</option>
+            <option value="true">Repeat Orders</option>
+            <option value="false">Non-Repeat Orders</option>
+          </select>
+        </div>
+
+        <div className="relative">
+          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="date"
+            value={filters.delivery_date || ''}
+            onChange={(e) => onFilterChange('delivery_date', e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ClientOrderFilters;
+/* FILE: src/components/client/ClientOrderMetricsCards.tsx */
+// ============================================================================
+// FILE: src/components/client/ClientOrderMetricsCards.tsx - FIXED WITH COLORS
+// ============================================================================
+
+import { ShoppingCart, AlertTriangle, CheckCircle, Clock, TruckIcon } from 'lucide-react';
+
+const ClientOrderMetricsCards = ({ metrics, loading }: any) => {
+  const metricsConfig = [
+    {
+      label: 'Total Orders',
+      value: metrics?.total_orders_count || 0,
+      icon: ShoppingCart,
+      color: 'bg-gradient-to-br from-blue-500 to-blue-600',
+      textColor: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+    },
+    {
+      label: 'Supplier Missing',
+      value: metrics?.supplier_missing_count || 0,
+      icon: AlertTriangle,
+      color: 'bg-gradient-to-br from-red-500 to-red-600',
+      textColor: 'text-red-600',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-200',
+    },
+    {
+      label: 'Supplier Assigned',
+      value: metrics?.supplier_assigned_count || 0,
+      icon: TruckIcon,
+      color: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
+      textColor: 'text-indigo-600',
+      bgColor: 'bg-indigo-50',
+      borderColor: 'border-indigo-200',
+    },
+    {
+      label: 'Awaiting Payment',
+      value: metrics?.awaiting_payment_count || 0,
+      icon: Clock,
+      color: 'bg-gradient-to-br from-yellow-500 to-yellow-600',
+      textColor: 'text-yellow-600',
+      bgColor: 'bg-yellow-50',
+      borderColor: 'border-yellow-200',
+    },
+    {
+      label: 'Delivered',
+      value: metrics?.delivered_count || 0,
+      icon: CheckCircle,
+      color: 'bg-gradient-to-br from-green-500 to-green-600',
+      textColor: 'text-green-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      {metricsConfig.map((metric) => {
+        const Icon = metric.icon;
+        return (
+          <div 
+            key={metric.label} 
+            className={`${metric.bgColor} rounded-xl border-2 ${metric.borderColor} p-6 transition-all hover:shadow-lg hover:scale-105`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">{metric.label}</p>
+                {loading ? (
+                  <div className="h-8 w-16 bg-gray-200 animate-pulse rounded"></div>
+                ) : (
+                  <p className={`text-3xl font-bold ${metric.textColor}`}>
+                    {metric.value}
+                  </p>
+                )}
+              </div>
+              <div className={`${metric.color} p-3 rounded-xl shadow-lg`}>
+                <Icon className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+export default ClientOrderMetricsCards;
+/* FILE: src/components/client/ClientOrdersTable.tsx */
+// ============================================================================
+// FILE: src/components/client/ClientOrdersTable.tsx - UPDATED WITH MARK/REPEAT LOGIC
+// ============================================================================
+
+import { Eye, Info, RotateCcw, Bookmark } from 'lucide-react';
+import { format } from 'date-fns';
+
+const ClientOrdersTable = ({ orders, loading, pagination, onPageChange, onRepeatOrder, onMarkRepeat, navigate }: any) => {
+
+  const handleViewOrder = (orderId: number) => {
+    navigate(`/client/orders/${orderId}`);
+  };
+
+  const getStatusColor = (workflow: string) => {
+    const statusColors: Record<string, string> = {
+      'Supplier Missing': 'bg-red-100 text-red-800',
+      'Supplier Assigned': 'bg-blue-100 text-blue-800',
+      'Payment Requested': 'bg-yellow-100 text-yellow-800',
+      'Delivered': 'bg-green-100 text-green-800',
+    };
+    return statusColors[workflow] || 'bg-gray-100 text-gray-800';
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    try {
+      return format(new Date(dateString), 'MMM dd, yyyy');
+    } catch {
+      return '-';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="animate-pulse space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-16 bg-gray-200 rounded"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!orders || orders.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+            <Eye className="w-8 h-8 text-gray-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No orders found</h3>
+            <p className="text-gray-600">
+              You haven't placed any orders yet. Start by creating a new order from your project.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                PO Number
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Project
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Delivery Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Total
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {orders.map((order: any) => (
+              <tr key={order.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-900">{order.po_number}</span>
+                    {order.repeat_order && (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
+                        Repeat
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className="text-sm text-gray-900">{order.project.name}</span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className="text-sm text-gray-600">{formatDate(order.delivery_date)}</span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.workflow)}`}>
+                    {order.workflow}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className="text-sm font-semibold text-gray-900">
+                    ${parseFloat(order.total_price).toFixed(2)}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-2">
+                    {order.order_info && (
+                      <div className="relative group">
+                        <Info className="w-5 h-5 text-blue-600 cursor-help" />
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                          <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
+                            {order.order_info}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1">
+                              <div className="border-4 border-transparent border-t-gray-900"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleViewOrder(order.id)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="View Order"
+                    >
+                      <Eye className="w-5 h-5" />
+                    </button>
+                    {order.repeat_order ? (
+                      <button
+                        onClick={() => onRepeatOrder(order)}
+                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        title="Repeat Order"
+                      >
+                        <RotateCcw className="w-5 h-5" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => onMarkRepeat(order.id)}
+                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        title="Mark as Repeat Order"
+                      >
+                        <Bookmark className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {pagination && pagination.total_pages > 1 && (
+        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            Showing {((pagination.current_page - 1) * pagination.per_page) + 1} to{' '}
+            {Math.min(pagination.current_page * pagination.per_page, pagination.total_items)} of{' '}
+            {pagination.total_items} orders
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onPageChange(pagination.current_page - 1)}
+              disabled={pagination.current_page === 1}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <div className="flex items-center gap-1">
+              {[...Array(pagination.total_pages)].map((_, i) => {
+                const page = i + 1;
+                if (
+                  page === 1 ||
+                  page === pagination.total_pages ||
+                  (page >= pagination.current_page - 1 && page <= pagination.current_page + 1)
+                ) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => onPageChange(page)}
+                      className={`px-4 py-2 rounded-lg ${
+                        page === pagination.current_page
+                          ? 'bg-blue-600 text-white'
+                          : 'border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                }
+                if (page === pagination.current_page - 2 || page === pagination.current_page + 2) {
+                  return <span key={page} className="px-2">...</span>;
+                }
+                return null;
+              })}
+            </div>
+            <button
+              onClick={() => onPageChange(pagination.current_page + 1)}
+              disabled={!pagination.has_more_pages}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ClientOrdersTable;
+/* FILE: src/components/client/RepeatOrderModal.tsx */
+// ============================================================================
+// FILE: src/components/client/RepeatOrderModal.tsx
+// ============================================================================
+
+import { useState, useEffect } from 'react';
+import { X, Package } from 'lucide-react';
+
+const RepeatOrderModal = ({ isOpen, onClose, order, onSubmit, isSubmitting }: any) => {
+  const [items, setItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (order && order.items) {
+      setItems(
+        order.items.map((item: any) => ({
+          product_id: item.product_id,
+          product_name: item.product.product_name,
+          quantity: parseFloat(item.quantity),
+          unit_of_measure: item.product.unit_of_measure,
+          custom_blend_mix: item.custom_blend_mix || '',
+          has_custom_blend: !!item.custom_blend_mix,
+        }))
+      );
+    }
+  }, [order]);
+
+  const handleQuantityChange = (index: number, value: string) => {
+    const newItems = [...items];
+    newItems[index].quantity = parseFloat(value) || 0;
+    setItems(newItems);
+  };
+
+  const handleCustomBlendChange = (index: number, value: string) => {
+    const newItems = [...items];
+    newItems[index].custom_blend_mix = value;
+    setItems(newItems);
+  };
+
+  const handleSubmit = () => {
+    const payload = items.map((item) => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+      ...(item.has_custom_blend && item.custom_blend_mix && { custom_blend_mix: item.custom_blend_mix }),
+    }));
+    onSubmit(payload);
+  };
+
+  if (!isOpen || !order) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+              <Package className="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Repeat Order</h2>
+              <p className="text-sm text-gray-600">Update quantities for {order.po_number}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            disabled={isSubmitting}
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-4">
+            {items.map((item, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{item.product_name}</h3>
+                    <p className="text-sm text-gray-600">Unit: {item.unit_of_measure}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Quantity *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={item.quantity}
+                      onChange={(e) => handleQuantityChange(index, e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  {item.has_custom_blend && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Custom Blend/Mix
+                      </label>
+                      <input
+                        type="text"
+                        value={item.custom_blend_mix}
+                        onChange={(e) => handleCustomBlendChange(index, e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="e.g., 32MPa, 20mm agg, slump 80"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Submitting...
+              </>
+            ) : (
+              'Submit Repeat Order'
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default RepeatOrderModal;
 /* FILE: src/components/common/ApproveStatusBadge.tsx */
 // FILE PATH: src/components/common/ApprovalStatusBadge.tsx
 import React from "react";
@@ -6324,6 +7093,7 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
   const [formData, setFormData] = useState({
     supplier_unit_cost: '',
     supplier_discount: '',
+    supplier_delivery_cost: '',
     supplier_delivery_date: '',
     supplier_notes: '',
     supplier_confirms: false,
@@ -6336,6 +7106,7 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
     if (item) {
       setFormData({
         supplier_unit_cost: item.supplier_unit_cost || '',
+        supplier_delivery_cost: item.supplier_delivery_cost || '',
         supplier_discount: item.supplier_discount || '0',
         supplier_delivery_date: item.supplier_delivery_date?.split('T')[0] || '',
         supplier_notes: item.supplier_notes || '',
@@ -6374,6 +7145,10 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
       newErrors.supplier_delivery_date = 'Delivery date is required';
     }
 
+    if (!formData.supplier_delivery_cost || parseFloat(formData.supplier_delivery_cost) < 0) {
+      newErrors.supplier_delivery_cost = 'Delivery cost must be a positive number';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -6394,6 +7169,7 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
         payload: {
           supplier_unit_cost: parseFloat(formData.supplier_unit_cost),
           supplier_discount: parseFloat(formData.supplier_discount),
+          supplier_delivery_cost: parseFloat(formData.supplier_delivery_cost),
           supplier_delivery_date: formData.supplier_delivery_date,
           supplier_notes: formData.supplier_notes,
           supplier_confirms: formData.supplier_confirms,
@@ -6406,6 +7182,7 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
           onClose();
         },
         onError: (error: Error) => {
+      
           toast.error(error.message || 'Failed to update order item');
         },
       }
@@ -6417,7 +7194,8 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
   const calculateItemTotal = () => {
     const unitCost = parseFloat(formData.supplier_unit_cost) || 0;
     const discount = parseFloat(formData.supplier_discount) || 0;
-    return unitCost * item.quantity - discount;
+    const deliveryCost = parseFloat(formData.supplier_delivery_cost) || 0;
+    return unitCost * parseFloat(item.quantity) - discount + deliveryCost;
   };
 
   return (
@@ -6439,7 +7217,7 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
           <div className="flex items-center gap-4">
             {item.product?.photo && (
               <img
-                src={item.product.photo}
+                src={`${import.meta.env.VITE_IMG_URL}${item.product.photo}`}
                 alt={item.product.product_name}
                 className="w-16 h-16 object-cover rounded-lg"
               />
@@ -6476,6 +7254,27 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
             />
             {errors.supplier_unit_cost && (
               <p className="text-red-500 text-sm mt-1">{errors.supplier_unit_cost}</p>
+            )}
+          </div>
+          {/* Delivery Cost */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Supplier Delivery Cost <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="supplier_delivery_cost"
+              value={formData.supplier_delivery_cost}
+              onChange={handleChange}
+              step="0.01"
+              min="0"
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.supplier_delivery_cost ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="0.00"
+            />
+            {errors.supplier_unit_cost && (
+              <p className="text-red-500 text-sm mt-1">{errors.supplier_delivery_cost}</p>
             )}
           </div>
 
@@ -6548,7 +7347,7 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
               </span>
             </div>
             <p className="text-xs text-gray-600 mt-1">
-              ({item.quantity} × ${formData.supplier_unit_cost || 0}) - ${formData.supplier_discount || 0}
+              ({item.quantity} × ${formData.supplier_unit_cost || 0}) - ${formData.supplier_discount || 0} + ${formData.supplier_delivery_cost || 0}
             </p>
           </div>
 
@@ -6811,7 +7610,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({ orders, loading, pagination, 
               <tr key={order.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
-                    {order.po_number}
+                    {order.order_number || order.po_number || `ORD-${order.id}`}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -7439,7 +8238,6 @@ import {
   Package,
   Loader2,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useSupplierOrderDetail } from '../../features/supplierOrders/hooks';
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -7685,11 +8483,11 @@ const SupplierOrderDetail = () => {
                         <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
                           <div>
                             <p className="text-gray-600">Unit Cost</p>
-                            <p className="font-medium text-gray-900">{formatCurrency(item.supplier_unit_cost)}</p>
+                            <p className="font-medium text-gray-900">{formatCurrency(parseFloat(item.supplier_unit_cost))}</p>
                           </div>
                           <div>
                             <p className="text-gray-600">Discount</p>
-                            <p className="font-medium text-gray-900">{formatCurrency(item.supplier_discount)}</p>
+                            <p className="font-medium text-gray-900">{formatCurrency(parseFloat(item.supplier_discount))}</p>
                           </div>
                           <div>
                             <p className="text-gray-600">Delivery Date</p>
@@ -7788,6 +8586,66 @@ const SupplierOrderDetail = () => {
 };
 
 export default SupplierOrderDetail;
+/* FILE: src/features/clientOrders/hooks.ts */
+// ============================================================================
+// FILE: src/features/clientOrders/hooks.ts - UPDATED WITH MARK REPEAT
+// ============================================================================
+
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { clientOrdersAPI } from '../../api/handlers/clientOrders.api';
+import { clientOrderKeys } from './queryKeys';
+
+export const useClientOrders = (filters: any, includeDetails: boolean = false) =>
+  useQuery({
+    queryKey: clientOrderKeys.list(filters),
+    queryFn: () => clientOrdersAPI.getOrders(filters, includeDetails),
+    placeholderData: keepPreviousData,
+  });
+
+export const useClientOrderDetail = (orderId?: number) =>
+  useQuery({
+    queryKey: clientOrderKeys.detail(orderId!),
+    queryFn: () => clientOrdersAPI.getOrderDetails(orderId!),
+    enabled: !!orderId,
+  });
+
+export const useRepeatOrder = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ orderId, payload }: { orderId: number; payload: any }) =>
+      clientOrdersAPI.repeatOrder(orderId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clientOrderKeys.lists() });
+    },
+  });
+};
+
+export const useMarkRepeatOrder = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (orderId: number) => clientOrdersAPI.markRepeatOrder(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clientOrderKeys.lists() });
+    },
+  });
+};
+/* FILE: src/features/clientOrders/queryKeys.ts */
+import type { ClientOrderFilters } from '../../api/handlers/clientOrders.api';
+
+export const clientOrderKeys = {
+  all: ['client-orders'] as const,
+  lists: () => [...clientOrderKeys.all, 'list'] as const,
+
+  // Accept the actual filters type
+  list: (filters: ClientOrderFilters) =>
+    [...clientOrderKeys.lists(), { ...filters }] as const,
+
+  details: () => [...clientOrderKeys.all, 'detail'] as const,
+  detail: (id: number) => [...clientOrderKeys.details(), id] as const,
+};
+
 /* FILE: src/features/components/ProjectForm.tsx */
 // --- src/features/projects/components/ProjectForm.tsx ---
 import { useForm } from 'react-hook-form';
@@ -7902,7 +8760,7 @@ import { supplierOrderKeys } from './queryKeys';
  */
 export const useSupplierOrders = (filters: SupplierOrderFilters, includeDetails: boolean = false) =>
   useQuery<SupplierOrdersResponse>({
-    queryKey: supplierOrderKeys.list(filters),
+    queryKey: supplierOrderKeys.list(filters as Record<string, unknown>),
     queryFn: () => supplierOrdersAPI.getOrders(filters, includeDetails),
     placeholderData: keepPreviousData,
   });
@@ -7936,7 +8794,7 @@ export const useUpdateOrderItem = () => {
   return useMutation({
     mutationFn: ({ orderItemId, payload }: { orderItemId: number; payload: UpdateOrderItemPayload }) =>
       supplierOrdersAPI.updateOrderItem(orderItemId, payload),
-    onSuccess: (_, variables) => {
+    onSuccess: (_) => {
       // Invalidate both list and detail queries
       queryClient.invalidateQueries({ queryKey: supplierOrderKeys.lists() });
       // We don't have direct access to orderId here, so invalidate all details
@@ -11674,6 +12532,640 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
 };
 
 export default UserManagement;
+/* FILE: src/pages/client/ClientOrders.tsx */
+// ============================================================================
+// FILE: src/pages/client/ClientOrders.tsx - UPDATED WITH MARK REPEAT
+// ============================================================================
+
+import { useState, useEffect } from 'react';
+import { RefreshCw } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { useClientOrders, useRepeatOrder, useMarkRepeatOrder } from '../../features/clientOrders/hooks';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import ClientOrderMetricsCards from '../../components/client/ClientOrderMetricsCards';
+import ClientOrderFilters from '../../components/client/ClientOrderFilters';
+import ClientOrdersTable from '../../components/client/ClientOrdersTable';
+import RepeatOrderModal from '../../components/client/RepeatOrderModal';
+import { clientMenuItems } from '../../utils/menuItems';
+
+const ClientOrders = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [repeatOrderModalOpen, setRepeatOrderModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+
+  const [filters, setFilters] = useState({
+    search: searchParams.get('search') || '',
+    project_id: searchParams.get('project_id') || '',
+    workflow: searchParams.get('workflow') || '',
+    delivery_date: searchParams.get('delivery_date') || '',
+    repeat_order: searchParams.get('repeat_order') || '',
+    page: parseInt(searchParams.get('page') || '1'),
+    per_page: 10,
+    sort: 'created_at',
+    dir: 'desc',
+  });
+
+  const { data, isLoading, isFetching, refetch } = useClientOrders(filters, isFirstLoad);
+  const repeatOrderMutation = useRepeatOrder();
+  const markRepeatMutation = useMarkRepeatOrder();
+
+  useEffect(() => {
+    if (isFirstLoad && data?.projects) {
+      setProjects(data.projects);
+      setIsFirstLoad(false);
+    }
+  }, [data, isFirstLoad]);
+
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    if (filters.search) params.search = filters.search;
+    if (filters.project_id) params.project_id = filters.project_id;
+    if (filters.workflow) params.workflow = filters.workflow;
+    if (filters.delivery_date) params.delivery_date = filters.delivery_date;
+    if (filters.repeat_order) params.repeat_order = filters.repeat_order;
+    if (filters.page > 1) params.page = filters.page.toString();
+
+    setSearchParams(params);
+  }, [filters, setSearchParams]);
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value,
+      page: 1,
+    }));
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      search: '',
+      project_id: '',
+      workflow: '',
+      delivery_date: '',
+      repeat_order: '',
+      page: 1,
+      per_page: 10,
+      sort: 'created_at',
+      dir: 'desc',
+    });
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setFilters((prev) => ({
+      ...prev,
+      page: newPage,
+    }));
+  };
+
+  const handleRefresh = () => {
+    refetch();
+    toast.success('Orders refreshed');
+  };
+
+  const handleRepeatOrder = (order: any) => {
+    setSelectedOrder(order);
+    setRepeatOrderModalOpen(true);
+  };
+
+  const handleMarkRepeat = async (orderId: number) => {
+    try {
+      await markRepeatMutation.mutateAsync(orderId);
+      toast.success('Order marked as repeat order!');
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to mark order as repeat');
+    }
+  };
+
+  const handleRepeatOrderSubmit = async (items: any[]) => {
+    if (!selectedOrder) return;
+
+    try {
+      await repeatOrderMutation.mutateAsync({
+        orderId: selectedOrder.id,
+        payload: { items },
+      });
+      toast.success('Order repeated successfully!');
+      setRepeatOrderModalOpen(false);
+      setSelectedOrder(null);
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to repeat order');
+    }
+  };
+
+  return (
+    <DashboardLayout menuItems={clientMenuItems}>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
+            <p className="text-gray-600 mt-1">View and manage your orders</p>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
+
+        <ClientOrderMetricsCards 
+          metrics={data?.metrics || null} 
+          loading={isLoading} 
+        />
+
+        <ClientOrderFilters
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onClearFilters={handleClearFilters}
+          projects={projects}
+        />
+
+        <ClientOrdersTable
+          orders={data?.data || []}
+          loading={isLoading}
+          pagination={data?.pagination || null}
+          onPageChange={handlePageChange}
+          onRepeatOrder={handleRepeatOrder}
+          onMarkRepeat={handleMarkRepeat}
+          navigate={navigate}
+        />
+
+        <RepeatOrderModal
+          isOpen={repeatOrderModalOpen}
+          onClose={() => {
+            setRepeatOrderModalOpen(false);
+            setSelectedOrder(null);
+          }}
+          order={selectedOrder}
+          onSubmit={handleRepeatOrderSubmit}
+          isSubmitting={repeatOrderMutation.isPending}
+        />
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default ClientOrders;
+/* FILE: src/pages/client/ClientOrderView.tsx */
+// ============================================================================
+// FILE: src/pages/client/ClientOrderView.tsx - COMPLETE VERSION
+// ============================================================================
+
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  MapPin,
+  Calendar,
+  Truck,
+  Package,
+  RefreshCw,
+  RotateCcw,
+  Building2,
+  FileText,
+  Info,
+  DollarSign,
+  User,
+  Phone,
+  ClipboardList,
+} from 'lucide-react';
+import { format } from 'date-fns';
+import toast from 'react-hot-toast';
+import { useClientOrderDetail, useRepeatOrder } from '../../features/clientOrders/hooks';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import RepeatOrderModal from '../../components/client/RepeatOrderModal';
+import { clientMenuItems } from '../../utils/menuItems';
+
+const ClientOrderView = () => {
+  const { orderId } = useParams();
+  const navigate = useNavigate();
+  const { data, isLoading, refetch } = useClientOrderDetail(Number(orderId));
+  const repeatOrderMutation = useRepeatOrder();
+  const [repeatOrderModalOpen, setRepeatOrderModalOpen] = useState(false);
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      return format(date, 'MMM dd, yyyy');
+    } catch {
+      return '-';
+    }
+  };
+
+  const formatDateTime = (dateString: string, timeString?: string) => {
+    if (!dateString) return '-';
+    try {
+      const date = format(new Date(dateString), 'MMM dd, yyyy');
+      return timeString ? `${date} at ${timeString}` : date;
+    } catch {
+      return '-';
+    }
+  };
+
+  const getStatusColor = (workflow: string) => {
+    const statusColors: Record<string, string> = {
+      'Supplier Missing': 'bg-red-100 text-red-800 border-red-200',
+      'Supplier Assigned': 'bg-blue-100 text-blue-800 border-blue-200',
+      'Payment Requested': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'Delivered': 'bg-green-100 text-green-800 border-green-200',
+    };
+    return statusColors[workflow] || 'bg-gray-100 text-gray-800 border-gray-200';
+  };
+
+  const handleRefresh = () => {
+    refetch();
+    toast.success('Order refreshed');
+  };
+
+  const handleRepeatOrder = () => {
+    if (data?.data) {
+      setRepeatOrderModalOpen(true);
+    }
+  };
+
+  const handleRepeatOrderSubmit = async (items: any[]) => {
+    if (!orderId) return;
+
+    try {
+      await repeatOrderMutation.mutateAsync({
+        orderId: Number(orderId),
+        payload: { items },
+      });
+      toast.success('Order repeated successfully!');
+      setRepeatOrderModalOpen(false);
+      navigate('/client/orders');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to repeat order');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout menuItems={clientMenuItems}>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-600">Loading order details...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!data?.data) {
+    return (
+      <DashboardLayout menuItems={clientMenuItems}>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Order not found</h2>
+            <p className="text-gray-600 mb-4">The order you're looking for doesn't exist.</p>
+            <button
+              onClick={() => navigate('/client/orders')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Back to Orders
+            </button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const { order, items } = data.data;
+
+  return (
+    <DashboardLayout menuItems={clientMenuItems}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/client/orders')}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold text-gray-900">{order.po_number}</h1>
+                {order.repeat_order && (
+                  <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-semibold rounded-full">
+                    Repeat Order
+                  </span>
+                )}
+              </div>
+              <p className="text-gray-600 mt-1">Order Details</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleRepeatOrder}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Repeat Order
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Order Info Alert */}
+        {order.order_info && (
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 flex items-start gap-3">
+            <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="font-semibold text-blue-900 mb-1">Order Information</h3>
+              <p className="text-sm text-blue-700">{order.order_info}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Status & Basic Info Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Order Status Card */}
+          <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Package className="w-5 h-5 text-blue-600" />
+              Order Status
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <span className="text-sm text-gray-600">Workflow Status</span>
+                <div className="mt-2">
+                  <span className={`px-4 py-2 rounded-full text-sm font-semibold inline-block border-2 ${getStatusColor(order.workflow)}`}>
+                    {order.workflow}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                <div>
+                  <span className="text-sm text-gray-600">Created</span>
+                  <p className="text-sm font-medium text-gray-900 mt-1">
+                    {formatDate(order.created_at)}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-600">Last Updated</span>
+                  <p className="text-sm font-medium text-gray-900 mt-1">
+                    {formatDate(order.updated_at)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Project Information Card */}
+          <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-purple-600" />
+              Project Information
+            </h2>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <FileText className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <span className="text-sm text-gray-600">Project Name</span>
+                  <p className="text-sm font-medium text-gray-900">{order.project?.name || '-'}</p>
+                </div>
+              </div>
+              
+              {order.project?.site_contact_name && (
+                <div className="flex items-start gap-3">
+                  <User className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <span className="text-sm text-gray-600">Site Contact</span>
+                    <p className="text-sm font-medium text-gray-900">{order.project.site_contact_name}</p>
+                  </div>
+                </div>
+              )}
+              
+              {order.project?.site_contact_phone && (
+                <div className="flex items-start gap-3">
+                  <Phone className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <span className="text-sm text-gray-600">Contact Phone</span>
+                    <p className="text-sm font-medium text-gray-900">{order.project.site_contact_phone}</p>
+                  </div>
+                </div>
+              )}
+              
+              {order.project?.site_instructions && (
+                <div className="flex items-start gap-3">
+                  <ClipboardList className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <span className="text-sm text-gray-600">Site Instructions</span>
+                    <p className="text-sm font-medium text-gray-900">{order.project.site_instructions}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Delivery Information Card */}
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Truck className="w-5 h-5 text-green-600" />
+            Delivery Information
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-start gap-3">
+              <MapPin className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <span className="text-sm text-gray-600">Delivery Address</span>
+                <p className="text-sm font-medium text-gray-900">{order.delivery_address}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Calendar className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <span className="text-sm text-gray-600">Delivery Date & Time</span>
+                <p className="text-sm font-medium text-gray-900">
+                  {formatDateTime(order.delivery_date, order.delivery_time)}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Truck className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <span className="text-sm text-gray-600">Delivery Method</span>
+                <p className="text-sm font-medium text-gray-900">{order.delivery_method}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Order Items Table */}
+        <div className="bg-white rounded-xl border-2 border-gray-200 overflow-hidden">
+          <div className="px-6 py-4 border-b-2 border-gray-200 bg-gray-50">
+            <h2 className="text-lg font-semibold text-gray-900">Order Items</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b-2 border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Product
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Quantity
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Unit Cost
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Delivery Cost
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Discount
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Subtotal
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {items.map((item: any) => (
+                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        {item.product.photo ? (
+                          <img
+                            src={`${import.meta.env.VITE_IMG_URL}${item.product.photo}`}
+                            alt={item.product.product_name}
+                            className="w-12 h-12 rounded-lg object-cover border-2 border-gray-200"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-gray-200">
+                            <Package className="w-6 h-6 text-gray-400" />
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-900">{item.product.product_name}</p>
+                          <p className="text-sm text-gray-600">{item.product.product_type}</p>
+                          {item.custom_blend_mix && (
+                            <p className="text-xs text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded inline-block">
+                              {item.custom_blend_mix}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-medium text-gray-900">
+                        {parseFloat(item.quantity).toFixed(2)} {item.product.unit_of_measure}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-900">
+                        ${parseFloat(item.supplier_unit_cost).toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-900">
+                        ${parseFloat(item.supplier_delivery_cost).toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-green-600 font-medium">
+                        -${parseFloat(item.supplier_discount).toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-bold text-gray-900">
+                        ${(
+                          parseFloat(item.quantity) * parseFloat(item.supplier_unit_cost) +
+                          parseFloat(item.supplier_delivery_cost) -
+                          parseFloat(item.supplier_discount)
+                        ).toFixed(2)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pricing Summary */}
+          <div className="border-t-2 border-gray-200 bg-gradient-to-br from-gray-50 to-white">
+            <div className="px-6 py-6">
+              <div className="flex items-center gap-2 mb-4">
+                <DollarSign className="w-5 h-5 text-green-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Order Summary</h3>
+              </div>
+              
+              <div className="space-y-3 max-w-md ml-auto">
+                <div className="flex items-center justify-between py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Subtotal</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    ${parseFloat(order.subtotal).toFixed(2)}
+                  </span>
+                </div>
+                
+                <div className="flex items-center justify-between py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">Fuel Levy</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    ${parseFloat(order.fuel_levy).toFixed(2)}
+                  </span>
+                </div>
+                
+                {parseFloat(order.other_charges) > 0 && (
+                  <div className="flex items-center justify-between py-2 border-b border-gray-200">
+                    <span className="text-sm text-gray-600">Other Charges</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      ${parseFloat(order.other_charges).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between py-2 border-b border-gray-200">
+                  <span className="text-sm text-gray-600">GST/Tax</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    ${parseFloat(order.gst_tax).toFixed(2)}
+                  </span>
+                </div>
+                
+                <div className="flex items-center justify-between py-3 bg-green-50 px-4 rounded-lg border-2 border-green-200">
+                  <span className="text-base font-bold text-green-900">Total Amount</span>
+                  <span className="text-xl font-bold text-green-600">
+                    ${parseFloat(order.total_price).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Repeat Order Modal */}
+        <RepeatOrderModal
+          isOpen={repeatOrderModalOpen}
+          onClose={() => setRepeatOrderModalOpen(false)}
+          order={data?.data ? { ...order, items } : null}
+          onSubmit={handleRepeatOrderSubmit}
+          isSubmitting={repeatOrderMutation.isPending}
+        />
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default ClientOrderView;
 /* FILE: src/pages/client/Dashboard.tsx */
 // src/pages/client/Dashboard.tsx
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -14849,7 +16341,6 @@ import {
   Package,
   Loader2,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useSupplierOrderDetail } from '../../features/supplierOrders/hooks';
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -14858,13 +16349,13 @@ import { supplierMenuItems } from '../../utils/menuItems';
 import type { SupplierOrderItem } from '../../api/handlers/supplierOrders.api';
 
 const SupplierOrderDetail = () => {
-  const { orderId } = useParams<{ orderId: string }>();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
   // Parse orderId properly - useParams returns string
-  const orderIdNumber = orderId ? parseInt(orderId, 10) : undefined;
+  const orderIdNumber = id  ? parseInt(id , 10) : undefined;
   
-  console.log('SupplierOrderDetail - orderId from params (string):', orderId);
+  console.log('SupplierOrderDetail - orderId from params (string):', id);
   console.log('SupplierOrderDetail - parsed to number:', orderIdNumber);
   
   const { data, isLoading, refetch, error } = useSupplierOrderDetail(orderIdNumber);
@@ -14927,7 +16418,8 @@ const SupplierOrderDetail = () => {
     const unitCost = parseFloat(item.supplier_unit_cost);
     const quantity = parseFloat(item.quantity);
     const discount = parseFloat(item.supplier_discount);
-    return (unitCost * quantity) - discount;
+    const deliveryCost = parseFloat(item.supplier_delivery_cost);
+    return (unitCost * quantity) - discount + deliveryCost;
   };
 
   const formatCurrency = (amount: number) => {
@@ -14960,7 +16452,7 @@ const SupplierOrderDetail = () => {
             <p className="text-red-600 mb-4">{(error as Error).message}</p>
           )}
           <p className="text-gray-600 mb-4">
-            Order ID: {orderId} | Data: {JSON.stringify(data)}
+            Order ID: {id} | Data: {JSON.stringify(data)}
           </p>
           <button
             onClick={() => navigate('/supplier/orders')}
@@ -15069,7 +16561,7 @@ const SupplierOrderDetail = () => {
                     <div className="flex items-start gap-4">
                       {item.product?.photo && (
                         <img
-                          src={item.product.photo}
+                           src={`${import.meta.env.VITE_IMG_URL}${item.product.photo}`}
                           alt={item.product.product_name}
                           className="w-20 h-20 object-cover rounded-lg"
                         />
@@ -15099,11 +16591,15 @@ const SupplierOrderDetail = () => {
                         <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
                           <div>
                             <p className="text-gray-600">Unit Cost</p>
-                            <p className="font-medium text-gray-900">{formatCurrency(item.supplier_unit_cost)}</p>
+                            <p className="font-medium text-gray-900">{formatCurrency(parseFloat(item.supplier_unit_cost))}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Delivery Cost</p>
+                            <p className="font-medium text-gray-900">{formatCurrency(parseFloat(item.supplier_delivery_cost))}</p>
                           </div>
                           <div>
                             <p className="text-gray-600">Discount</p>
-                            <p className="font-medium text-gray-900">{formatCurrency(item.supplier_discount)}</p>
+                            <p className="font-medium text-gray-900">{formatCurrency(parseFloat(item.supplier_discount))}</p>
                           </div>
                           <div>
                             <p className="text-gray-600">Delivery Date</p>
@@ -15122,13 +16618,15 @@ const SupplierOrderDetail = () => {
                           </div>
                         )}
                         <div className="mt-4">
-                          <button
-                            onClick={() => handleEditItem(item)}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
-                          >
-                            <Edit className="w-4 h-4" />
-                            Edit Item
-                          </button>
+                          {!item.supplier_confirms ? (
+                            <button
+                              onClick={() => handleEditItem(item)}
+                              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                            >
+                              <Edit className="w-4 h-4" />
+                              Edit Item
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -15301,10 +16799,10 @@ const SupplierOrders = () => {
           </div>
           <button
             onClick={handleRefresh}
-            disabled={isLoading}
+            disabled={isFetching}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
@@ -15326,7 +16824,7 @@ const SupplierOrders = () => {
         {/* Orders Table */}
         <OrdersTable
           orders={data?.data?.data || []}
-          loading={isLoading}
+          loading={isLoading || isFetching}
           pagination={data?.data?.pagination || null}
           onPageChange={handlePageChange}
         />
@@ -15373,6 +16871,8 @@ import ProjectCreate from '../pages/client/projects/ProjectCreate';
 
 //Client Orders
 import OrderCreate from '../pages/client/OrderCreate';
+import ClientOrders from '../pages/client/ClientOrders';
+import ClientOrderView from '../pages/client/ClientOrderView';
 
 //Supplier Delivery Zones
 import DeliveryZonesPage from '../pages/supplier/DeliveryZones';
@@ -15384,10 +16884,11 @@ import SupplierOrderDetail from '../pages/supplier/SupplierOrderDetail';
 
 // Shared
 import ProfileSettings from '../pages/shared/ProfileSettings';
+const basePath = import.meta.env.VITE_BASE_PATH || '/';
 
 const AppRouter = () => {
   return (
-    <BrowserRouter>
+      <BrowserRouter basename={basePath}>
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
@@ -15450,6 +16951,22 @@ const AppRouter = () => {
               <ProjectEdit />
             </ProtectedRoute>
           }
+        />
+        <Route 
+          path="/client/orders" 
+          element={
+          <ProtectedRoute allowedRoles={['client']}>
+          <ClientOrders />
+          </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/client/orders/:orderId" 
+          element={
+            <ProtectedRoute allowedRoles={['client']}>
+            <ClientOrderView />
+            </ProtectedRoute>
+          } 
         />
 
 
@@ -16412,6 +17929,9 @@ interface ImportMetaEnv {
   readonly VITE_IMAGE_BASE_URL: string;
   readonly VITE_API_BASE_URL: string;
   readonly VITE_GOOGLE_MAPS_API_KEY: string;
+  readonly VITE_IMG_URL: string;
+  readonly VITE_ENVRIONMENT: string;
+  readonly VITE_BASE_PATH: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;

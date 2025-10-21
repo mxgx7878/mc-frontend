@@ -94,7 +94,8 @@ const SupplierOrderDetail = () => {
     const unitCost = parseFloat(item.supplier_unit_cost);
     const quantity = parseFloat(item.quantity);
     const discount = parseFloat(item.supplier_discount);
-    return (unitCost * quantity) - discount;
+    const deliveryCost = parseFloat(item.supplier_delivery_cost);
+    return (unitCost * quantity) - discount + deliveryCost;
   };
 
   const formatCurrency = (amount: number) => {
@@ -269,6 +270,10 @@ const SupplierOrderDetail = () => {
                             <p className="font-medium text-gray-900">{formatCurrency(parseFloat(item.supplier_unit_cost))}</p>
                           </div>
                           <div>
+                            <p className="text-gray-600">Delivery Cost</p>
+                            <p className="font-medium text-gray-900">{formatCurrency(parseFloat(item.supplier_delivery_cost))}</p>
+                          </div>
+                          <div>
                             <p className="text-gray-600">Discount</p>
                             <p className="font-medium text-gray-900">{formatCurrency(parseFloat(item.supplier_discount))}</p>
                           </div>
@@ -289,13 +294,15 @@ const SupplierOrderDetail = () => {
                           </div>
                         )}
                         <div className="mt-4">
-                          <button
-                            onClick={() => handleEditItem(item)}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
-                          >
-                            <Edit className="w-4 h-4" />
-                            Edit Item
-                          </button>
+                          {!item.supplier_confirms ? (
+                            <button
+                              onClick={() => handleEditItem(item)}
+                              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                            >
+                              <Edit className="w-4 h-4" />
+                              Edit Item
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     </div>

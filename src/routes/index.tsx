@@ -26,6 +26,10 @@ import AddMasterProduct from '../pages/admin/MasterProducts/AddMasterProduct';
 import EditMasterProduct from '../pages/admin/MasterProducts/EditMasterProduct';
 import ViewMasterProduct from '../pages/admin/MasterProducts/ViewMasterProduct';
 
+//Admin Orders
+import AdminOrdersList from '../pages/admin/Orders/AdminOrdersList';
+import AdminOrderView from '../pages/admin/Orders/AdminOrderView';
+
 //Client Projects
 import ProjectsList from '../pages/client/projects/ProjectsList';
 import ProjectDetail from '../pages/client/projects/ProjectDetail';
@@ -285,7 +289,23 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
-
+        {/* Admin Order Routes */}
+        <Route
+          path="/admin/orders"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminOrdersList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/orders/:id"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminOrderView />
+            </ProtectedRoute>
+          }
+        />
         {/* Fallback */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />

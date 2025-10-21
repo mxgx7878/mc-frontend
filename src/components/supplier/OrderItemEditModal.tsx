@@ -17,6 +17,7 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
   const [formData, setFormData] = useState({
     supplier_unit_cost: '',
     supplier_discount: '',
+    supplier_delivery_cost: '',
     supplier_delivery_date: '',
     supplier_notes: '',
     supplier_confirms: false,
@@ -29,6 +30,7 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
     if (item) {
       setFormData({
         supplier_unit_cost: item.supplier_unit_cost || '',
+        supplier_delivery_cost: item.supplier_delivery_cost || '',
         supplier_discount: item.supplier_discount || '0',
         supplier_delivery_date: item.supplier_delivery_date?.split('T')[0] || '',
         supplier_notes: item.supplier_notes || '',
@@ -67,6 +69,10 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
       newErrors.supplier_delivery_date = 'Delivery date is required';
     }
 
+    if (!formData.supplier_delivery_cost || parseFloat(formData.supplier_delivery_cost) < 0) {
+      newErrors.supplier_delivery_cost = 'Delivery cost must be a positive number';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -87,6 +93,7 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
         payload: {
           supplier_unit_cost: parseFloat(formData.supplier_unit_cost),
           supplier_discount: parseFloat(formData.supplier_discount),
+          supplier_delivery_cost: parseFloat(formData.supplier_delivery_cost),
           supplier_delivery_date: formData.supplier_delivery_date,
           supplier_notes: formData.supplier_notes,
           supplier_confirms: formData.supplier_confirms,
@@ -111,7 +118,8 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
   const calculateItemTotal = () => {
     const unitCost = parseFloat(formData.supplier_unit_cost) || 0;
     const discount = parseFloat(formData.supplier_discount) || 0;
-    return unitCost * parseFloat(item.quantity) - discount;
+    const deliveryCost = parseFloat(formData.supplier_delivery_cost) || 0;
+    return unitCost * parseFloat(item.quantity) - discount + deliveryCost;
   };
 
   return (
@@ -170,6 +178,27 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
             />
             {errors.supplier_unit_cost && (
               <p className="text-red-500 text-sm mt-1">{errors.supplier_unit_cost}</p>
+            )}
+          </div>
+          {/* Delivery Cost */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Supplier Delivery Cost <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="supplier_delivery_cost"
+              value={formData.supplier_delivery_cost}
+              onChange={handleChange}
+              step="0.01"
+              min="0"
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.supplier_delivery_cost ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="0.00"
+            />
+            {errors.supplier_unit_cost && (
+              <p className="text-red-500 text-sm mt-1">{errors.supplier_delivery_cost}</p>
             )}
           </div>
 
@@ -242,7 +271,7 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
               </span>
             </div>
             <p className="text-xs text-gray-600 mt-1">
-              ({item.quantity} × ${formData.supplier_unit_cost || 0}) - ${formData.supplier_discount || 0}
+              ({item.quantity} × ${formData.supplier_unit_cost || 0}) - ${formData.supplier_discount || 0} + ${formData.supplier_delivery_cost || 0}
             </p>
           </div>
 
