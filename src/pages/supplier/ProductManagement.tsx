@@ -2,12 +2,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
-  Home, 
   Package, 
-  DollarSign, 
-  MapPin, 
-  Settings, 
-  User,
   Search,
   Plus,
   Filter,
@@ -33,6 +28,7 @@ import RequestProductModal from '../../components/supplier/RequestProductModal';
 import Pagination from '../../components/common/Pagination';
 import Button from '../../components/common/Buttons';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import {supplierMenuItems} from '../../utils/menuItems';
 
 const PER_PAGE = 10;
 
@@ -96,16 +92,6 @@ const ProductManagement = () => {
       toast.error(error.response?.data?.message || 'Failed to remove product');
     },
   });
-
-  // Menu items
-  const menuItems = [
-    { label: 'Dashboard', path: '/supplier/dashboard', icon: <Home size={20} /> },
-    { label: 'My Products', path: '/supplier/products', icon: <Package size={20} /> },
-    { label: 'Orders', path: '/supplier/orders', icon: <DollarSign size={20} /> },
-    { label: 'Delivery Zones', path: '/supplier/zones', icon: <MapPin size={20} /> },
-    { label: 'Profile', path: '/supplier/profile', icon: <User size={20} /> },
-    { label: 'Settings', path: '/supplier/settings', icon: <Settings size={20} /> },
-  ];
 
   // Filter products
   const filteredProducts = useMemo(() => {
@@ -174,7 +160,7 @@ const ProductManagement = () => {
   };
 
   return (
-    <DashboardLayout menuItems={menuItems}>
+    <DashboardLayout menuItems={supplierMenuItems}>
       <div className="space-y-8 pb-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

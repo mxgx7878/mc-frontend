@@ -13,14 +13,6 @@ import {
   Camera,
   X,
   Truck,
-  Home,
-  Package,
-  ShoppingCart,
-  FolderOpen,
-  Settings,
-  BarChart,
-  Users,
-  DollarSign
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Autocomplete from 'react-google-autocomplete';
@@ -33,6 +25,7 @@ import Input from '../../components/common/Input';
 import Button from '../../components/common/Buttons';
 import ChangePasswordSection from '../../components/profile/ChangePasswordSection';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import { supplierMenuItems, clientMenuItems, adminMenuItems} from '../../utils/menuItems';
 
 const ProfileSettings = () => {
   const { user, updateUser } = useAuthStore();
@@ -209,33 +202,11 @@ const ProfileSettings = () => {
   // ✅ Define menu items based on user role
   const getMenuItems = () => {
     if (user?.role === 'client') {
-      return [
-        { label: 'Dashboard', path: '/client/dashboard', icon: <Home size={20} /> },
-        { label: 'Projects', path: '/client/projects', icon: <FolderOpen size={20} /> },
-        { label: 'Orders', path: '/client/orders', icon: <ShoppingCart size={20} /> },
-        { label: 'Products', path: '/client/products', icon: <Package size={20} /> },
-        { label: 'Profile', path: '/client/profile', icon: <User size={20} /> },
-        { label: 'Settings', path: '/client/settings', icon: <Settings size={20} /> },
-      ];
+      return clientMenuItems;
     } else if (user?.role === 'supplier') {
-      return [
-        { label: 'Dashboard', path: '/supplier/dashboard', icon: <Home size={20} /> },
-        { label: 'My Products', path: '/supplier/products', icon: <Package size={20} /> },
-        { label: 'Orders', path: '/supplier/orders', icon: <DollarSign size={20} /> },
-        { label: 'Delivery Zones', path: '/supplier/zones', icon: <MapPin size={20} /> },
-        { label: 'Profile', path: '/supplier/profile', icon: <User size={20} /> },
-        { label: 'Settings', path: '/supplier/settings', icon: <Settings size={20} /> },
-      ];
+      return supplierMenuItems;
     } else if (user?.role === 'admin') {
-      return [
-        { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
-        { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-        { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
-        { label: 'Supplier Delivery Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
-        { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
-        { label: 'Reports', path: '/admin/reports', icon: <BarChart size={20} /> },
-        { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
-      ];
+      return adminMenuItems;
     }
     return [];
   };

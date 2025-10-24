@@ -214,7 +214,7 @@ const AdminOrderView: React.FC = () => {
                   <div className="space-y-3 text-sm">
                     <div>
                       <p className="text-gray-600">Order ID</p>
-                      <p className="font-semibold text-gray-900">{order.id}</p>
+                      <p className="font-semibold text-gray-900">ORD-{order.id}</p>
                     </div>
                     <div>
                       <p className="text-gray-600">PO Number</p>

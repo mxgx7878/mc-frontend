@@ -120,7 +120,7 @@ const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({ items, workflow }
         <div className="flex items-center gap-3">
           {item.supplier?.profile_image ? (
             <img
-              src={item.supplier.profile_image}
+              src={`${import.meta.env.VITE_IMAGE_BASE_URL}${item.supplier.profile_image}`}
               alt={item.supplier.name}
               className="w-10 h-10 rounded-full object-cover"
             />
