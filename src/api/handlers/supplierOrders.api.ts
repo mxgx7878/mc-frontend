@@ -6,6 +6,8 @@ import api from '../axios.config';
 // Types & Interfaces
 // ===========================
 
+export type DeliveryType = 'Included' | 'Supplier' | 'ThirdParty' | 'Fleet' | 'None';
+
 export interface SupplierOrderItem {
   id: number;
   order_id: number;
@@ -16,6 +18,8 @@ export interface SupplierOrderItem {
   custom_blend_mix: string | null;
   supplier_unit_cost: string;
   supplier_delivery_cost: string;
+  delivery_cost: string;
+  delivery_type: DeliveryType;
   supplier_discount: string;
   supplier_delivery_date: string;
   supplier_confirms: boolean;
@@ -43,9 +47,8 @@ export interface SupplierOrderItem {
 
 export interface SupplierOrder {
   id: number;
-  order_number?: string;  // From listing API (backend generated)
-  po_number?: string;      // From detail API (database field)
-  workflow: string;
+  po_number: string;
+  order_status: string;  // Changed from workflow to order_status
   total_amount: number;
   created_at: string;
   updated_at: string;
@@ -91,7 +94,7 @@ export interface OrderDetailResponse {
       po_number: string;
       project_id: number;
       client_id: number;
-      workflow: string;
+      workflow: string;  // Detail API still uses workflow
       delivery_address: string;
       delivery_date: string;
       delivery_time: string;
@@ -121,7 +124,8 @@ export interface OrderDetailResponse {
 
 export interface UpdateOrderItemPayload {
   supplier_unit_cost?: number;
-  supplier_delivery_cost?: number;
+  delivery_cost?: number;
+  delivery_type: DeliveryType;
   supplier_discount?: number;
   supplier_delivery_date?: string;
   supplier_confirms?: boolean;
@@ -179,7 +183,6 @@ export const supplierOrdersAPI = {
       console.log('Update order item response:', response);
       return response.data;
     } catch (error: any) {
-     
       throw new Error(error?.message || 'Failed to update order item');
     }
   },

@@ -26,17 +26,30 @@ const OrdersTable: React.FC<OrdersTableProps> = ({ orders, loading, pagination, 
     navigate(`/supplier/orders/${orderId}`);
   };
 
-  const getStatusColor = (workflow: string) => {
+  const getStatusColor = (orderStatus: string) => {
     const statusColors: Record<string, string> = {
+      'Pending': 'bg-gray-100 text-gray-800',
+      'In-Progress': 'bg-blue-100 text-blue-800',
+      'Confirmed': 'bg-green-100 text-green-800',
+      'Awaiting-Payment': 'bg-yellow-100 text-yellow-800',
+      'Paid': 'bg-green-100 text-green-800',
+      'In-Transit': 'bg-purple-100 text-purple-800',
+      'Delivered': 'bg-green-100 text-green-800',
+      'Cancelled': 'bg-red-100 text-red-800',
+      'On-Hold': 'bg-orange-100 text-orange-800',
+      // Legacy workflow statuses (in case they still appear)
       'Requested': 'bg-gray-100 text-gray-800',
       'Supplier Assigned': 'bg-blue-100 text-blue-800',
       'Supplier Missing': 'bg-red-100 text-red-800',
       'Payment Requested': 'bg-yellow-100 text-yellow-800',
-      'Paid': 'bg-green-100 text-green-800',
       'In Transit': 'bg-purple-100 text-purple-800',
-      'Delivered': 'bg-green-100 text-green-800',
     };
-    return statusColors[workflow] || 'bg-gray-100 text-gray-800';
+    return statusColors[orderStatus] || 'bg-gray-100 text-gray-800';
+  };
+
+  const formatStatusLabel = (status: string) => {
+    // Convert hyphenated status to readable format
+    return status.replace(/-/g, ' ');
   };
 
   const formatCurrency = (amount: number) => {
@@ -79,7 +92,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({ orders, loading, pagination, 
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden relative">
-      {/* Loading Overlay for Filtering - More Visible */}
+      {/* Loading Overlay for Filtering */}
       {loading && (
         <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
           <div className="flex flex-col items-center gap-3 bg-white p-6 rounded-lg shadow-lg">
@@ -118,12 +131,12 @@ const OrdersTable: React.FC<OrdersTableProps> = ({ orders, loading, pagination, 
               <tr key={order.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
-                    {order.order_number || order.po_number || `ORD-${order.id}`}
+                    {order.po_number || `ORD-${order.id}`}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.workflow)}`}>
-                    {order.workflow}
+                  <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.order_status)}`}>
+                    {formatStatusLabel(order.order_status)}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

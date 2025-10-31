@@ -3,6 +3,7 @@
 /**
  * Admin Orders Type Definitions
  * All TypeScript interfaces for admin order management
+ * Updated to match new pricing logic
  */
 
 // ==================== DELIVERY ZONE ====================
@@ -41,7 +42,7 @@ export interface EligibleSupplier {
   distance: number | null;
 }
 
-// ==================== ORDER ====================
+// ==================== ORDER (UPDATED) ====================
 export interface AdminOrder {
   id: number;
   po_number: string;
@@ -49,14 +50,35 @@ export interface AdminOrder {
   project: string;
   delivery_date: string;
   delivery_time: string;
+  delivery_method?: string;
   workflow: WorkflowStatus;
   payment_status: PaymentStatus;
+  order_process?: string;
   items_count: number;
   unassigned_items_count: number;
-  supplier_cost: number;
-  customer_cost: number;
-  admin_margin: number;
+  suppliers_count: number;
+  
+  // Supplier costs
+  supplier_item_cost: number;
+  supplier_delivery_cost: number;
+  supplier_total: number;
+  
+  // Customer costs
+  customer_item_cost: number;
+  customer_delivery_cost: number;
+  
+  // Totals and profit
+  total_price: number;
+  profit_amount: number;
+  profit_margin_percent: number;
+  
+  // Other charges
+  gst_tax: number;
+  discount: number;
+  other_charges: number;
+  
   order_info?: string | null;
+  repeat_order?: boolean;
   created_at: string;
   updated_at: string;
 }

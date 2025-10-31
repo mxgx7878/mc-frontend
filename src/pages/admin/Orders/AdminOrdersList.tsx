@@ -2,15 +2,16 @@
 
 /**
  * Admin Orders List Page
- * Main page for viewing and filtering all orders
+ * Main page with metrics, filters panel, active chips, and comprehensive table
  */
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Filter, Search } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import OrderMetricsCards from '../../../components/admin/Orders/OrderMetricsCards';
-import OrderFilters from '../../../components/admin/Orders/OrderFilters';
+import OrderFiltersPanel from '../../../components/admin/Orders/OrderFiltersPanel';
+import ActiveFilterChips from '../../../components/admin/Orders/ActiveFilterChips';
 import OrdersTable from '../../../components/admin/Orders/OrdersTable';
 import { useAdminOrders } from '../../../features/adminOrders/hooks';
 import { adminMenuItems } from '../../../utils/menuItems';
@@ -19,6 +20,7 @@ const AdminOrdersList: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [availableFilters, setAvailableFilters] = useState<any>(null);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
 
   // Initialize filters from URL params
   const [filters, setFilters] = useState({
@@ -43,9 +45,10 @@ const AdminOrdersList: React.FC = () => {
   });
 
   // Fetch orders with includeDetails on first load
-  const { data, isLoading, isFetching, refetch } = useAdminOrders(
-    { ...filters, details: isFirstLoad }
-  );
+  const { data, isLoading, isFetching, refetch } = useAdminOrders({
+    ...filters,
+    details: isFirstLoad,
+  });
 
   // Store filters from first load
   useEffect(() => {
@@ -108,13 +111,17 @@ const AdminOrdersList: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Orders Management</h1>
-            <p className="text-gray-600 mt-1">View and manage all orders in the system</p>
+            <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              Orders Management
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Comprehensive view of all orders with full cost insights
+            </p>
           </div>
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 font-medium shadow-sm hover:shadow-md"
           >
             <RefreshCw size={18} className={isFetching ? 'animate-spin' : ''} />
             Refresh
@@ -124,13 +131,68 @@ const AdminOrdersList: React.FC = () => {
         {/* Metrics Cards */}
         <OrderMetricsCards metrics={data?.metrics || null} loading={isLoading} />
 
-        {/* Filters */}
-        <OrderFilters
-          filters={filters}
-          onFilterChange={handleFilterChange}
-          onClearFilters={handleClearFilters}
-          availableFilters={availableFilters || data?.filters || null}
-        />
+        {/* Search Bar and Filter Toggle */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Search Input */}
+            <div className="flex-1 relative">
+              <Search
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                size={20}
+              />
+              <input
+                type="text"
+                value={filters.search}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+                placeholder="Search by PO number..."
+                className="w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+              />
+            </div>
+
+            {/* Filter Toggle Button */}
+            <button
+              onClick={() => setIsFilterPanelOpen(true)}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-bold shadow-md hover:shadow-lg whitespace-nowrap"
+            >
+              <Filter size={20} />
+              Advanced Filters
+              {Object.values(filters).filter(
+                (v, i) =>
+                  v !== '' &&
+                  Object.keys(filters)[i] !== 'sort' &&
+                  Object.keys(filters)[i] !== 'dir' &&
+                  Object.keys(filters)[i] !== 'page' &&
+                  Object.keys(filters)[i] !== 'per_page' &&
+                  Object.keys(filters)[i] !== 'search'
+              ).length > 0 && (
+                <span className="px-2 py-0.5 bg-white text-blue-600 rounded-full text-xs font-bold">
+                  {
+                    Object.values(filters).filter(
+                      (v, i) =>
+                        v !== '' &&
+                        Object.keys(filters)[i] !== 'sort' &&
+                        Object.keys(filters)[i] !== 'dir' &&
+                        Object.keys(filters)[i] !== 'page' &&
+                        Object.keys(filters)[i] !== 'per_page' &&
+                        Object.keys(filters)[i] !== 'search'
+                    ).length
+                  }
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Active Filter Chips */}
+          {availableFilters && (
+            <div className="mt-4">
+              <ActiveFilterChips
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                availableFilters={availableFilters}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Orders Table */}
         <OrdersTable
@@ -140,6 +202,16 @@ const AdminOrdersList: React.FC = () => {
           onPageChange={handlePageChange}
         />
       </div>
+
+      {/* Filter Panel (Slide-in) */}
+      <OrderFiltersPanel
+        isOpen={isFilterPanelOpen}
+        onClose={() => setIsFilterPanelOpen(false)}
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onClearFilters={handleClearFilters}
+        availableFilters={availableFilters || data?.filters || null}
+      />
     </DashboardLayout>
   );
 };

@@ -77,24 +77,12 @@ const SupplierOrderDetail = () => {
     }
   };
 
-  const getStatusColor = (workflow: string) => {
-    const colors: Record<string, string> = {
-      'Requested': 'bg-gray-100 text-gray-800',
-      'Supplier Assigned': 'bg-blue-100 text-blue-800',
-      'Supplier Missing': 'bg-red-100 text-red-800',
-      'Payment Requested': 'bg-yellow-100 text-yellow-800',
-      'Paid': 'bg-green-100 text-green-800',
-      'In Transit': 'bg-purple-100 text-purple-800',
-      'Delivered': 'bg-green-100 text-green-800',
-    };
-    return colors[workflow] || 'bg-gray-100 text-gray-800';
-  };
 
   const calculateItemTotal = (item: SupplierOrderItem) => {
     const unitCost = parseFloat(item.supplier_unit_cost);
     const quantity = parseFloat(item.quantity);
     const discount = parseFloat(item.supplier_discount);
-    const deliveryCost = parseFloat(item.supplier_delivery_cost);
+    const deliveryCost = parseFloat(item.delivery_cost);
     return (unitCost * quantity) - discount + deliveryCost;
   };
 
@@ -156,9 +144,6 @@ const SupplierOrderDetail = () => {
             <ArrowLeft className="w-5 h-5" />
             Back to Orders
           </button>
-          <span className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusColor(order.workflow)}`}>
-            {order.workflow}
-          </span>
         </div>
 
         {/* Order Header */}
@@ -271,7 +256,7 @@ const SupplierOrderDetail = () => {
                           </div>
                           <div>
                             <p className="text-gray-600">Delivery Cost</p>
-                            <p className="font-medium text-gray-900">{formatCurrency(parseFloat(item.supplier_delivery_cost))}</p>
+                            <p className="font-medium text-gray-900">{formatCurrency(parseFloat(item.delivery_cost))}</p>
                           </div>
                           <div>
                             <p className="text-gray-600">Discount</p>
@@ -284,6 +269,10 @@ const SupplierOrderDetail = () => {
                           <div>
                             <p className="text-gray-600">Item Total</p>
                             <p className="font-bold text-blue-600">{formatCurrency(calculateItemTotal(item))}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Delivery Type</p>
+                            <p className="font-medium text-gray-900">{item.delivery_type ? item.delivery_type : '--'}</p>
                           </div>
                         </div>
                         {item.supplier_notes && (

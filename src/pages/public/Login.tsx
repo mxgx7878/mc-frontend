@@ -5,7 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-
+import { useEffect, useRef } from 'react';
 import { authAPI } from '../../api/handlers/auth.api';
 import { useAuthStore } from '../../store/authStore';
 import { loginSchema } from '../../utils/validators';
@@ -15,7 +15,35 @@ import Button from '../../components/common/Buttons'; // Changed from Buttons
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuthStore();
+
+  // 1) Select stable primitives only. Do NOT do ({ ... }) without shallow.
+  const token = useAuthStore((s) => s.token);
+  const login = useAuthStore((s) => s.login);
+
+  // 2) Read functions directly when needed to avoid extra deps re-renders.
+  const checkAuth = useAuthStore.getState().checkAuth;
+
+  // 3) Prevent re-entrant checks in Strict Mode and during rapid re-renders.
+  const checkingRef = useRef(false);
+
+  useEffect(() => {
+    if (!token || checkingRef.current) return;
+
+    checkingRef.current = true;
+    (async () => {
+      const ok = await checkAuth();
+      if (ok) {
+        const { user } = useAuthStore.getState(); // fresh snapshot after check
+        const map: Record<string, string> = {
+          admin: '/admin/dashboard',
+          client: '/client/dashboard',
+          supplier: '/supplier/dashboard',
+        };
+        navigate(map[user?.role ?? 'client'] || '/login', { replace: true });
+      }
+      checkingRef.current = false;
+    })();
+  }, [token, navigate]);
 
   const {
     register,

@@ -30,6 +30,7 @@ interface AuthState {
   login: (user: User, token: string) => void;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
+  checkAuth: () => Promise<boolean>;
   setToken: (token: string) => void; // ✅ NEW: Update token only
   isAdmin: () => boolean;
   isClient: () => boolean;
@@ -51,6 +52,29 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         set({ user: null, token: null, isAuthenticated: false });
         localStorage.clear();
+      },
+      checkAuth: async () => {
+        const { token, logout } = get();
+        if (!token) {
+          logout();
+          return false;
+        }
+
+        try {
+          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/user  `, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) throw new Error('Token invalid');
+
+          const data = await res.json();
+          if (data.user) set({ user: data.user, isAuthenticated: true });
+          else set({ isAuthenticated: true });
+
+          return true;
+        } catch {
+          logout();
+          return false;
+        }
       },
       
       updateUser: (userData) => {

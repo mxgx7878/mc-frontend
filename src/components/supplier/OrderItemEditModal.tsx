@@ -1,10 +1,10 @@
 // src/components/supplier/OrderItemEditModal.tsx
 
 import { useState, useEffect } from 'react';
-import { X, Save } from 'lucide-react';
+import { X, Save, Truck, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useUpdateOrderItem } from '../../features/supplierOrders/hooks';
-import type { SupplierOrderItem } from '../../api/handlers/supplierOrders.api';
+import type { SupplierOrderItem, DeliveryType } from '../../api/handlers/supplierOrders.api';
 
 interface OrderItemEditModalProps {
   item: SupplierOrderItem | null;
@@ -13,11 +13,20 @@ interface OrderItemEditModalProps {
   onSuccess: () => void;
 }
 
+const DELIVERY_TYPES: { value: DeliveryType; label: string; description: string }[] = [
+  { value: 'Included', label: 'Included', description: 'Delivery cost included in unit price' },
+  { value: 'Supplier', label: 'Supplier Delivery', description: 'Delivery handled by supplier' },
+  { value: 'ThirdParty', label: 'Third Party', description: 'External delivery service' },
+  { value: 'Fleet', label: 'Fleet', description: 'Company fleet delivery' },
+  { value: 'None', label: 'No Delivery', description: 'Pickup only, no delivery' },
+];
+
 const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     supplier_unit_cost: '',
     supplier_discount: '',
-    supplier_delivery_cost: '',
+    delivery_cost: '',
+    delivery_type: 'Supplier' as DeliveryType,
     supplier_delivery_date: '',
     supplier_notes: '',
     supplier_confirms: false,
@@ -30,7 +39,8 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
     if (item) {
       setFormData({
         supplier_unit_cost: item.supplier_unit_cost || '',
-        supplier_delivery_cost: item.supplier_delivery_cost || '',
+        delivery_cost: item.delivery_cost || '',
+        delivery_type: item.delivery_type || 'Supplier',
         supplier_discount: item.supplier_discount || '0',
         supplier_delivery_date: item.supplier_delivery_date?.split('T')[0] || '',
         supplier_notes: item.supplier_notes || '',
@@ -39,19 +49,32 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
     }
   }, [item]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    // If delivery type changes to None or Included, reset delivery cost
+    if (name === 'delivery_type' && (value === 'None' || value === 'Included')) {
+      setFormData((prev) => ({
+        ...prev,
+        delivery_type: value as DeliveryType,
+        delivery_cost: '0',
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value,
+      }));
+    }
     
     // Clear error for this field
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
+  };
+
+  const shouldShowDeliveryCost = () => {
+    return formData.delivery_type !== 'None' && formData.delivery_type !== 'Included';
   };
 
   const validate = () => {
@@ -69,8 +92,15 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
       newErrors.supplier_delivery_date = 'Delivery date is required';
     }
 
-    if (!formData.supplier_delivery_cost || parseFloat(formData.supplier_delivery_cost) < 0) {
-      newErrors.supplier_delivery_cost = 'Delivery cost must be a positive number';
+    if (!formData.delivery_type) {
+      newErrors.delivery_type = 'Delivery type is required';
+    }
+
+    // Only validate delivery cost if it should be shown
+    if (shouldShowDeliveryCost()) {
+      if (!formData.delivery_cost || parseFloat(formData.delivery_cost) < 0) {
+        newErrors.delivery_cost = 'Delivery cost must be a positive number';
+      }
     }
 
     setErrors(newErrors);
@@ -87,13 +117,17 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
 
     if (!item) return;
 
+    // Prepare payload - set delivery_cost to 0 if delivery type is None or Included
+    const deliveryCost = shouldShowDeliveryCost() ? parseFloat(formData.delivery_cost) : 0;
+
     updateMutation.mutate(
       {
         orderItemId: item.id,
         payload: {
           supplier_unit_cost: parseFloat(formData.supplier_unit_cost),
           supplier_discount: parseFloat(formData.supplier_discount),
-          supplier_delivery_cost: parseFloat(formData.supplier_delivery_cost),
+          delivery_cost: deliveryCost,
+          delivery_type: formData.delivery_type,
           supplier_delivery_date: formData.supplier_delivery_date,
           supplier_notes: formData.supplier_notes,
           supplier_confirms: formData.supplier_confirms,
@@ -106,7 +140,6 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
           onClose();
         },
         onError: (error: Error) => {
-      
           toast.error(error.message || 'Failed to update order item');
         },
       }
@@ -118,7 +151,7 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
   const calculateItemTotal = () => {
     const unitCost = parseFloat(formData.supplier_unit_cost) || 0;
     const discount = parseFloat(formData.supplier_discount) || 0;
-    const deliveryCost = parseFloat(formData.supplier_delivery_cost) || 0;
+    const deliveryCost = shouldShowDeliveryCost() ? parseFloat(formData.delivery_cost) || 0 : 0;
     return unitCost * parseFloat(item.quantity) - discount + deliveryCost;
   };
 
@@ -180,27 +213,65 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
               <p className="text-red-500 text-sm mt-1">{errors.supplier_unit_cost}</p>
             )}
           </div>
-          {/* Delivery Cost */}
+
+          {/* Delivery Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Supplier Delivery Cost <span className="text-red-500">*</span>
+              Delivery Type <span className="text-red-500">*</span>
             </label>
-            <input
-              type="number"
-              name="supplier_delivery_cost"
-              value={formData.supplier_delivery_cost}
+            <select
+              name="delivery_type"
+              value={formData.delivery_type}
               onChange={handleChange}
-              step="0.01"
-              min="0"
               className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.supplier_delivery_cost ? 'border-red-500' : 'border-gray-300'
+                errors.delivery_type ? 'border-red-500' : 'border-gray-300'
               }`}
-              placeholder="0.00"
-            />
-            {errors.supplier_unit_cost && (
-              <p className="text-red-500 text-sm mt-1">{errors.supplier_delivery_cost}</p>
+            >
+              {DELIVERY_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+            {errors.delivery_type && (
+              <p className="text-red-500 text-sm mt-1">{errors.delivery_type}</p>
             )}
+            
+            {/* Delivery Type Info */}
+            <div className="mt-2 flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-blue-800">
+                {DELIVERY_TYPES.find(t => t.value === formData.delivery_type)?.description}
+              </p>
+            </div>
           </div>
+
+          {/* Delivery Cost - Conditional */}
+          {shouldShowDeliveryCost() && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Delivery Cost <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Truck className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="number"
+                  name="delivery_cost"
+                  value={formData.delivery_cost}
+                  onChange={handleChange}
+                  step="0.01"
+                  min="0"
+                  className={`w-full pl-10 pr-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.delivery_cost ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="0.00"
+                />
+              </div>
+              {errors.delivery_cost && (
+                <p className="text-red-500 text-sm mt-1">{errors.delivery_cost}</p>
+              )}
+            </div>
+          )}
 
           {/* Discount */}
           <div>
@@ -271,7 +342,8 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
               </span>
             </div>
             <p className="text-xs text-gray-600 mt-1">
-              ({item.quantity} × ${formData.supplier_unit_cost || 0}) - ${formData.supplier_discount || 0} + ${formData.supplier_delivery_cost || 0}
+              ({item.quantity} × ${formData.supplier_unit_cost || 0}) - ${formData.supplier_discount || 0}
+              {shouldShowDeliveryCost() && ` + $${formData.delivery_cost || 0} delivery`}
             </p>
           </div>
 
