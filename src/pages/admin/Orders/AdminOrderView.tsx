@@ -2,53 +2,69 @@
 
 /**
  * Admin Order View Page
- * Detailed view of a single order with map, items, costing, and update form
+ * Comprehensive order details with tabbed interface
  */
 
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, MapPin, Truck, FileText, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  FileText,
+  Package,
+  Calculator,
+  MapPin,
+  Settings,
+  Loader2,
+  AlertCircle,
+} from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import OrderItemsSection from '../../../components/admin/Orders/OrderItemsSection';
-import OrderCostingCard from '../../../components/admin/Orders/OrderCostingCard';
+import OrderOverviewTab from '../../../components/admin/Orders/OrderOverviewTab';
+import OrderItemsTab from '../../../components/admin/Orders/OrderItemsTab';
+import OrderCostingTab from '../../../components/admin/Orders/OrderCostingTab';
 import OrderMapTab from '../../../components/admin/Orders/OrderMapTab';
-import OrderUpdateForm from '../../../components/admin/Orders/OrderUpdateForm';
+import OrderAdminUpdateTab from '../../../components/admin/Orders/OrderAdminUpdateTab';
 import { useAdminOrderDetail } from '../../../features/adminOrders/hooks';
 import { adminMenuItems } from '../../../utils/menuItems';
 import {
   getWorkflowBadgeClass,
   getPaymentBadgeClass,
-  formatDate,
 } from '../../../features/adminOrders/utils';
+
+type TabType = 'overview' | 'items' | 'costing' | 'map' | 'admin';
 
 const AdminOrderView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'details' | 'map'>('details');
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   const { data, isLoading, error } = useAdminOrderDetail(parseInt(id || '0'));
 
+  // Loading State
   if (isLoading) {
     return (
       <DashboardLayout menuItems={adminMenuItems}>
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <Loader2 className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
-            <p className="text-gray-600">Loading order details...</p>
+            <p className="text-gray-600 font-medium">Loading order details...</p>
           </div>
         </div>
       </DashboardLayout>
     );
   }
 
+  // Error State
   if (error || !data?.data) {
     return (
       <DashboardLayout menuItems={adminMenuItems}>
-        <div className="bg-white rounded-lg border border-red-200 p-8 text-center">
-          <p className="text-red-600 mb-4">{(error as Error)?.message || 'Order not found'}</p>
+        <div className="bg-white rounded-xl border-2 border-red-200 p-8 text-center">
+          <AlertCircle className="mx-auto text-red-600 mb-4" size={48} />
+          <p className="text-red-600 font-bold text-lg mb-4">
+            {(error as Error)?.message || 'Order not found'}
+          </p>
           <button
             onClick={() => navigate('/admin/orders')}
-            className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-2"
+            className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-2 font-bold"
           >
             <ArrowLeft size={18} />
             Back to Orders
@@ -60,6 +76,64 @@ const AdminOrderView: React.FC = () => {
 
   const order = data.data;
 
+  // Tab Configuration
+  const tabs = [
+    {
+      id: 'overview' as TabType,
+      label: 'Overview',
+      icon: FileText,
+      color: 'blue',
+    },
+    {
+      id: 'items' as TabType,
+      label: 'Items',
+      icon: Package,
+      color: 'purple',
+      badge: order.items.length,
+    },
+    {
+      id: 'costing' as TabType,
+      label: 'Costing & Calculations',
+      icon: Calculator,
+      color: 'green',
+    },
+    {
+      id: 'map' as TabType,
+      label: 'Map',
+      icon: MapPin,
+      color: 'orange',
+    },
+    {
+      id: 'admin' as TabType,
+      label: 'Admin Controls',
+      icon: Settings,
+      color: 'red',
+    },
+  ];
+
+  const tabColorClasses: Record<string, { active: string; inactive: string }> = {
+    blue: {
+      active: 'bg-blue-600 text-white border-blue-700',
+      inactive: 'text-blue-700 hover:bg-blue-50 border-blue-200',
+    },
+    purple: {
+      active: 'bg-purple-600 text-white border-purple-700',
+      inactive: 'text-purple-700 hover:bg-purple-50 border-purple-200',
+    },
+    green: {
+      active: 'bg-green-600 text-white border-green-700',
+      inactive: 'text-green-700 hover:bg-green-50 border-green-200',
+    },
+    orange: {
+      active: 'bg-orange-600 text-white border-orange-700',
+      inactive: 'text-orange-700 hover:bg-orange-50 border-orange-200',
+    },
+    red: {
+      active: 'bg-red-600 text-white border-red-700',
+      inactive: 'text-red-700 hover:bg-red-50 border-red-200',
+    },
+  };
+
   return (
     <DashboardLayout menuItems={adminMenuItems}>
       <div className="space-y-6">
@@ -67,21 +141,21 @@ const AdminOrderView: React.FC = () => {
         <div className="flex items-center justify-between">
           <button
             onClick={() => navigate('/admin/orders')}
-            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
+            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors font-medium"
           >
             <ArrowLeft size={20} />
             Back to Orders
           </button>
           <div className="flex items-center gap-2">
             <span
-              className={`px-3 py-1.5 text-sm font-semibold rounded-full ${getWorkflowBadgeClass(
+              className={`px-4 py-2 text-sm font-bold rounded-lg border-2 ${getWorkflowBadgeClass(
                 order.workflow
               )}`}
             >
               {order.workflow}
             </span>
             <span
-              className={`px-3 py-1.5 text-sm font-semibold rounded-full ${getPaymentBadgeClass(
+              className={`px-4 py-2 text-sm font-bold rounded-lg border-2 ${getPaymentBadgeClass(
                 order.payment_status
               )}`}
             >
@@ -91,173 +165,69 @@ const AdminOrderView: React.FC = () => {
         </div>
 
         {/* Order Header Card */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Order #{order.po_number}
-              </h1>
-              <p className="text-gray-600 mt-1">Order details and management</p>
+              <h1 className="text-3xl font-bold mb-2">Order #{order.po_number}</h1>
+              <div className="flex items-center gap-4 text-blue-100">
+                <span className="font-medium">{order.client}</span>
+                <span>•</span>
+                <span className="font-medium">{order.project}</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Order Info & Items */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Order Information Card */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Order Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-blue-50 rounded-lg">
-                    <FileText className="text-blue-600" size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Client</p>
-                    <p className="font-semibold text-gray-900">{order.client}</p>
-                  </div>
-                </div>
+        {/* Tab Navigation */}
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-2 shadow-sm overflow-x-auto">
+          <div className="flex gap-2 min-w-max">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              const colors = tabColorClasses[tab.color];
 
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-purple-50 rounded-lg">
-                    <FileText className="text-purple-600" size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Project</p>
-                    <p className="font-semibold text-gray-900">{order.project}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-green-50 rounded-lg">
-                    <MapPin className="text-green-600" size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Delivery Address</p>
-                    <p className="font-semibold text-gray-900">{order.delivery_address}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-orange-50 rounded-lg">
-                    <Calendar className="text-orange-600" size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Delivery Date & Time</p>
-                    <p className="font-semibold text-gray-900">
-                      {formatDate(order.delivery_date)} at {order.delivery_time}
-                    </p>
-                  </div>
-                </div>
-
-                {order.delivery_method && (
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-yellow-50 rounded-lg">
-                      <Truck className="text-yellow-600" size={20} />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Delivery Method</p>
-                      <p className="font-semibold text-gray-900">{order.delivery_method}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {order.special_notes && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-600 mb-1">Special Notes</p>
-                  <p className="text-gray-900 bg-gray-50 rounded-lg p-3">{order.special_notes}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Order Items */}
-            <OrderItemsSection items={order.items} workflow={order.workflow} />
-
-            {/* Order Costing */}
-            <OrderCostingCard order={order} />
-          </div>
-
-          {/* Right Column - Tabs & Update Form */}
-          <div className="space-y-6">
-            {/* Tabs Card */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              {/* Tab Headers */}
-              <div className="border-b border-gray-200 flex">
+              return (
                 <button
-                  onClick={() => setActiveTab('details')}
-                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                    activeTab === 'details'
-                      ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-all border-2
+                    ${isActive ? colors.active : colors.inactive}
+                  `}
                 >
-                  Details
+                  <Icon size={20} />
+                  <span>{tab.label}</span>
+                  {tab.badge !== undefined && (
+                    <span
+                      className={`
+                        px-2 py-0.5 rounded-full text-xs font-bold
+                        ${isActive ? 'bg-white/20' : 'bg-gray-200 text-gray-700'}
+                      `}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
                 </button>
-                <button
-                  onClick={() => setActiveTab('map')}
-                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                    activeTab === 'map'
-                      ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  Map
-                </button>
-              </div>
-
-              {/* Tab Content */}
-              <div className="p-6">
-                {activeTab === 'details' ? (
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <p className="text-gray-600">Order ID</p>
-                      <p className="font-semibold text-gray-900">ORD-{order.id}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">PO Number</p>
-                      <p className="font-semibold text-gray-900">{order.po_number}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Workflow Status</p>
-                      <span
-                        className={`inline-block mt-1 px-2 py-1 text-xs font-semibold rounded-full ${getWorkflowBadgeClass(
-                          order.workflow
-                        )}`}
-                      >
-                        {order.workflow}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Payment Status</p>
-                      <span
-                        className={`inline-block mt-1 px-2 py-1 text-xs font-semibold rounded-full ${getPaymentBadgeClass(
-                          order.payment_status
-                        )}`}
-                      >
-                        {order.payment_status}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Items Count</p>
-                      <p className="font-semibold text-gray-900">{order.items.length}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <OrderMapTab
-                    deliveryLat={order.delivery_lat}
-                    deliveryLong={order.delivery_long}
-                    items={order.items}
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Update Form */}
-            <OrderUpdateForm order={order} />
+              );
+            })}
           </div>
+        </div>
+
+        {/* Tab Content */}
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
+          {activeTab === 'overview' && <OrderOverviewTab order={order} />}
+          {activeTab === 'items' && (
+            <OrderItemsTab items={order.items} workflow={order.workflow} orderId={order.id} />
+          )}
+          {activeTab === 'costing' && <OrderCostingTab order={order} />}
+          {activeTab === 'map' && (
+            <OrderMapTab
+              deliveryLat={order.delivery_lat}
+              deliveryLong={order.delivery_long}
+              items={order.items}
+            />
+          )}
+          {activeTab === 'admin' && <OrderAdminUpdateTab order={order} />}
         </div>
       </div>
     </DashboardLayout>

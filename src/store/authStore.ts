@@ -61,7 +61,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/user  `, {
+          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}user  `, {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (!res.ok) throw new Error('Token invalid');

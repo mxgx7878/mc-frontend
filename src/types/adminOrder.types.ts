@@ -1,9 +1,9 @@
 // FILE PATH: src/types/adminOrder.types.ts
 
 /**
- * Admin Orders Type Definitions
+ * Admin Orders Type Definitions - UPDATED
  * All TypeScript interfaces for admin order management
- * Updated to match new pricing logic
+ * Updated to match new pricing logic and backend responses
  */
 
 // ==================== DELIVERY ZONE ====================
@@ -14,27 +14,7 @@ export interface DeliveryZone {
   radius: number;
 }
 
-// ==================== ORDER ITEM ====================
-export interface AdminOrderItem {
-  id: number;
-  product_id: number;
-  product_name: string;
-  quantity: number;
-  supplier_id?: number | null;
-  supplier?: {
-    id: number;
-    name: string;
-    profile_image?: string;
-    delivery_zones?: DeliveryZone[];
-  } | null;
-  choosen_offer_id?: number | null;
-  supplier_confirms?: number; // 0 or 1
-  supplier_unit_cost?: number;
-  supplier_delivery_cost?: number;
-  supplier_discount?: number;
-  eligible_suppliers?: EligibleSupplier[];
-}
-
+// ==================== ELIGIBLE SUPPLIER ====================
 export interface EligibleSupplier {
   supplier_id: number;
   name: string;
@@ -42,7 +22,98 @@ export interface EligibleSupplier {
   distance: number | null;
 }
 
-// ==================== ORDER (UPDATED) ====================
+// ==================== ORDER ITEM (UPDATED) ====================
+export interface AdminOrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  
+  // Supplier Info
+  supplier?: {
+    id: number;
+    name: string;
+    profile_image?: string;
+    delivery_zones?: DeliveryZone[];
+  } | null;
+  supplier_id?: number | null;
+  choosen_offer_id?: number | null;
+  
+  // Supplier Costs
+  supplier_unit_cost?: number | null;
+  supplier_delivery_cost?: number | null;  // NEW
+  supplier_discount?: number | null;
+  delivery_cost?: number | null;
+  delivery_type?: string | null;
+  
+  // Status Fields
+  supplier_confirms?: number; // 0 or 1
+  is_quoted: number; // 0 or 1
+  is_paid: number; // 0 or 1 - NEW usage
+  supplier_status?: string; // 'Paid' | 'Unpaid' - NEW
+  
+  // Quoted Price
+  quoted_price?: number | null;
+  
+  // Eligible Suppliers (for assignment)
+  eligible_suppliers?: EligibleSupplier[];
+}
+
+// ==================== ORDER DETAIL (UPDATED) ====================
+export interface AdminOrderDetail {
+  id: number;
+  po_number: string;
+  client: string;
+  project: string;
+  delivery_address: string;
+  delivery_lat: number | null;
+  delivery_long: number | null;
+  delivery_date: string;
+  delivery_time: string;
+  workflow: WorkflowStatus;
+  payment_status: PaymentStatus;
+  
+  // NEW: Supplier Costs Breakdown
+  supplier_item_cost: number;
+  supplier_delivery_cost: number;
+  supplier_total: number;
+  
+  // NEW: Customer Costs Breakdown
+  customer_item_cost: number;
+  customer_delivery_cost: number;
+  
+  // Legacy fields (kept for backward compatibility)
+  supplier_cost: number;
+  customer_cost: number;
+  
+  // Profit & Calculations
+  admin_margin: number;
+  profit_amount: number; // NEW - same as admin_margin
+  profit_before_tax: number; // NEW
+  profit_margin_percent: number; // NEW
+  
+  // Charges & Taxes
+  gst_tax: number;
+  subtotal: number;
+  discount: number;
+  fuel_levy: number;
+  other_charges: number;
+  total_price: number; // NEW - same as customer_cost
+  
+  // Additional Info
+  special_notes?: string | null;
+  delivery_method?: string;
+  
+  // Items
+  items: AdminOrderItem[];
+  
+  // Filters
+  filters: {
+    projects: ProjectFilter[];
+  };
+}
+
+// ==================== ORDER LIST ITEM (UPDATED) ====================
 export interface AdminOrder {
   id: number;
   po_number: string;
@@ -58,12 +129,12 @@ export interface AdminOrder {
   unassigned_items_count: number;
   suppliers_count: number;
   
-  // Supplier costs
+  // NEW: Supplier costs
   supplier_item_cost: number;
   supplier_delivery_cost: number;
   supplier_total: number;
   
-  // Customer costs
+  // NEW: Customer costs
   customer_item_cost: number;
   customer_delivery_cost: number;
   
@@ -81,35 +152,6 @@ export interface AdminOrder {
   repeat_order?: boolean;
   created_at: string;
   updated_at: string;
-}
-
-// ==================== ORDER DETAIL ====================
-export interface AdminOrderDetail {
-  id: number;
-  po_number: string;
-  client: string;
-  project: string;
-  delivery_address: string;
-  delivery_lat: number | null;
-  delivery_long: number | null;
-  delivery_date: string;
-  delivery_time: string;
-  workflow: WorkflowStatus;
-  payment_status: PaymentStatus;
-  supplier_cost: number;
-  customer_cost: number;
-  admin_margin: number;
-  gst_tax: number;
-  subtotal: number;
-  discount: number;
-  fuel_levy: number;
-  other_charges: number;
-  special_notes?: string | null;
-  delivery_method?: string;
-  items: AdminOrderItem[];
-  filters: {
-    projects: ProjectFilter[];
-  };
 }
 
 // ==================== FILTERS ====================
@@ -183,13 +225,35 @@ export interface AdminOrdersQueryParams {
   page?: number;
 }
 
-// ==================== UPDATE PAYLOAD ====================
+// ==================== UPDATE PAYLOADS ====================
+
+/**
+ * Admin Update Payload
+ * Used for /admin/orders/{id}/admin-update endpoint
+ */
 export interface AdminOrderUpdatePayload {
-  project_id?: number;
-  delivery_date?: string;
-  delivery_method?: string;
-  special_notes?: string;
-  discount?: number;
+  discount?: number;  // For discount updates
+  item_id?: number;   // For payment status updates
+  is_paid?: boolean;  // For marking item as paid/unpaid
+}
+
+/**
+ * Assign Supplier Payload
+ * Used for /admin/orders/{orderId}/items/{itemId}/assign-supplier endpoint
+ */
+export interface AssignSupplierPayload {
+  order_id: number;
+  item_id: number;
+  supplier: number;
+  offer_id?: number;
+}
+
+/**
+ * Set Quoted Price Payload
+ * Used for /admin/orders/{orderId}/items/{itemId}/quoted-price endpoint
+ */
+export interface SetQuotedPricePayload {
+  quoted_price: number | null;
 }
 
 // ==================== ENUMS ====================
@@ -208,3 +272,66 @@ export type PaymentStatus =
   | 'Partially Paid'
   | 'Partial Refunded'
   | 'Refunded';
+
+// ==================== HELPER TYPES ====================
+
+/**
+ * Response from adminUpdate endpoint
+ */
+export interface AdminUpdateResponse {
+  success: boolean;
+  message: string;
+  order?: AdminOrderDetail;
+  item?: AdminOrderItem;
+}
+
+/**
+ * Response from assignSupplier endpoint
+ */
+export interface AssignSupplierResponse {
+  message: string;
+  order: {
+    id: number;
+    workflow: WorkflowStatus;
+    total_price: number;
+    profit_amount: number;
+    profit_margin_percent: number;
+  };
+  item: {
+    id: number;
+    product_id: number;
+    supplier_id: number;
+    choosen_offer_id: number;
+    supplier_unit_cost: number;
+    supplier_discount: number;
+    supplier_delivery_cost: number | null;
+    delivery_type: string | null;
+    delivery_cost: number | null;
+  };
+  offer: {
+    id: number;
+    supplier_id: number;
+    master_product_id: number;
+  };
+}
+
+/**
+ * Response from setItemQuotedPrice endpoint
+ */
+export interface SetQuotedPriceResponse {
+  message: string;
+  order: {
+    id: number;
+    customer_item_cost: number;
+    customer_delivery_cost: number;
+    gst_tax: number;
+    total_price: number;
+    profit_amount: number;
+    profit_margin_percent: number;
+  };
+  item: {
+    id: number;
+    is_quoted: number;
+    quoted_price: number | null;
+  };
+}
