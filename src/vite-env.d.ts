@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_IMG_URL: string;
   readonly VITE_ENVRIONMENT: string;
   readonly VITE_BASE_PATH: string;
+  readonly VITE_STRIPE_PUBLISHABLE_KEY: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;

@@ -1,9 +1,9 @@
 // FILE PATH: src/components/admin/Orders/OrderItemsTab.tsx
 
 /**
- * Order Items Tab Component - IMPROVED
+ * Order Items Tab Component - FIXED v2
  * Displays items with supplier assignment, quoted price, and payment status management
- * Clean professional design with consistent colors
+ * ✅ Handles both supplier_id field AND supplier object
  */
 
 import React, { useState } from 'react';
@@ -203,7 +203,7 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             )}
 
             {/* Payment Status Badge/Button */}
-            {item.supplier_id && (
+            {(item.supplier_id || item.supplier) && (
               <button
                 onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
                 disabled={markAsPaidMutation.isPending}
@@ -364,7 +364,10 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
       {/* Items List */}
       <div className="space-y-4">
         {items.map((item) => {
-          if (workflow === 'Supplier Missing' && !item.supplier_id) {
+          // ✅ FIX v2: Check BOTH supplier_id AND supplier object
+          const hasSupplier = item.supplier_id || item.supplier;
+          
+          if (!hasSupplier) {
             return renderSupplierMissingItem(item);
           }
           return renderAssignedItem(item);

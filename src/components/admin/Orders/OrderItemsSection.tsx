@@ -1,8 +1,9 @@
 // FILE PATH: src/components/admin/Orders/OrderItemsSection.tsx
 
 /**
- * Order Items Section Component
+ * Order Items Section Component - FIXED v2
  * Displays items with workflow-specific logic
+ * ✅ Handles both supplier_id field AND supplier object
  */
 
 import React from 'react';
@@ -234,13 +235,20 @@ const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({ items, workflow }
 
       <div className="space-y-4">
         {items.map((item) => {
-          if (workflow === 'Supplier Missing') {
+          // ✅ FIX v2: Check BOTH supplier_id AND supplier object
+          // Backend returns different structures:
+          // - With supplier: { supplier: {...} } (no supplier_id field)
+          // - Without supplier: { supplier_id: null, eligible_suppliers: [...] }
+          const hasSupplier = item.supplier_id || item.supplier;
+          
+          if (!hasSupplier) {
+            // Item has no supplier assigned yet
             return renderSupplierMissingItem(item);
-          } else if (workflow === 'Supplier Assigned') {
-            return renderSupplierAssignedItem(item);
           } else if (workflow === 'Payment Requested' || workflow === 'Delivered') {
+            // Order has progressed to payment/delivery
             return renderPricedItem(item);
           } else {
+            // Item has supplier assigned
             return renderSupplierAssignedItem(item);
           }
         })}

@@ -1,44 +1,80 @@
-// ============================================================================
-// FILE: src/features/clientOrders/hooks.ts - UPDATED WITH MARK REPEAT
-// ============================================================================
+// FILE PATH: src/features/clientOrders/hooks.ts
+// Updated Client Orders Hooks
 
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { clientOrdersAPI } from '../../api/handlers/clientOrders.api';
-import { clientOrderKeys } from './queryKeys';
+import type { ClientOrdersQueryParams } from '../../api/handlers/clientOrders.api';
+import type {RepeatOrderPayload} from '../../types/clientOrder.types'
 
-export const useClientOrders = (filters: any, includeDetails: boolean = false) =>
-  useQuery({
-    queryKey: clientOrderKeys.list(filters),
-    queryFn: () => clientOrdersAPI.getOrders(filters, includeDetails),
-    placeholderData: keepPreviousData,
+// Query Keys
+export const clientOrdersKeys = {
+  all: ['clientOrders'] as const,
+  lists: () => [...clientOrdersKeys.all, 'list'] as const,
+  list: (filters: ClientOrdersQueryParams) => [...clientOrdersKeys.lists(), filters] as const,
+  details: () => [...clientOrdersKeys.all, 'detail'] as const,
+  detail: (id: number) => [...clientOrdersKeys.details(), id] as const,
+};
+
+/**
+ * Hook to fetch client orders list with filters
+ */
+export const useClientOrders = (params?: ClientOrdersQueryParams) => {
+  return useQuery({
+    queryKey: clientOrdersKeys.list(params || {}),
+    queryFn: () => clientOrdersAPI.getOrders(params),
+    staleTime: 30000, // 30 seconds
   });
+};
 
-export const useClientOrderDetail = (orderId?: number) =>
-  useQuery({
-    queryKey: clientOrderKeys.detail(orderId!),
-    queryFn: () => clientOrdersAPI.getOrderDetails(orderId!),
+/**
+ * Hook to fetch single order detail
+ */
+export const useClientOrderDetail = (orderId: number) => {
+  return useQuery({
+    queryKey: clientOrdersKeys.detail(orderId),
+    queryFn: () => clientOrdersAPI.getOrderDetail(orderId),
     enabled: !!orderId,
+    staleTime: 30000, // 30 seconds
   });
+};
 
+/**
+ * Hook to repeat an order
+ */
 export const useRepeatOrder = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ orderId, payload }: { orderId: number; payload: any }) =>
+    mutationFn: ({ orderId, payload }: { orderId: number; payload: RepeatOrderPayload }) =>
       clientOrdersAPI.repeatOrder(orderId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: clientOrderKeys.lists() });
+      // Invalidate orders list to show new order
+      queryClient.invalidateQueries({ queryKey: clientOrdersKeys.lists() });
+      toast.success('Order repeated successfully!');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to repeat order');
     },
   });
 };
 
+/**
+ * Hook to mark order as repeat
+ */
 export const useMarkRepeatOrder = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: (orderId: number) => clientOrdersAPI.markRepeatOrder(orderId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: clientOrderKeys.lists() });
+    onSuccess: (_, orderId) => {
+      // Update both list and detail cache
+      queryClient.invalidateQueries({ queryKey: clientOrdersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: clientOrdersKeys.detail(orderId) });
+      toast.success('Order marked as repeat');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to mark as repeat order');
     },
   });
 };
