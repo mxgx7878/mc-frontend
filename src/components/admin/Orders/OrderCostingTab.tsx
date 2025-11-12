@@ -19,7 +19,7 @@ interface OrderCostingTabProps {
 const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
   // Constants from pricing logic
   const ADMIN_MARGIN = 0.50; // 50%
-  const GST_RATE = 0.05; // 5%
+  const GST_RATE = 0.10; // 10%
 
   // Calculate supplier totals
   const supplierItemTotal = order.supplier_item_cost || 0;
@@ -39,8 +39,8 @@ const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
   const customerGrandTotal = order.total_price || order.customer_cost || 0;
 
   // Profit calculations
-  const profitAmount = order.profit_amount || order.admin_margin || 0;
-  const profitMarginPercent = order.profit_margin_percent || 0;
+  const profitAmount = order.profit_amount || 0;
+  const profitMarginPercent = order.profit_margin_percent*100 || 0;
 
   // Count quoted items
   const quotedItemsCount = order.items.filter((item) => item.is_quoted === 1).length;
@@ -188,7 +188,7 @@ const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
           <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg border border-green-200">
             <div className="flex items-center gap-2">
               <span className="text-gray-700 font-medium">GST ({GST_RATE * 100}%)</span>
-              <FormulaTooltip formula="(Item Cost + Delivery Cost) × 5%" />
+              <FormulaTooltip formula="(Item Cost + Delivery Cost) × 10%" />
             </div>
             <span className="font-bold text-gray-900 text-lg">
               {formatCurrency(gstAmount)}

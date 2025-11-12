@@ -19,7 +19,7 @@ export const clientOrdersKeys = {
 /**
  * Hook to fetch client orders list with filters
  */
-export const useClientOrders = (params?: ClientOrdersQueryParams) => {
+export const useClientOrders = (params?: ClientOrdersQueryParams,) => {
   return useQuery({
     queryKey: clientOrdersKeys.list(params || {}),
     queryFn: () => clientOrdersAPI.getOrders(params),

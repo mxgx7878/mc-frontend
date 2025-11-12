@@ -1,8 +1,10 @@
 // FILE PATH: src/components/admin/Orders/OrderMapTab.tsx
 
 /**
- * Order Map Tab Component
+ * Order Map Tab Component (FIXED VERSION)
  * Shows client location and supplier zones on Google Maps
+ * 
+ * FIX: Added requestAnimationFrame to ensure DOM is ready before map initialization
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -29,10 +31,26 @@ const OrderMapTab: React.FC<OrderMapTabProps> = ({ deliveryLat, deliveryLong, it
   const markersRef = useRef<google.maps.Marker[]>([]);
   const circlesRef = useRef<google.maps.Circle[]>([]);
 
-  // Load Google Maps
+  // Load Google Maps - FIXED VERSION
   useEffect(() => {
-    const initMap = () => {
-      if (!mapRef.current || !window.google?.maps) return;
+    console.log('[OrderMapTab] Initializing map...', { deliveryLat, deliveryLong, itemsCount: items.length });
+    
+    // ✅ FIX: Use requestAnimationFrame to ensure DOM is ready
+    const initWhenReady = () => {
+      if (!mapRef.current) {
+        console.log('[OrderMapTab] Map container not ready, retrying...');
+        requestAnimationFrame(initWhenReady);
+        return;
+      }
+      
+      console.log('[OrderMapTab] Map container ready');
+      
+      if (!window.google || !window.google.maps) {
+        console.log('[OrderMapTab] Google Maps API not loaded yet');
+        return;
+      }
+
+      console.log('[OrderMapTab] Google Maps API available, creating map...');
 
       try {
         const defaultCenter = { lat: -33.8688, lng: 151.2093 }; // Sydney
@@ -48,42 +66,54 @@ const OrderMapTab: React.FC<OrderMapTabProps> = ({ deliveryLat, deliveryLong, it
           fullscreenControl: true,
         });
 
+        console.log('[OrderMapTab] Map created successfully');
         setMap(mapInstance);
         setLoading(false);
       } catch (e) {
+        console.error('[OrderMapTab] Failed to initialize map:', e);
         setError('Failed to initialize map');
         setLoading(false);
       }
     };
 
-    // Check if script already loaded
-    if (window.google?.maps) {
-      initMap();
+    // Check if Google Maps already loaded
+    if (window.google && window.google.maps) {
+      console.log('[OrderMapTab] Google Maps already loaded');
+      initWhenReady();
       return;
     }
 
     // Check for existing script
-    const existing = document.getElementById('google-maps-script');
+    const existing = document.getElementById('google-maps-script') as HTMLScriptElement | null;
     if (existing) {
-      existing.addEventListener('load', initMap, { once: true });
+      console.log('[OrderMapTab] Script tag exists, waiting for load...');
+      existing.addEventListener('load', initWhenReady, { once: true });
       return;
     }
 
     // Load script
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    console.log('[OrderMapTab] API Key present:', !!apiKey);
+    
     if (!apiKey) {
+      console.error('[OrderMapTab] Missing Google Maps API key');
       setError('Missing Google Maps API key');
       setLoading(false);
       return;
     }
 
+    console.log('[OrderMapTab] Creating script tag...');
     const script = document.createElement('script');
     script.id = 'google-maps-script';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
     script.defer = true;
-    script.onload = initMap;
+    script.onload = () => {
+      console.log('[OrderMapTab] Script loaded successfully');
+      initWhenReady();
+    };
     script.onerror = () => {
+      console.error('[OrderMapTab] Failed to load Google Maps script');
       setError('Failed to load Google Maps');
       setLoading(false);
     };
@@ -97,7 +127,15 @@ const OrderMapTab: React.FC<OrderMapTabProps> = ({ deliveryLat, deliveryLong, it
 
   // Draw markers and zones
   useEffect(() => {
-    if (!map || !window.google) return;
+    if (!map || !window.google) {
+      console.log('[OrderMapTab] Skipping markers - map not ready');
+      return;
+    }
+
+    console.log('[OrderMapTab] Drawing markers and zones...', { 
+      hasDeliveryCoords: !!(deliveryLat && deliveryLong),
+      itemsCount: items.length 
+    });
 
     // Clear old markers and circles
     markersRef.current.forEach(m => m.setMap(null));
@@ -110,6 +148,7 @@ const OrderMapTab: React.FC<OrderMapTabProps> = ({ deliveryLat, deliveryLong, it
 
     // Add client marker (green)
     if (deliveryLat && deliveryLong) {
+      console.log('[OrderMapTab] Adding client marker at:', { deliveryLat, deliveryLong });
       const clientPos = { lat: deliveryLat, lng: deliveryLong };
 
       const clientMarker = new window.google.maps.Marker({
@@ -128,134 +167,128 @@ const OrderMapTab: React.FC<OrderMapTabProps> = ({ deliveryLat, deliveryLong, it
           text: 'C',
           color: '#fff',
           fontWeight: 'bold',
-          fontSize: '12px',
         },
       });
 
-      const clientInfo = new window.google.maps.InfoWindow({
-        content: `
-          <div style="padding:8px">
-            <h3 style="margin:0 0 6px;font-weight:700;color:#10B981">Client Delivery Location</h3>
-            <div style="font-size:13px;color:#374151">
-              <div><strong>Lat:</strong> ${deliveryLat.toFixed(6)}</div>
-              <div><strong>Lng:</strong> ${deliveryLong.toFixed(6)}</div>
-            </div>
-          </div>
-        `,
-      });
-
-      clientMarker.addListener('click', () => clientInfo.open(map, clientMarker));
       markersRef.current.push(clientMarker);
       bounds.extend(clientPos);
       hasMarkers = true;
     }
 
     // Add supplier markers and zones
-    const processedSuppliers = new Set<number>();
-
-    items.forEach((item) => {
-      if (!item.supplier?.id || processedSuppliers.has(item.supplier.id)) return;
-      processedSuppliers.add(item.supplier.id);
-
+    items.forEach((item, idx) => {
       const supplier = item.supplier;
-      const zones: DeliveryZone[] = supplier.delivery_zones || [];
-      if (zones.length === 0) return;
+      if (!supplier || !supplier.delivery_zones) {
+        console.log(`[OrderMapTab] Item ${idx}: No supplier or zones`);
+        return;
+      }
 
-      const isConfirmed = item.supplier_confirms === 1;
-      const color = isConfirmed ? '#3B82F6' : '#F59E0B'; // Blue for confirmed, Yellow for pending
+      let zones: DeliveryZone[] = [];
+      try {
+        zones = typeof supplier.delivery_zones === 'string'
+          ? JSON.parse(supplier.delivery_zones)
+          : supplier.delivery_zones;
+        console.log(`[OrderMapTab] Item ${idx}: Found ${zones.length} zones for supplier ${supplier.id}`);
+      } catch (e) {
+        console.error('[OrderMapTab] Failed to parse zones for supplier:', supplier.id, e);
+        return;
+      }
 
-      zones.forEach((zone, idx) => {
-        const pos = { lat: zone.lat, lng: zone.long };
+      zones.forEach((zone: DeliveryZone, zoneIdx: number) => {
+        console.log(`[OrderMapTab] Drawing zone ${zoneIdx} for supplier ${supplier.id}:`, zone);
+        const zonePos = { lat: zone.lat, lng: zone.long };
 
-        // Create marker
-        const marker = new window.google.maps.Marker({
-          position: pos,
+        // Supplier marker (blue if confirmed, yellow if pending)
+        const isConfirmed = item.supplier_id !== null;
+        const supplierMarker = new window.google.maps.Marker({
+          position: zonePos,
           map,
-          title: `${supplier.name} - Zone ${idx + 1}`,
+          title: supplier.name || 'Supplier',
           icon: {
             path: window.google.maps.SymbolPath.CIRCLE,
             scale: 12,
-            fillColor: color,
+            fillColor: isConfirmed ? '#3B82F6' : '#F59E0B',
             fillOpacity: 1,
             strokeColor: '#fff',
-            strokeWeight: 3,
+            strokeWeight: 2,
           },
           label: {
             text: 'S',
             color: '#fff',
             fontWeight: 'bold',
-            fontSize: '11px',
+            fontSize: '12px',
           },
         });
 
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
-            <div style="padding:8px;max-width:260px">
-              <h3 style="margin:0 0 6px;font-weight:700;color:${color}">${supplier.name}</h3>
-              <div style="font-size:13px;color:#374151">
-                <div><strong>Zone ${idx + 1}</strong></div>
-                <div><strong>Address:</strong> ${zone.address}</div>
-                <div><strong>Radius:</strong> ${zone.radius} km</div>
-                <div><strong>Status:</strong> ${isConfirmed ? '✓ Confirmed' : '⏳ Pending'}</div>
-              </div>
-            </div>
-          `,
-        });
+        markersRef.current.push(supplierMarker);
 
-        marker.addListener('click', () => infoWindow.open(map, marker));
-
-        // Create circle zone
+        // Delivery zone circle
         const circle = new window.google.maps.Circle({
-          strokeColor: color,
-          strokeOpacity: 0.8,
-          strokeWeight: 2,
-          fillColor: color,
-          fillOpacity: 0.15,
+          center: zonePos,
+          radius: zone.radius * 1000, // Convert km to meters
           map,
-          center: pos,
-          radius: zone.radius * 1000, // km to meters
+          fillColor: isConfirmed ? '#3B82F6' : '#F59E0B',
+          fillOpacity: 0.1,
+          strokeColor: isConfirmed ? '#3B82F6' : '#F59E0B',
+          strokeOpacity: 0.5,
+          strokeWeight: 2,
         });
 
-        markersRef.current.push(marker);
         circlesRef.current.push(circle);
-        bounds.extend(pos);
+        bounds.extend(zonePos);
         hasMarkers = true;
       });
     });
 
-    // Fit bounds
+    // Fit map to show all markers
     if (hasMarkers) {
+      console.log('[OrderMapTab] Fitting bounds to show all markers');
       map.fitBounds(bounds);
+      
+      // Prevent over-zooming when there's only one marker
+      const listener = window.google.maps.event.addListener(map, 'idle', () => {
+        if (map.getZoom()! > 15) {
+          console.log('[OrderMapTab] Limiting zoom to 15');
+          map.setZoom(15);
+        }
+        window.google.maps.event.removeListener(listener);
+      });
+    } else {
+      console.log('[OrderMapTab] No markers to display');
     }
   }, [map, deliveryLat, deliveryLong, items]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
-        <div className="text-center">
-          <Loader2 className="animate-spin text-blue-600 mx-auto mb-2" size={40} />
-          <p className="text-gray-600">Loading map...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
-        <div className="text-center">
-          <AlertCircle className="text-red-600 mx-auto mb-2" size={40} />
-          <p className="text-red-700 font-medium mb-1">Map Loading Error</p>
-          <p className="text-sm text-gray-600">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
-      {/* Map Container */}
-      <div ref={mapRef} className="w-full h-96 rounded-lg border border-gray-200" />
+      {/* Map Container - ALWAYS RENDERED */}
+      <div className="relative">
+        <div 
+          ref={mapRef} 
+          className="w-full h-[600px] rounded-lg border border-gray-200 overflow-hidden"
+        />
+
+        {/* Loading Overlay */}
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+            <div className="text-center">
+              <Loader2 size={40} className="text-primary-600 animate-spin mb-2" />
+              <p className="text-gray-600 font-medium">Loading map...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error Overlay */}
+        {error && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 p-6 text-center z-10">
+            <AlertCircle size={28} className="text-error-600 mb-2" />
+            <p className="text-error-700 font-medium mb-1">Map Loading Error</p>
+            <p className="text-sm text-gray-600">{error}</p>
+            <p className="text-xs text-gray-500 mt-2">
+              Ensure <code className="bg-gray-100 px-1 rounded">VITE_GOOGLE_MAPS_API_KEY</code> is set.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Legend */}
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">

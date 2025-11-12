@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { useCreateProject } from '../../../features/projects/hooks';
 import ProjectForm from '../../../features/components/ProjectForm';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import {clientMenuItems} from '../../../utils/menuItems';
+import { clientMenuItems } from '../../../utils/menuItems';
 
 export default function ProjectCreate() {
   const navigate = useNavigate();
@@ -30,14 +30,13 @@ export default function ProjectCreate() {
         <div className="bg-white rounded-2xl shadow-card p-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-secondary-900">Create New Project</h1>
-            <p className="text-secondary-600 mt-2">Add a new construction project</p>
+            <p className="text-secondary-600 mt-2">Add a new construction project with delivery location</p>
           </div>
 
           <ProjectForm
             onSubmit={(v) => mut.mutate(v, {
               onSuccess: () => {
                 toast.success('✅ Project created successfully!');
-                // ✅ FIX: Navigate to projects list instead of '..'
                 navigate('/client/projects');
               },
               onError: (e: any) => {

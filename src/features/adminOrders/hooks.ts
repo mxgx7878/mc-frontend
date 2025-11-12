@@ -157,3 +157,39 @@ export const useMarkItemAsPaid = () => {
     },
   });
 };
+
+
+/**
+ * Admin update order item mutation
+ * For editing supplier pricing, delivery, and confirmation
+ */
+export const useAdminUpdateOrderItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      orderItemId,
+      payload,
+    }: {
+      orderItemId: number;
+      payload: {
+        supplier_unit_cost?: number;
+        supplier_discount?: number;
+        delivery_cost?: number;
+        delivery_type?: 'Included' | 'Supplier' | 'ThirdParty' | 'Fleet' | 'None';
+        supplier_delivery_date?: string;
+        supplier_confirms?: boolean;
+        supplier_notes?: string;
+      };
+    }) => adminOrdersAPI.adminUpdateOrderItem(orderItemId, payload),
+    onSuccess: () => {
+      // Since we don't have orderId in the response, invalidate all order details
+      queryClient.invalidateQueries({ queryKey: adminOrdersKeys.details() });
+      queryClient.invalidateQueries({ queryKey: adminOrdersKeys.lists() });
+    },
+    onError: (error: Error) => {
+      // Error handling is done in the component
+      console.error('Failed to update order item:', error);
+    },
+  });
+};

@@ -200,7 +200,7 @@ const ClientOrderView = () => {
         {showPayment && order.total_price && (
           <StripePayment
             orderId={Number(orderId)}
-            totalAmount={parseFloat(order.total_price) || 0}
+            totalAmount={Number(order.total_price) || 0}
             onSuccess={handlePaymentSuccess}
           />
         )}
@@ -439,18 +439,18 @@ const ClientOrderView = () => {
                 </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">GST (5%):</span>
+                <span className="text-gray-600">GST (10%):</span>
                 <span className="font-medium text-gray-900">
                   {formatCurrency(order.gst_tax || 0)}
                 </span>
               </div>
-              {order.discount && parseFloat(order.discount) > 0 && (
+              {order.discount && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Discount:</span>
                   <span className="font-medium">-{formatCurrency(order.discount)}</span>
                 </div>
               )}
-              {order.other_charges && parseFloat(order.other_charges) > 0 && (
+              {order.other_charges && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Other Charges:</span>
                   <span className="font-medium text-gray-900">

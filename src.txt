@@ -1,4 +1,4 @@
-// SRC BUNDLE 2025-11-04T04:38:58.589Z
+// SRC BUNDLE 2025-11-12T05:53:34.270Z
 
 /* FILE: src/api/axios.config.ts */
 // src/api/axios.config.ts
@@ -304,6 +304,34 @@ export const adminOrdersAPI = {
       throw new Error(error?.message || 'Failed to update payment status');
     }
   },
+
+
+  /**
+   * Admin update order item pricing
+   * Endpoint: POST /admin/update-item-pricing/{orderItem}
+   */
+  adminUpdateOrderItem: async (
+    orderItemId: number,
+    payload: {
+      supplier_unit_cost?: number;
+      supplier_discount?: number;
+      delivery_cost?: number;
+      delivery_type?: 'Included' | 'Supplier' | 'ThirdParty' | 'Fleet' | 'None';
+      supplier_delivery_date?: string;
+      supplier_confirms?: boolean;
+      supplier_notes?: string;
+    }
+  ): Promise<{ success: boolean; message: string; data: any }> => {
+    try {
+      const response = await api.post(
+        `/admin/update-item-pricing/${orderItemId}`,
+        payload
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to update order item');
+    }
+  },
 };
 /* FILE: src/api/handlers/adminSupplierZones.api.ts */
 // src/api/handlers/adminSupplierZones.api.ts
@@ -467,179 +495,33 @@ export const authAPI = {
   },
 };
 /* FILE: src/api/handlers/clientOrders.api.ts */
-// ============================================================================
-// FILE: src/api/handlers/clientOrders.api.ts - UPDATED WITH MARK REPEAT
-// ============================================================================
+// FILE PATH: src/api/handlers/clientOrders.api.ts
+// Updated Client Orders API with proper type handling
 
 import api from '../axios.config';
+import type {
+  ClientOrdersResponse,
+  ClientOrderDetailResponse,
+  RepeatOrderPayload,
+} from '../../types/clientOrder.types';
 
-export interface ClientOrderItem {
-  id: number;
-  order_id: number;
-  product_id: number;
-  quantity: string;
-  supplier_id: number | null;
-  choosen_offer_id: number;
-  custom_blend_mix: string | null;
-  supplier_unit_cost: string;
-  supplier_delivery_cost: string;
-  supplier_discount: string;
-  supplier_delivery_date: string;
-  supplier_confirms: boolean;
-  is_paid: boolean;
-  created_at: string;
-  updated_at: string;
-  product: {
-    id: number;
-    product_name: string;
-    product_type: string;
-    specifications: string;
-    unit_of_measure: string;
-    photo: string | null;
-  };
-  supplier: {
-    id: number;
-    name: string;
-    email: string;
-    profile_image: string | null;
-  } | null;
-}
-
-export interface ClientOrder {
-  id: number;
-  po_number: string;
-  client_id: number;
-  project_id: number;
-  delivery_address: string;
-  delivery_lat: number;
-  delivery_long: number;
-  delivery_date: string;
-  delivery_time: string;
-  delivery_window: string | null;
-  delivery_method: string;
-  load_size: string;
-  special_equipment: string;
-  subtotal: string;
-  fuel_levy: string;
-  other_charges: string;
-  gst_tax: string;
-  discount: string;
-  total_price: string;
-  supplier_cost: string;
-  customer_cost: string;
-  admin_margin: string;
-  payment_status: string;
-  order_status: string;
-  workflow: string;
-  reason: string | null;
-  repeat_order: boolean;
-  generate_invoice: boolean;
-  order_process: string;
-  special_notes: string | null;
-  created_at: string;
-  updated_at: string;
-  order_info?: string;
-  project: {
-    id: number;
-    name: string;
-    site_contact_name: string;
-    site_contact_phone: string;
-    site_instructions: string;
-  };
-  items: ClientOrderItem[];
-}
-
-export interface OrderMetrics {
-  total_orders_count: number;
-  supplier_missing_count: number;
-  supplier_assigned_count: number;
-  awaiting_payment_count: number;
-  delivered_count: number;
-}
-
-export interface ProjectFilter {
-  id: number;
-  name: string;
-}
-
-export interface ClientOrdersResponse {
-  data: ClientOrder[];
-  pagination: {
-    per_page: number;
-    current_page: number;
-    total_pages: number;
-    total_items: number;
-    has_more_pages: boolean;
-  };
-  metrics: OrderMetrics;
-  projects?: ProjectFilter[];
-}
-
-export interface OrderDetailResponse {
-  success: boolean;
-  data: {
-    order: {
-      id: number;
-      po_number: string;
-      project_id: number;
-      client_id: number;
-      workflow: string;
-      delivery_address: string;
-      delivery_date: string;
-      delivery_time: string;
-      delivery_method: string;
-      created_at: string;
-      updated_at: string;
-      gst_tax: string;
-      total_price: string;
-      repeat_order: boolean;
-      special_notes: string | null;
-      fuel_levy: string;
-      other_charges: string;
-      discount: string;
-      subtotal: string;
-      payment_status: string;
-      order_status: string;
-      project?: {
-        id: number;
-        name: string;
-        site_contact_name: string;
-        site_contact_phone: string;
-        site_instructions: string;
-      };
-      order_info?: string;
-    };
-    items: ClientOrderItem[];
-  };
-}
-
-export interface ClientOrderFilters {
-  page?: number;
+export interface ClientOrdersQueryParams {
   per_page?: number;
+  page?: number;
   search?: string;
-  project_id?: string;
   workflow?: string;
-  delivery_date?: string;
-  repeat_order?: string;
-  sort?: string;
-  dir?: string;
-}
-
-export interface RepeatOrderPayload {
-  items: {
-    product_id: number;
-    quantity: number;
-    custom_blend_mix?: string;
-  }[];
+  project_id?: string;
+  delivery_date_from?: string;
+  delivery_date_to?: string;
+  details?: boolean;
 }
 
 export const clientOrdersAPI = {
-  getOrders: async (filters: ClientOrderFilters = {}, includeDetails = false): Promise<ClientOrdersResponse> => {
+  /**
+   * Get all client orders with filters
+   */
+  getOrders: async (params?: ClientOrdersQueryParams): Promise<ClientOrdersResponse> => {
     try {
-      const params: any = { ...filters };
-      if (includeDetails) {
-        params.details = 'true';
-      }
       const response = await api.get('/my-orders', { params });
       return response.data;
     } catch (error: any) {
@@ -647,15 +529,21 @@ export const clientOrdersAPI = {
     }
   },
 
-  getOrderDetails: async (orderId: number): Promise<OrderDetailResponse> => {
+  /**
+   * Get single order details
+   */
+  getOrderDetail: async (orderId: number): Promise<ClientOrderDetailResponse> => {
     try {
       const response = await api.get(`/orders/${orderId}`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error?.response?.data?.error || 'Failed to fetch order details');
+      throw new Error(error?.response?.data?.message || 'Failed to fetch order details');
     }
   },
 
+  /**
+   * Repeat an existing order
+   */
   repeatOrder: async (orderId: number, payload: RepeatOrderPayload): Promise<any> => {
     try {
       const response = await api.post(`/repeat-order/${orderId}`, payload);
@@ -665,12 +553,15 @@ export const clientOrdersAPI = {
     }
   },
 
+  /**
+   * Mark order as repeat order
+   */
   markRepeatOrder: async (orderId: number): Promise<any> => {
     try {
-      const response = await api.get(`/mark-repeat-order/${orderId}`);
+      const response = await api.post(`/mark-repeat-order/${orderId}`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || 'Failed to mark order as repeat');
+      throw new Error(error?.response?.data?.message || 'Failed to mark as repeat order');
     }
   },
 };
@@ -1046,26 +937,24 @@ export const ordersAPI = {
 
 import api from '../axios.config';
 
-export interface PaymentIntentResponse {
-  client_secret: string;
+export interface ProcessPaymentPayload {
+  payment_method_id: string;
   order_id: number;
-  payment_status: string;
 }
 
-export interface UpdatePaymentStatusPayload {
-  payment_intent_id: string;
-  payment_status: string;
-  order_id: number;
+export interface ProcessPaymentResponse {
+  success: boolean;
+  message: string;
+  order?: {
+    id: number;
+    payment_status: string;
+    workflow: string;
+  };
 }
 
 export const paymentAPI = {
-  createPaymentIntent: async (orderId: number): Promise<PaymentIntentResponse> => {
-    const response = await api.post(`/payment-intent/${orderId}`);
-    return response.data;
-  },
-
-  updatePaymentStatus: async (payload: UpdatePaymentStatusPayload) => {
-    const response = await api.post('/update-payment-status', payload);
+  processPayment: async (payload: ProcessPaymentPayload): Promise<ProcessPaymentResponse> => {
+    const response = await api.post('/process-payment', payload);
     return response.data;
   },
 };
@@ -3407,6 +3296,484 @@ const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
 };
 
 export default ActiveFilterChips;
+/* FILE: src/components/admin/Orders/AdminOrderItemEditModal.tsx */
+// FILE PATH: src/components/admin/Orders/AdminOrderItemEditModal.tsx
+
+import React, { useState, useEffect } from 'react';
+import { X, Save, AlertCircle, Truck, Package, DollarSign, Calendar } from 'lucide-react';
+import toast from 'react-hot-toast';
+import type { AdminOrderItem } from '../../../types/adminOrder.types';
+import { useAdminUpdateOrderItem } from '../../../features/adminOrders/hooks';
+
+interface AdminOrderItemEditModalProps {
+  item: AdminOrderItem | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+type DeliveryType = 'Included' | 'Supplier' | 'ThirdParty' | 'Fleet' | 'None';
+
+const DELIVERY_TYPE_OPTIONS: Array<{ value: DeliveryType; label: string; description: string }> = [
+  { value: 'Included', label: 'Included in Price', description: 'Delivery cost included in item price' },
+  { value: 'Supplier', label: 'Supplier Delivery', description: 'Supplier handles delivery' },
+  { value: 'ThirdParty', label: 'Third Party', description: 'External delivery service' },
+  { value: 'Fleet', label: 'Fleet', description: 'Company fleet delivery' },
+  { value: 'None', label: 'No Delivery', description: 'Pickup only, no delivery' },
+];
+
+const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
+  item,
+  isOpen,
+  onClose,
+  onSuccess,
+}) => {
+  const [formData, setFormData] = useState({
+    supplier_unit_cost: '',
+    supplier_discount: '',
+    delivery_cost: '',
+    delivery_type: 'Supplier' as DeliveryType,
+    supplier_delivery_date: '',
+    supplier_notes: '',
+    supplier_confirms: false,
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const updateMutation = useAdminUpdateOrderItem();
+
+  useEffect(() => {
+    if (item) {
+      setFormData({
+        supplier_unit_cost: item.supplier_unit_cost?.toString() || '',
+        delivery_cost: item.delivery_cost?.toString() || '',
+        delivery_type: (item.delivery_type as DeliveryType) || 'Supplier',
+        supplier_discount: item.supplier_discount?.toString() || '0',
+        supplier_delivery_date: item.supplier_delivery_date?.split('T')[0] || '',
+        supplier_notes: item.supplier_notes || '',
+        supplier_confirms: Boolean(item.supplier_confirms),
+      });
+    }
+  }, [item]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+
+    if (name === 'delivery_type' && (value === 'None' || value === 'Included')) {
+      setFormData((prev) => ({
+        ...prev,
+        delivery_type: value as DeliveryType,
+        delivery_cost: '0',
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value,
+      }));
+    }
+
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const shouldShowDeliveryCost = () => {
+    return formData.delivery_type !== 'None' && formData.delivery_type !== 'Included';
+  };
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.supplier_unit_cost || parseFloat(formData.supplier_unit_cost) < 0) {
+      newErrors.supplier_unit_cost = 'Unit cost must be a positive number';
+    }
+
+    if (parseFloat(formData.supplier_discount) < 0) {
+      newErrors.supplier_discount = 'Discount cannot be negative';
+    }
+
+    if (!formData.supplier_delivery_date) {
+      newErrors.supplier_delivery_date = 'Delivery date is required';
+    }
+
+    if (!formData.delivery_type) {
+      newErrors.delivery_type = 'Delivery type is required';
+    }
+
+    if (shouldShowDeliveryCost()) {
+      if (!formData.delivery_cost || parseFloat(formData.delivery_cost) < 0) {
+        newErrors.delivery_cost = 'Delivery cost must be a positive number';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validate()) {
+      toast.error('Please fix the errors before submitting');
+      return;
+    }
+
+    if (!item) return;
+
+    const deliveryCost = shouldShowDeliveryCost() ? parseFloat(formData.delivery_cost) : 0;
+
+    updateMutation.mutate(
+      {
+        orderItemId: item.id,
+        payload: {
+          supplier_unit_cost: parseFloat(formData.supplier_unit_cost),
+          supplier_discount: parseFloat(formData.supplier_discount),
+          delivery_cost: deliveryCost,
+          delivery_type: formData.delivery_type,
+          supplier_delivery_date: formData.supplier_delivery_date,
+          supplier_notes: formData.supplier_notes,
+          supplier_confirms: formData.supplier_confirms,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success('Order item updated successfully');
+          onSuccess();
+          onClose();
+        },
+        onError: (error: Error) => {
+          toast.error(error.message || 'Failed to update order item');
+        },
+      }
+    );
+  };
+
+  const calculateItemTotal = () => {
+    const unitCost = parseFloat(formData.supplier_unit_cost) || 0;
+    const discount = parseFloat(formData.supplier_discount) || 0;
+    const deliveryCost = shouldShowDeliveryCost() ? parseFloat(formData.delivery_cost) || 0 : 0;
+    const quantity = item?.quantity || 1;
+    return (unitCost * quantity - discount + deliveryCost).toFixed(2);
+  };
+
+  if (!isOpen || !item) return null;
+
+  const isConfirmed = Boolean(item.supplier_confirms);
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+        onClick={onClose}
+      />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-orange-600 to-amber-600 px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                <Package size={24} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Admin Edit Item</h2>
+                <p className="text-orange-100 text-sm">{item.product_name}</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <X size={24} className="text-white" />
+            </button>
+          </div>
+
+          {/* Warning for confirmed items */}
+          {isConfirmed && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mx-6 mt-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="text-yellow-600 flex-shrink-0 mt-0.5" size={20} />
+                <div>
+                  <h4 className="text-sm font-bold text-yellow-900">Item Already Confirmed</h4>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    This item has been confirmed. Once confirmed, it cannot be unconfirmed.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+            <div className="space-y-6">
+              {/* Item Info */}
+              <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">Quantity:</span>
+                    <span className="ml-2 font-bold text-gray-900">{item.quantity}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Supplier:</span>
+                    <span className="ml-2 font-bold text-gray-900">
+                      {item.supplier?.name || 'Not assigned'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Supplier Unit Cost */}
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <DollarSign size={16} className="text-blue-600" />
+                  Supplier Unit Cost *
+                </label>
+                <input
+                  type="number"
+                  name="supplier_unit_cost"
+                  value={formData.supplier_unit_cost}
+                  onChange={handleChange}
+                  step="0.01"
+                  min="0"
+                  required
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.supplier_unit_cost ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
+                  placeholder="0.00"
+                />
+                {errors.supplier_unit_cost && (
+                  <p className="text-red-600 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.supplier_unit_cost}
+                  </p>
+                )}
+              </div>
+
+              {/* Supplier Discount */}
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <DollarSign size={16} className="text-green-600" />
+                  Supplier Discount
+                </label>
+                <input
+                  type="number"
+                  name="supplier_discount"
+                  value={formData.supplier_discount}
+                  onChange={handleChange}
+                  step="0.01"
+                  min="0"
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.supplier_discount ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
+                  placeholder="0.00"
+                />
+                {errors.supplier_discount && (
+                  <p className="text-red-600 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.supplier_discount}
+                  </p>
+                )}
+              </div>
+
+              {/* Delivery Type */}
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <Truck size={16} className="text-purple-600" />
+                  Delivery Type *
+                </label>
+                <select
+                  name="delivery_type"
+                  value={formData.delivery_type}
+                  onChange={handleChange}
+                  required
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white ${
+                    errors.delivery_type ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
+                >
+                  {DELIVERY_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label} - {option.description}
+                    </option>
+                  ))}
+                </select>
+                {errors.delivery_type && (
+                  <p className="text-red-600 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.delivery_type}
+                  </p>
+                )}
+              </div>
+
+              {/* Delivery Cost - Conditional */}
+              {shouldShowDeliveryCost() && (
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                    <Truck size={16} className="text-indigo-600" />
+                    Delivery Cost *
+                  </label>
+                  <input
+                    type="number"
+                    name="delivery_cost"
+                    value={formData.delivery_cost}
+                    onChange={handleChange}
+                    step="0.01"
+                    min="0"
+                    required={shouldShowDeliveryCost()}
+                    className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                      errors.delivery_cost ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    }`}
+                    placeholder="0.00"
+                  />
+                  {errors.delivery_cost && (
+                    <p className="text-red-600 text-sm mt-1 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.delivery_cost}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Supplier Delivery Date */}
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <Calendar size={16} className="text-teal-600" />
+                  Delivery Date *
+                </label>
+                <input
+                  type="date"
+                  name="supplier_delivery_date"
+                  value={formData.supplier_delivery_date}
+                  onChange={handleChange}
+                  required
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.supplier_delivery_date ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
+                />
+                {errors.supplier_delivery_date && (
+                  <p className="text-red-600 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.supplier_delivery_date}
+                  </p>
+                )}
+              </div>
+
+              {/* Supplier Notes */}
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">
+                  Supplier Notes
+                </label>
+                <textarea
+                  name="supplier_notes"
+                  value={formData.supplier_notes}
+                  onChange={handleChange}
+                  rows={3}
+                  maxLength={500}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                  placeholder="Add any notes about this item..."
+                />
+                <p className="text-gray-500 text-xs mt-1">
+                  {formData.supplier_notes.length}/500 characters
+                </p>
+              </div>
+
+              {/* Supplier Confirms */}
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="supplier_confirms"
+                    checked={formData.supplier_confirms}
+                    onChange={handleChange}
+                    disabled={isConfirmed}
+                    className="mt-1 w-5 h-5 text-blue-600 border-2 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-bold text-gray-900 block">
+                      Confirm Item Pricing & Details
+                    </span>
+                    <span className="text-sm text-gray-600 block mt-1">
+                      {isConfirmed
+                        ? 'This item is already confirmed and cannot be unconfirmed.'
+                        : 'Check this to confirm all pricing and delivery details are final.'}
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Total Preview */}
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300 rounded-xl p-4">
+                <h4 className="text-sm font-bold text-gray-900 mb-3">Item Total Preview</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">
+                      Unit Cost × {item.quantity}:
+                    </span>
+                    <span className="font-medium text-gray-900">
+                      ${((parseFloat(formData.supplier_unit_cost) || 0) * item.quantity).toFixed(2)}
+                    </span>
+                  </div>
+                  {parseFloat(formData.supplier_discount) > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Discount:</span>
+                      <span className="font-medium">
+                        -${parseFloat(formData.supplier_discount).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {shouldShowDeliveryCost() && parseFloat(formData.delivery_cost) > 0 && (
+                    <div className="flex justify-between text-blue-600">
+                      <span>Delivery:</span>
+                      <span className="font-medium">
+                        +${parseFloat(formData.delivery_cost).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-2 border-t-2 border-gray-300">
+                    <span className="font-bold text-gray-900">Total:</span>
+                    <span className="font-bold text-lg text-blue-600">
+                      ${calculateItemTotal()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+
+          {/* Footer */}
+          <div className="px-6 py-4 bg-gray-50 border-t-2 border-gray-200 flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-white transition-colors font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={updateMutation.isPending}
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg hover:from-orange-700 hover:to-amber-700 transition-all shadow-md hover:shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {updateMutation.isPending ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Save size={20} />
+                  Save Changes
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default AdminOrderItemEditModal;
 /* FILE: src/components/admin/Orders/AdminOrderView.tsx */
 // FILE PATH: src/pages/admin/Orders/AdminOrderView.tsx
 
@@ -4178,7 +4545,7 @@ interface OrderCostingTabProps {
 const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
   // Constants from pricing logic
   const ADMIN_MARGIN = 0.50; // 50%
-  const GST_RATE = 0.05; // 5%
+  const GST_RATE = 0.10; // 10%
 
   // Calculate supplier totals
   const supplierItemTotal = order.supplier_item_cost || 0;
@@ -4198,8 +4565,8 @@ const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
   const customerGrandTotal = order.total_price || order.customer_cost || 0;
 
   // Profit calculations
-  const profitAmount = order.profit_amount || order.admin_margin || 0;
-  const profitMarginPercent = order.profit_margin_percent || 0;
+  const profitAmount = order.profit_amount || 0;
+  const profitMarginPercent = order.profit_margin_percent*100 || 0;
 
   // Count quoted items
   const quotedItemsCount = order.items.filter((item) => item.is_quoted === 1).length;
@@ -4347,7 +4714,7 @@ const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
           <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg border border-green-200">
             <div className="flex items-center gap-2">
               <span className="text-gray-700 font-medium">GST ({GST_RATE * 100}%)</span>
-              <FormulaTooltip formula="(Item Cost + Delivery Cost) × 5%" />
+              <FormulaTooltip formula="(Item Cost + Delivery Cost) × 10%" />
             </div>
             <span className="font-bold text-gray-900 text-lg">
               {formatCurrency(gstAmount)}
@@ -5095,12 +5462,11 @@ const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({ items, workflow }
 
 export default OrderItemsSection;
 /* FILE: src/components/admin/Orders/OrderItemsTab.tsx */
-// FILE PATH: src/components/admin/Orders/OrderItemsTab.tsx
+// FILE PATH: src/components/admin/Orders/OrderItemsTab.tsx - UPDATED VERSION
 
 /**
- * Order Items Tab Component - FIXED v2
- * Displays items with supplier assignment, quoted price, and payment status management
- * ✅ Handles both supplier_id field AND supplier object
+ * Order Items Tab Component - WITH ADMIN EDIT
+ * Displays items with supplier assignment, quoted price, payment status, AND admin edit
  */
 
 import React, { useState } from 'react';
@@ -5115,6 +5481,7 @@ import {
   Check,
   CreditCard,
   User,
+  Edit,
 } from 'lucide-react';
 import type { AdminOrderItem, WorkflowStatus } from '../../../types/adminOrder.types';
 import { formatCurrency } from '../../../features/adminOrders/utils';
@@ -5123,6 +5490,7 @@ import {
   useSetQuotedPrice, 
   useMarkItemAsPaid 
 } from '../../../features/adminOrders/hooks';
+import AdminOrderItemEditModal from './AdminOrderItemEditModal';
 
 interface OrderItemsTabProps {
   items: AdminOrderItem[];
@@ -5133,10 +5501,30 @@ interface OrderItemsTabProps {
 const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId }) => {
   const [editingQuotedPrice, setEditingQuotedPrice] = useState<number | null>(null);
   const [quotedPriceValue, setQuotedPriceValue] = useState<string>('');
+  const [editingItem, setEditingItem] = useState<AdminOrderItem | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const assignSupplierMutation = useAssignSupplier();
   const setQuotedPriceMutation = useSetQuotedPrice();
   const markAsPaidMutation = useMarkItemAsPaid();
+
+  // Check if admin can edit item pricing
+  const canEditItemPricing = (item: AdminOrderItem) => {
+    const hasSupplier = item.supplier_id || item.supplier;
+    const allowedWorkflows: WorkflowStatus[] = ['Supplier Assigned', 'Payment Requested'];
+    return hasSupplier && allowedWorkflows.includes(workflow);
+  };
+
+  // Handle admin edit
+  const handleOpenEditModal = (item: AdminOrderItem) => {
+    setEditingItem(item);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditingItem(null);
+    setIsEditModalOpen(false);
+  };
 
   // Handle supplier selection
   const handleSupplierSelect = (itemId: number, supplierId: number, offerId: number) => {
@@ -5220,22 +5608,18 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             }
           }}
           disabled={assignSupplierMutation.isPending}
-          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium disabled:opacity-50 bg-white transition-colors"
-          defaultValue=""
+          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-white"
         >
-          <option value="" disabled>
-            Choose a supplier...
-          </option>
+          <option value="">Select a supplier...</option>
           {item.eligible_suppliers?.map((supplier) => (
             <option key={supplier.supplier_id} value={supplier.supplier_id}>
-              {supplier.name}
-              {supplier.distance !== null && ` - ${supplier.distance.toFixed(1)} km away`}
+              {supplier.name} - {formatCurrency(supplier.unit_cost as number)}
             </option>
           ))}
         </select>
-        {item.eligible_suppliers && item.eligible_suppliers.length === 0 && (
-          <p className="text-sm text-red-600 mt-3 flex items-center gap-2 font-medium">
-            <AlertCircle size={16} />
+        {!item.eligible_suppliers?.length && (
+          <p className="text-yellow-700 text-sm mt-2 flex items-center gap-1.5">
+            <AlertCircle size={14} />
             No eligible suppliers found for this product
           </p>
         )}
@@ -5243,214 +5627,247 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
     </div>
   );
 
-  // Render item for other workflows
-  const renderAssignedItem = (item: AdminOrderItem) => {
-    const isConfirmed = item.supplier_confirms === 1;
-    const isPaid = item.is_paid === 1;
-    const isQuoted = item.is_quoted === 1;
-    const isEditingPrice = editingQuotedPrice === item.id;
-
-    return (
-      <div
-        key={item.id}
-        className={`bg-white border-2 rounded-xl p-6 shadow-sm hover:shadow-md transition-all ${
-          isConfirmed ? 'border-green-300' : 'border-gray-300'
-        }`}
-      >
-        {/* Item Header */}
-        <div className="flex items-start justify-between mb-5">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <Package size={20} className="text-blue-600" />
-              <h4 className="font-bold text-gray-900 text-lg">{item.product_name}</h4>
-            </div>
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              <span className="font-medium">Quantity: <span className="text-gray-900 font-bold">{item.quantity}</span></span>
-            </div>
+  // Render item with supplier assigned (not yet confirmed or paid)
+  const renderSupplierAssignedItem = (item: AdminOrderItem) => (
+    <div key={item.id} className="bg-white border-2 border-indigo-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      {/* Header with Admin Edit Button */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <Package size={20} className="text-indigo-600" />
+            <h4 className="font-bold text-gray-900 text-lg">{item.product_name}</h4>
           </div>
-          
-          {/* Status Badges */}
-          <div className="flex flex-col gap-2 items-end">
-            {/* Confirmation Status */}
-            <span
-              className={`px-3 py-1.5 text-xs font-bold rounded-full flex items-center gap-1.5 border-2 transition-colors ${
-                isConfirmed
-                  ? 'bg-green-100 text-green-700 border-green-300'
-                  : 'bg-yellow-100 text-yellow-700 border-yellow-300'
-              }`}
-            >
-              {isConfirmed ? (
-                <>
-                  <CheckCircle size={14} />
-                  Confirmed
-                </>
-              ) : (
-                <>
-                  <Clock size={14} />
-                  Pending
-                </>
-              )}
-            </span>
-
-            {/* Quoted Price Badge */}
-            {isQuoted && (
-              <span className="px-3 py-1.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-full border-2 border-purple-300">
-                Quoted Price
-              </span>
-            )}
-
-            {/* Payment Status Badge/Button */}
-            {(item.supplier_id || item.supplier) && (
-              <button
-                onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
-                disabled={markAsPaidMutation.isPending}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold border-2 flex items-center gap-1.5 transition-all disabled:opacity-50 ${
-                  isPaid
-                    ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200'
-                    : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
-                }`}
-              >
-                <CreditCard size={14} />
-                {isPaid ? 'Paid ✓' : 'Mark as Paid'}
-              </button>
-            )}
+          <div className="flex items-center gap-4 text-sm text-gray-600">
+            <span className="font-medium">Quantity: <span className="text-gray-900 font-bold">{item.quantity}</span></span>
+            <span className="font-medium">Supplier: <span className="text-indigo-700 font-bold">{item.supplier?.name || 'Unknown'}</span></span>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          {item.supplier_confirms ? (
+            <span className="px-3 py-1.5 bg-green-100 text-green-800 text-xs font-bold rounded-full border-2 border-green-300 flex items-center gap-1.5">
+              <CheckCircle size={14} />
+              Confirmed
+            </span>
+          ) : (
+            <span className="px-3 py-1.5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full border-2 border-blue-300 flex items-center gap-1.5">
+              <Clock size={14} />
+              Pending Confirmation
+            </span>
+          )}
+          {/* Admin Edit Button */}
+          {canEditItemPricing(item) && (
+            <button
+              onClick={() => handleOpenEditModal(item)}
+              className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-bold rounded-full hover:from-orange-600 hover:to-amber-600 transition-all shadow-md hover:shadow-lg flex items-center gap-1.5"
+              title="Admin Override - Edit Item Pricing"
+            >
+              <Edit size={14} />
+              Admin Edit
+            </button>
+          )}
+        </div>
+      </div>
 
-        {/* Supplier Info */}
-        {item.supplier && (
-          <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200 mb-4">
-            <div className="flex items-center gap-3 mb-3">
-              {item.supplier.profile_image ? (
-                <img
-                  src={`${import.meta.env.VITE_IMAGE_BASE_URL}${item.supplier.profile_image}`}
-                  alt={item.supplier.name}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-blue-300 shadow-sm"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center border-2 border-blue-300 shadow-sm">
-                  <span className="text-white font-bold text-lg">
-                    {item.supplier.name?.charAt(0) || 'S'}
-                  </span>
-                </div>
-              )}
-              <div>
-                <p className="font-bold text-gray-900">{item.supplier.name}</p>
-                <p className="text-xs text-blue-600">Assigned Supplier</p>
-              </div>
-            </div>
-
-            {/* Pricing Details */}
-            <div className="space-y-2 text-sm border-t-2 border-blue-200 pt-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Unit Cost:</span>
-                <span className="font-bold text-gray-900">{formatCurrency(item.supplier_unit_cost || 0)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Quantity:</span>
-                <span className="font-bold text-gray-900">×{item.quantity}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Subtotal:</span>
-                <span className="font-bold text-gray-900">
-                  {formatCurrency((item.supplier_unit_cost || 0) * item.quantity)}
-                </span>
-              </div>
-              {item.supplier_discount && item.supplier_discount > 0 && (
-                <div className="flex justify-between items-center text-green-600">
-                  <span className="font-medium">Supplier Discount:</span>
-                  <span className="font-bold">-{formatCurrency(item.supplier_discount)}</span>
-                </div>
-              )}
-              {item.supplier_delivery_cost && item.supplier_delivery_cost > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 font-medium">Delivery Cost:</span>
-                  <span className="font-bold text-gray-900">
-                    {formatCurrency(item.supplier_delivery_cost)}
-                  </span>
-                </div>
-              )}
-            </div>
+      {/* Pricing Details */}
+      <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 space-y-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-600">Unit Cost:</span>
+          <span className="font-bold text-gray-900">{formatCurrency(item.supplier_unit_cost as number)}</span>
+        </div>
+        {item.supplier_discount && item.supplier_discount > 0 && (
+          <div className="flex justify-between text-sm text-green-600">
+            <span>Discount:</span>
+            <span className="font-medium">-{formatCurrency(item.supplier_discount)}</span>
           </div>
         )}
-
-        {/* Quoted Price Section */}
-        <div className="bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <DollarSign size={18} className="text-purple-600" />
-              <span className="text-sm font-bold text-purple-900">Quoted Price</span>
-            </div>
-            {!isEditingPrice && (
-              <button
-                onClick={() => handleStartEditQuotedPrice(item)}
-                className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs font-bold flex items-center gap-1.5"
-              >
-                <Edit3 size={14} />
-                Edit
-              </button>
-            )}
+        {item.delivery_type && (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Delivery Type:</span>
+            <span className="font-medium text-gray-900">{item.delivery_type}</span>
           </div>
+        )}
+        {item.delivery_cost && item.delivery_cost > 0 && (
+          <div className="flex justify-between text-sm text-blue-600">
+            <span>Delivery Cost:</span>
+            <span className="font-medium">+{formatCurrency(item.delivery_cost)}</span>
+          </div>
+        )}
+      </div>
 
-          {isEditingPrice ? (
-            <div className="space-y-3">
+      {/* Quoted Price Section */}
+      <div className="mt-4 bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <DollarSign size={16} className="text-purple-600" />
+            <span className="text-sm font-bold text-gray-900">Quoted Price Override</span>
+          </div>
+          {editingQuotedPrice === item.id ? (
+            <div className="flex items-center gap-2">
               <input
                 type="number"
                 value={quotedPriceValue}
                 onChange={(e) => setQuotedPriceValue(e.target.value)}
-                placeholder="Enter quoted price or leave empty to clear"
+                placeholder="0.00"
                 step="0.01"
                 min="0"
-                className="w-full px-4 py-3 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-bold text-lg"
+                className="w-32 px-3 py-1.5 text-sm border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                autoFocus
               />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleSaveQuotedPrice(item.id)}
-                  disabled={setQuotedPriceMutation.isPending}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors font-bold text-sm"
-                >
-                  <Check size={16} />
-                  Save
-                </button>
-                <button
-                  onClick={handleCancelEditQuotedPrice}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-bold text-sm"
-                >
-                  <X size={16} />
-                  Cancel
-                </button>
-              </div>
+              <button
+                onClick={() => handleSaveQuotedPrice(item.id)}
+                disabled={setQuotedPriceMutation.isPending}
+                className="p-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                title="Save"
+              >
+                <Check size={16} />
+              </button>
+              <button
+                onClick={handleCancelEditQuotedPrice}
+                className="p-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                title="Cancel"
+              >
+                <X size={16} />
+              </button>
             </div>
           ) : (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">
-                {isQuoted ? 'Custom quoted price applied' : 'Using standard pricing'}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-purple-700">
+                {item.is_quoted === 1 && item.quoted_price !== null
+                  ? formatCurrency(item.quoted_price as number)
+                  : 'Not Set'}
               </span>
-              <span className="text-lg font-bold text-purple-900">
-                {isQuoted && item.quoted_price
-                  ? formatCurrency(item.quoted_price)
-                  : '—'}
-              </span>
+              <button
+                onClick={() => handleStartEditQuotedPrice(item)}
+                className="p-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                title="Edit Quoted Price"
+              >
+                <Edit3 size={16} />
+              </button>
             </div>
           )}
         </div>
       </div>
-    );
-  };
+
+      {/* Payment Status Section */}
+      <div className="mt-4 bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CreditCard size={16} className="text-blue-600" />
+            <span className="text-sm font-bold text-gray-900">Payment Status</span>
+          </div>
+          <button
+            onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
+            disabled={markAsPaidMutation.isPending}
+            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${
+              item.is_paid === 1
+                ? 'bg-green-100 text-green-800 border-2 border-green-300 hover:bg-green-200'
+                : 'bg-gray-100 text-gray-800 border-2 border-gray-300 hover:bg-gray-200'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {item.is_paid === 1 ? '✓ Paid' : 'Mark as Paid'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Render item with pricing visible (Payment Requested or Delivered)
+  const renderPricedItem = (item: AdminOrderItem) => (
+    <div key={item.id} className="bg-white border-2 border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      {/* Header with Admin Edit Button */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <Package size={20} className="text-green-600" />
+            <h4 className="font-bold text-gray-900 text-lg">{item.product_name}</h4>
+          </div>
+          <div className="flex items-center gap-4 text-sm text-gray-600">
+            <span className="font-medium">Quantity: <span className="text-gray-900 font-bold">{item.quantity}</span></span>
+            <span className="font-medium">Supplier: <span className="text-green-700 font-bold">{item.supplier?.name || 'Unknown'}</span></span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1.5 bg-green-100 text-green-800 text-xs font-bold rounded-full border-2 border-green-300 flex items-center gap-1.5">
+            <CheckCircle size={14} />
+            {workflow === 'Delivered' ? 'Delivered' : 'Ready'}
+          </span>
+          {/* Admin Edit Button - only for Payment Requested */}
+          {workflow === 'Payment Requested' && canEditItemPricing(item) && (
+            <button
+              onClick={() => handleOpenEditModal(item)}
+              className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-bold rounded-full hover:from-orange-600 hover:to-amber-600 transition-all shadow-md hover:shadow-lg flex items-center gap-1.5"
+              title="Admin Override - Edit Item Pricing"
+            >
+              <Edit size={14} />
+              Admin Edit
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Full Pricing Breakdown */}
+      <div className="space-y-4">
+        {/* Supplier Costs */}
+        <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+          <h5 className="text-xs font-bold text-gray-600 uppercase mb-3">Supplier Costs</h5>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Unit Cost × {item.quantity}:</span>
+              <span className="font-bold text-gray-900">
+                {formatCurrency((item.supplier_unit_cost || 0) * item.quantity)}
+              </span>
+            </div>
+            {item.supplier_discount && item.supplier_discount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>Discount:</span>
+                <span className="font-medium">-{formatCurrency(item.supplier_discount)}</span>
+              </div>
+            )}
+            {item.delivery_type && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Delivery ({item.delivery_type}):</span>
+                <span className="font-medium text-gray-900">
+                  {item.delivery_cost ? formatCurrency(item.delivery_cost) : 'Included'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Payment Status */}
+        <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CreditCard size={16} className="text-blue-600" />
+              <span className="text-sm font-bold text-gray-900">Payment Status</span>
+            </div>
+            <button
+              onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
+              disabled={markAsPaidMutation.isPending}
+              className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${
+                item.is_paid === 1
+                  ? 'bg-green-100 text-green-800 border-2 border-green-300 hover:bg-green-200'
+                  : 'bg-gray-100 text-gray-800 border-2 border-gray-300 hover:bg-gray-200'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {item.is_paid === 1 ? '✓ Paid' : 'Mark as Paid'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl p-6 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white shadow-lg">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/10 rounded-lg">
-              <Package size={28} />
-            </div>
-            <div>
-              <h3 className="text-2xl font-bold">Order Items</h3>
-              <p className="text-purple-100 text-sm mt-1">{items.length} item{items.length !== 1 ? 's' : ''} in this order</p>
-            </div>
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Order Items</h2>
+            <p className="text-blue-100">
+              {items.length} item{items.length !== 1 ? 's' : ''} in this order
+            </p>
           </div>
           <div className="px-4 py-2 bg-white/20 rounded-lg border-2 border-white/30">
             <span className="text-2xl font-bold">{items.length}</span>
@@ -5461,15 +5878,27 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
       {/* Items List */}
       <div className="space-y-4">
         {items.map((item) => {
-          // ✅ FIX v2: Check BOTH supplier_id AND supplier object
           const hasSupplier = item.supplier_id || item.supplier;
           
           if (!hasSupplier) {
             return renderSupplierMissingItem(item);
+          } else if (workflow === 'Payment Requested' || workflow === 'Delivered') {
+            return renderPricedItem(item);
+          } else {
+            return renderSupplierAssignedItem(item);
           }
-          return renderAssignedItem(item);
         })}
       </div>
+
+      {/* Admin Edit Modal */}
+      <AdminOrderItemEditModal
+        item={editingItem}
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        onSuccess={() => {
+          // Refetch is handled by the mutation hook
+        }}
+      />
     </div>
   );
 };
@@ -5479,8 +5908,10 @@ export default OrderItemsTab;
 // FILE PATH: src/components/admin/Orders/OrderMapTab.tsx
 
 /**
- * Order Map Tab Component
+ * Order Map Tab Component (FIXED VERSION)
  * Shows client location and supplier zones on Google Maps
+ * 
+ * FIX: Added requestAnimationFrame to ensure DOM is ready before map initialization
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -5507,10 +5938,26 @@ const OrderMapTab: React.FC<OrderMapTabProps> = ({ deliveryLat, deliveryLong, it
   const markersRef = useRef<google.maps.Marker[]>([]);
   const circlesRef = useRef<google.maps.Circle[]>([]);
 
-  // Load Google Maps
+  // Load Google Maps - FIXED VERSION
   useEffect(() => {
-    const initMap = () => {
-      if (!mapRef.current || !window.google?.maps) return;
+    console.log('[OrderMapTab] Initializing map...', { deliveryLat, deliveryLong, itemsCount: items.length });
+    
+    // ✅ FIX: Use requestAnimationFrame to ensure DOM is ready
+    const initWhenReady = () => {
+      if (!mapRef.current) {
+        console.log('[OrderMapTab] Map container not ready, retrying...');
+        requestAnimationFrame(initWhenReady);
+        return;
+      }
+      
+      console.log('[OrderMapTab] Map container ready');
+      
+      if (!window.google || !window.google.maps) {
+        console.log('[OrderMapTab] Google Maps API not loaded yet');
+        return;
+      }
+
+      console.log('[OrderMapTab] Google Maps API available, creating map...');
 
       try {
         const defaultCenter = { lat: -33.8688, lng: 151.2093 }; // Sydney
@@ -5526,42 +5973,54 @@ const OrderMapTab: React.FC<OrderMapTabProps> = ({ deliveryLat, deliveryLong, it
           fullscreenControl: true,
         });
 
+        console.log('[OrderMapTab] Map created successfully');
         setMap(mapInstance);
         setLoading(false);
       } catch (e) {
+        console.error('[OrderMapTab] Failed to initialize map:', e);
         setError('Failed to initialize map');
         setLoading(false);
       }
     };
 
-    // Check if script already loaded
-    if (window.google?.maps) {
-      initMap();
+    // Check if Google Maps already loaded
+    if (window.google && window.google.maps) {
+      console.log('[OrderMapTab] Google Maps already loaded');
+      initWhenReady();
       return;
     }
 
     // Check for existing script
-    const existing = document.getElementById('google-maps-script');
+    const existing = document.getElementById('google-maps-script') as HTMLScriptElement | null;
     if (existing) {
-      existing.addEventListener('load', initMap, { once: true });
+      console.log('[OrderMapTab] Script tag exists, waiting for load...');
+      existing.addEventListener('load', initWhenReady, { once: true });
       return;
     }
 
     // Load script
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    console.log('[OrderMapTab] API Key present:', !!apiKey);
+    
     if (!apiKey) {
+      console.error('[OrderMapTab] Missing Google Maps API key');
       setError('Missing Google Maps API key');
       setLoading(false);
       return;
     }
 
+    console.log('[OrderMapTab] Creating script tag...');
     const script = document.createElement('script');
     script.id = 'google-maps-script';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
     script.defer = true;
-    script.onload = initMap;
+    script.onload = () => {
+      console.log('[OrderMapTab] Script loaded successfully');
+      initWhenReady();
+    };
     script.onerror = () => {
+      console.error('[OrderMapTab] Failed to load Google Maps script');
       setError('Failed to load Google Maps');
       setLoading(false);
     };
@@ -5575,7 +6034,15 @@ const OrderMapTab: React.FC<OrderMapTabProps> = ({ deliveryLat, deliveryLong, it
 
   // Draw markers and zones
   useEffect(() => {
-    if (!map || !window.google) return;
+    if (!map || !window.google) {
+      console.log('[OrderMapTab] Skipping markers - map not ready');
+      return;
+    }
+
+    console.log('[OrderMapTab] Drawing markers and zones...', { 
+      hasDeliveryCoords: !!(deliveryLat && deliveryLong),
+      itemsCount: items.length 
+    });
 
     // Clear old markers and circles
     markersRef.current.forEach(m => m.setMap(null));
@@ -5588,6 +6055,7 @@ const OrderMapTab: React.FC<OrderMapTabProps> = ({ deliveryLat, deliveryLong, it
 
     // Add client marker (green)
     if (deliveryLat && deliveryLong) {
+      console.log('[OrderMapTab] Adding client marker at:', { deliveryLat, deliveryLong });
       const clientPos = { lat: deliveryLat, lng: deliveryLong };
 
       const clientMarker = new window.google.maps.Marker({
@@ -5606,134 +6074,128 @@ const OrderMapTab: React.FC<OrderMapTabProps> = ({ deliveryLat, deliveryLong, it
           text: 'C',
           color: '#fff',
           fontWeight: 'bold',
-          fontSize: '12px',
         },
       });
 
-      const clientInfo = new window.google.maps.InfoWindow({
-        content: `
-          <div style="padding:8px">
-            <h3 style="margin:0 0 6px;font-weight:700;color:#10B981">Client Delivery Location</h3>
-            <div style="font-size:13px;color:#374151">
-              <div><strong>Lat:</strong> ${deliveryLat.toFixed(6)}</div>
-              <div><strong>Lng:</strong> ${deliveryLong.toFixed(6)}</div>
-            </div>
-          </div>
-        `,
-      });
-
-      clientMarker.addListener('click', () => clientInfo.open(map, clientMarker));
       markersRef.current.push(clientMarker);
       bounds.extend(clientPos);
       hasMarkers = true;
     }
 
     // Add supplier markers and zones
-    const processedSuppliers = new Set<number>();
-
-    items.forEach((item) => {
-      if (!item.supplier?.id || processedSuppliers.has(item.supplier.id)) return;
-      processedSuppliers.add(item.supplier.id);
-
+    items.forEach((item, idx) => {
       const supplier = item.supplier;
-      const zones: DeliveryZone[] = supplier.delivery_zones || [];
-      if (zones.length === 0) return;
+      if (!supplier || !supplier.delivery_zones) {
+        console.log(`[OrderMapTab] Item ${idx}: No supplier or zones`);
+        return;
+      }
 
-      const isConfirmed = item.supplier_confirms === 1;
-      const color = isConfirmed ? '#3B82F6' : '#F59E0B'; // Blue for confirmed, Yellow for pending
+      let zones: DeliveryZone[] = [];
+      try {
+        zones = typeof supplier.delivery_zones === 'string'
+          ? JSON.parse(supplier.delivery_zones)
+          : supplier.delivery_zones;
+        console.log(`[OrderMapTab] Item ${idx}: Found ${zones.length} zones for supplier ${supplier.id}`);
+      } catch (e) {
+        console.error('[OrderMapTab] Failed to parse zones for supplier:', supplier.id, e);
+        return;
+      }
 
-      zones.forEach((zone, idx) => {
-        const pos = { lat: zone.lat, lng: zone.long };
+      zones.forEach((zone: DeliveryZone, zoneIdx: number) => {
+        console.log(`[OrderMapTab] Drawing zone ${zoneIdx} for supplier ${supplier.id}:`, zone);
+        const zonePos = { lat: zone.lat, lng: zone.long };
 
-        // Create marker
-        const marker = new window.google.maps.Marker({
-          position: pos,
+        // Supplier marker (blue if confirmed, yellow if pending)
+        const isConfirmed = item.supplier_id !== null;
+        const supplierMarker = new window.google.maps.Marker({
+          position: zonePos,
           map,
-          title: `${supplier.name} - Zone ${idx + 1}`,
+          title: supplier.name || 'Supplier',
           icon: {
             path: window.google.maps.SymbolPath.CIRCLE,
             scale: 12,
-            fillColor: color,
+            fillColor: isConfirmed ? '#3B82F6' : '#F59E0B',
             fillOpacity: 1,
             strokeColor: '#fff',
-            strokeWeight: 3,
+            strokeWeight: 2,
           },
           label: {
             text: 'S',
             color: '#fff',
             fontWeight: 'bold',
-            fontSize: '11px',
+            fontSize: '12px',
           },
         });
 
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
-            <div style="padding:8px;max-width:260px">
-              <h3 style="margin:0 0 6px;font-weight:700;color:${color}">${supplier.name}</h3>
-              <div style="font-size:13px;color:#374151">
-                <div><strong>Zone ${idx + 1}</strong></div>
-                <div><strong>Address:</strong> ${zone.address}</div>
-                <div><strong>Radius:</strong> ${zone.radius} km</div>
-                <div><strong>Status:</strong> ${isConfirmed ? '✓ Confirmed' : '⏳ Pending'}</div>
-              </div>
-            </div>
-          `,
-        });
+        markersRef.current.push(supplierMarker);
 
-        marker.addListener('click', () => infoWindow.open(map, marker));
-
-        // Create circle zone
+        // Delivery zone circle
         const circle = new window.google.maps.Circle({
-          strokeColor: color,
-          strokeOpacity: 0.8,
-          strokeWeight: 2,
-          fillColor: color,
-          fillOpacity: 0.15,
+          center: zonePos,
+          radius: zone.radius * 1000, // Convert km to meters
           map,
-          center: pos,
-          radius: zone.radius * 1000, // km to meters
+          fillColor: isConfirmed ? '#3B82F6' : '#F59E0B',
+          fillOpacity: 0.1,
+          strokeColor: isConfirmed ? '#3B82F6' : '#F59E0B',
+          strokeOpacity: 0.5,
+          strokeWeight: 2,
         });
 
-        markersRef.current.push(marker);
         circlesRef.current.push(circle);
-        bounds.extend(pos);
+        bounds.extend(zonePos);
         hasMarkers = true;
       });
     });
 
-    // Fit bounds
+    // Fit map to show all markers
     if (hasMarkers) {
+      console.log('[OrderMapTab] Fitting bounds to show all markers');
       map.fitBounds(bounds);
+      
+      // Prevent over-zooming when there's only one marker
+      const listener = window.google.maps.event.addListener(map, 'idle', () => {
+        if (map.getZoom()! > 15) {
+          console.log('[OrderMapTab] Limiting zoom to 15');
+          map.setZoom(15);
+        }
+        window.google.maps.event.removeListener(listener);
+      });
+    } else {
+      console.log('[OrderMapTab] No markers to display');
     }
   }, [map, deliveryLat, deliveryLong, items]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
-        <div className="text-center">
-          <Loader2 className="animate-spin text-blue-600 mx-auto mb-2" size={40} />
-          <p className="text-gray-600">Loading map...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
-        <div className="text-center">
-          <AlertCircle className="text-red-600 mx-auto mb-2" size={40} />
-          <p className="text-red-700 font-medium mb-1">Map Loading Error</p>
-          <p className="text-sm text-gray-600">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
-      {/* Map Container */}
-      <div ref={mapRef} className="w-full h-96 rounded-lg border border-gray-200" />
+      {/* Map Container - ALWAYS RENDERED */}
+      <div className="relative">
+        <div 
+          ref={mapRef} 
+          className="w-full h-[600px] rounded-lg border border-gray-200 overflow-hidden"
+        />
+
+        {/* Loading Overlay */}
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+            <div className="text-center">
+              <Loader2 size={40} className="text-primary-600 animate-spin mb-2" />
+              <p className="text-gray-600 font-medium">Loading map...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error Overlay */}
+        {error && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 p-6 text-center z-10">
+            <AlertCircle size={28} className="text-error-600 mb-2" />
+            <p className="text-error-700 font-medium mb-1">Map Loading Error</p>
+            <p className="text-sm text-gray-600">{error}</p>
+            <p className="text-xs text-gray-500 mt-2">
+              Ensure <code className="bg-gray-100 px-1 rounded">VITE_GOOGLE_MAPS_API_KEY</code> is set.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Legend */}
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -7341,24 +7803,23 @@ import { useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
-  PaymentElement,
+  CardElement,
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
 import { CreditCard, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { paymentAPI } from '../../api/handlers/payment.api';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 interface PaymentFormProps {
-  clientSecret: string;
   orderId: number;
   totalAmount: number;
   onSuccess: () => void;
 }
 
 const PaymentForm: React.FC<PaymentFormProps> = ({
-  clientSecret,
   orderId,
   totalAmount,
   onSuccess,
@@ -7375,46 +7836,91 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       return;
     }
 
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      return;
+    }
+
     setIsProcessing(true);
     setErrorMessage('');
 
     try {
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: `${window.location.origin}/client/orders/${orderId}`,
-        },
-        redirect: 'if_required',
+      // Create payment method
+      const { error, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
       });
 
       if (error) {
-        setErrorMessage(error.message || 'Payment failed');
-        toast.error(error.message || 'Payment failed');
-      } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+        setErrorMessage(error.message || 'Failed to create payment method');
+        toast.error(error.message || 'Failed to create payment method');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Send to backend for processing
+      const response = await paymentAPI.processPayment({
+        payment_method_id: paymentMethod.id,
+        order_id: orderId,
+      });
+
+      if (response.success) {
         toast.success('Payment successful!');
         onSuccess();
+      } else {
+        setErrorMessage(response.message || 'Payment failed');
+        toast.error(response.message || 'Payment failed');
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'An error occurred');
-      toast.error(err.message || 'An error occurred');
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      setErrorMessage(error.message || 'An unexpected error occurred');
+      toast.error(error.message || 'An unexpected error occurred');
     } finally {
       setIsProcessing(false);
     }
   };
 
+  const cardElementOptions = {
+    style: {
+      base: {
+        fontSize: '16px',
+        color: '#1f2937',
+        fontFamily: 'system-ui, sans-serif',
+        '::placeholder': {
+          color: '#9ca3af',
+        },
+      },
+      invalid: {
+        color: '#dc2626',
+        iconColor: '#dc2626',
+      },
+    },
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-white rounded-lg border-2 border-gray-200 p-6">
-        <PaymentElement />
+      {/* Card Element */}
+      <div className="bg-white p-6 rounded-xl border-2 border-gray-200">
+        <label className="block text-sm font-semibold text-gray-700 mb-3">
+          Card Details
+        </label>
+        <div className="p-4 border-2 border-gray-200 rounded-lg focus-within:border-green-500 transition-colors">
+          <CardElement options={cardElementOptions} />
+        </div>
       </div>
 
+      {/* Error Message */}
       {errorMessage && (
-        <div className="flex items-center gap-2 p-4 bg-red-50 border-2 border-red-200 rounded-lg">
-          <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-          <p className="text-sm text-red-800">{errorMessage}</p>
+        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-semibold text-red-900 mb-1">Payment Error</h4>
+            <p className="text-sm text-red-700">{errorMessage}</p>
+          </div>
         </div>
       )}
 
+      {/* Submit Button */}
       <button
         type="submit"
         disabled={!stripe || isProcessing}
@@ -7433,6 +7939,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
         )}
       </button>
 
+      {/* Security Badge */}
       <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
         <CheckCircle2 className="w-4 h-4 text-green-600" />
         <span>Secure payment powered by Stripe</span>
@@ -7442,52 +7949,51 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
 };
 
 interface StripePaymentProps {
-  clientSecret: string;
   orderId: number;
   totalAmount: number;
   onSuccess: () => void;
 }
 
 const StripePayment: React.FC<StripePaymentProps> = ({
-  clientSecret,
   orderId,
   totalAmount,
   onSuccess,
 }) => {
-  const options = {
-    clientSecret,
-    appearance: {
-      theme: 'stripe' as const,
-      variables: {
-        colorPrimary: '#16a34a',
-        colorBackground: '#ffffff',
-        colorText: '#1f2937',
-        colorDanger: '#dc2626',
-        fontFamily: 'system-ui, sans-serif',
-        borderRadius: '12px',
-      },
-    },
-  };
+  // Safety check
+  const safeAmount = isNaN(totalAmount) || totalAmount <= 0 ? 0 : totalAmount;
+
+  if (safeAmount === 0) {
+    return (
+      <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6">
+        <div className="flex items-center gap-3">
+          <XCircle className="w-6 h-6 text-red-600" />
+          <div>
+            <h3 className="text-lg font-bold text-red-900">Payment Error</h3>
+            <p className="text-sm text-red-700">Invalid order amount. Please refresh the page.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gradient-to-br from-green-50 to-blue-50 rounded-xl border-2 border-green-200 p-6">
       <div className="flex items-center gap-3 mb-6">
-        <div className="p-3 bg-green-100 rounded-xl">
+        <div className="p-3 bg-green-100 rounded-xl border-2 border-green-300">
           <CreditCard className="w-6 h-6 text-green-600" />
         </div>
         <div>
           <h3 className="text-xl font-bold text-gray-900">Complete Payment</h3>
           <p className="text-sm text-gray-600">
-            Total Amount: ${totalAmount.toFixed(2)} AUD
+            Total Amount: <span className="font-bold text-green-600">${safeAmount.toFixed(2)} AUD</span>
           </p>
         </div>
       </div>
 
-      <Elements stripe={stripePromise} options={options}>
+      <Elements stripe={stripePromise}>
         <PaymentForm
-          clientSecret={clientSecret}
           orderId={orderId}
-          totalAmount={totalAmount}
+          totalAmount={safeAmount}
           onSuccess={onSuccess}
         />
       </Elements>
@@ -13834,6 +14340,42 @@ export const useMarkItemAsPaid = () => {
     },
   });
 };
+
+
+/**
+ * Admin update order item mutation
+ * For editing supplier pricing, delivery, and confirmation
+ */
+export const useAdminUpdateOrderItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      orderItemId,
+      payload,
+    }: {
+      orderItemId: number;
+      payload: {
+        supplier_unit_cost?: number;
+        supplier_discount?: number;
+        delivery_cost?: number;
+        delivery_type?: 'Included' | 'Supplier' | 'ThirdParty' | 'Fleet' | 'None';
+        supplier_delivery_date?: string;
+        supplier_confirms?: boolean;
+        supplier_notes?: string;
+      };
+    }) => adminOrdersAPI.adminUpdateOrderItem(orderItemId, payload),
+    onSuccess: () => {
+      // Since we don't have orderId in the response, invalidate all order details
+      queryClient.invalidateQueries({ queryKey: adminOrdersKeys.details() });
+      queryClient.invalidateQueries({ queryKey: adminOrdersKeys.lists() });
+    },
+    onError: (error: Error) => {
+      // Error handling is done in the component
+      console.error('Failed to update order item:', error);
+    },
+  });
+};
 /* FILE: src/features/adminOrders/utils.ts */
 // FILE PATH: src/features/adminOrders/utils.ts
 
@@ -13975,64 +14517,100 @@ export const isValidPrice = (price: number): boolean => {
   return typeof price === 'number' && !isNaN(price) && price >= 0;
 };
 /* FILE: src/features/clientOrders/hooks.ts */
-// ============================================================================
-// FILE: src/features/clientOrders/hooks.ts - UPDATED WITH MARK REPEAT
-// ============================================================================
+// FILE PATH: src/features/clientOrders/hooks.ts
+// Updated Client Orders Hooks
 
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { clientOrdersAPI } from '../../api/handlers/clientOrders.api';
-import { clientOrderKeys } from './queryKeys';
+import type { ClientOrdersQueryParams } from '../../api/handlers/clientOrders.api';
+import type {RepeatOrderPayload} from '../../types/clientOrder.types'
 
-export const useClientOrders = (filters: any, includeDetails: boolean = false) =>
-  useQuery({
-    queryKey: clientOrderKeys.list(filters),
-    queryFn: () => clientOrdersAPI.getOrders(filters, includeDetails),
-    placeholderData: keepPreviousData,
+// Query Keys
+export const clientOrdersKeys = {
+  all: ['clientOrders'] as const,
+  lists: () => [...clientOrdersKeys.all, 'list'] as const,
+  list: (filters: ClientOrdersQueryParams) => [...clientOrdersKeys.lists(), filters] as const,
+  details: () => [...clientOrdersKeys.all, 'detail'] as const,
+  detail: (id: number) => [...clientOrdersKeys.details(), id] as const,
+};
+
+/**
+ * Hook to fetch client orders list with filters
+ */
+export const useClientOrders = (params?: ClientOrdersQueryParams,) => {
+  return useQuery({
+    queryKey: clientOrdersKeys.list(params || {}),
+    queryFn: () => clientOrdersAPI.getOrders(params),
+    staleTime: 30000, // 30 seconds
   });
+};
 
-export const useClientOrderDetail = (orderId?: number) =>
-  useQuery({
-    queryKey: clientOrderKeys.detail(orderId!),
-    queryFn: () => clientOrdersAPI.getOrderDetails(orderId!),
+/**
+ * Hook to fetch single order detail
+ */
+export const useClientOrderDetail = (orderId: number) => {
+  return useQuery({
+    queryKey: clientOrdersKeys.detail(orderId),
+    queryFn: () => clientOrdersAPI.getOrderDetail(orderId),
     enabled: !!orderId,
+    staleTime: 30000, // 30 seconds
   });
+};
 
+/**
+ * Hook to repeat an order
+ */
 export const useRepeatOrder = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ orderId, payload }: { orderId: number; payload: any }) =>
+    mutationFn: ({ orderId, payload }: { orderId: number; payload: RepeatOrderPayload }) =>
       clientOrdersAPI.repeatOrder(orderId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: clientOrderKeys.lists() });
+      // Invalidate orders list to show new order
+      queryClient.invalidateQueries({ queryKey: clientOrdersKeys.lists() });
+      toast.success('Order repeated successfully!');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to repeat order');
     },
   });
 };
 
+/**
+ * Hook to mark order as repeat
+ */
 export const useMarkRepeatOrder = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: (orderId: number) => clientOrdersAPI.markRepeatOrder(orderId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: clientOrderKeys.lists() });
+    onSuccess: (_, orderId) => {
+      // Update both list and detail cache
+      queryClient.invalidateQueries({ queryKey: clientOrdersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: clientOrdersKeys.detail(orderId) });
+      toast.success('Order marked as repeat');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to mark as repeat order');
     },
   });
 };
 /* FILE: src/features/clientOrders/queryKeys.ts */
-import type { ClientOrderFilters } from '../../api/handlers/clientOrders.api';
+// import type { ClientOrderFilters } from '../../api/handlers/clientOrders.api';
 
-export const clientOrderKeys = {
-  all: ['client-orders'] as const,
-  lists: () => [...clientOrderKeys.all, 'list'] as const,
+// export const clientOrderKeys = {
+//   all: ['client-orders'] as const,
+//   lists: () => [...clientOrderKeys.all, 'list'] as const,
 
-  // Accept the actual filters type
-  list: (filters: ClientOrderFilters) =>
-    [...clientOrderKeys.lists(), { ...filters }] as const,
+//   // Accept the actual filters type
+//   list: (filters: ClientOrderFilters) =>
+//     [...clientOrderKeys.lists(), { ...filters }] as const,
 
-  details: () => [...clientOrderKeys.all, 'detail'] as const,
-  detail: (id: number) => [...clientOrderKeys.details(), id] as const,
-};
+//   details: () => [...clientOrderKeys.all, 'detail'] as const,
+//   detail: (id: number) => [...clientOrderKeys.details(), id] as const,
+// };
 
 /* FILE: src/features/components/ProjectForm.tsx */
 // --- src/features/projects/components/ProjectForm.tsx ---
@@ -18587,7 +19165,8 @@ const ClientOrders = () => {
     dir: 'desc',
   });
 
-  const { data, isLoading, isFetching, refetch } = useClientOrders(filters, isFirstLoad);
+  const { data, isLoading, isFetching, refetch } = useClientOrders(filters);
+  console.log(isFirstLoad, 'sadsadsa')
   const repeatOrderMutation = useRepeatOrder();
   const markRepeatMutation = useMarkRepeatOrder();
 
@@ -18733,10 +19312,9 @@ const ClientOrders = () => {
 
 export default ClientOrders;
 /* FILE: src/pages/client/ClientOrderView.tsx */
-// 
 // FILE PATH: src/pages/client/ClientOrderView.tsx
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -18747,7 +19325,6 @@ import {
   RefreshCw,
   RotateCcw,
   Building2,
-  FileText,
   Info,
   DollarSign,
   User,
@@ -18761,7 +19338,6 @@ import { useClientOrderDetail, useRepeatOrder } from '../../features/clientOrder
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import RepeatOrderModal from '../../components/client/RepeatOrderModal';
 import StripePayment from '../../components/client/StripePayment';
-import { paymentAPI } from '../../api/handlers/payment.api';
 import { clientMenuItems } from '../../utils/menuItems';
 
 const ClientOrderView = () => {
@@ -18770,8 +19346,6 @@ const ClientOrderView = () => {
   const { data, isLoading, refetch } = useClientOrderDetail(Number(orderId));
   const repeatOrderMutation = useRepeatOrder();
   const [repeatOrderModalOpen, setRepeatOrderModalOpen] = useState(false);
-  const [paymentClientSecret, setPaymentClientSecret] = useState<string | null>(null);
-  const [loadingPayment, setLoadingPayment] = useState(false);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
@@ -18793,14 +19367,31 @@ const ClientOrderView = () => {
     }
   };
 
+  const formatCurrency = (amount: number | string) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(num)) return '$0.00';
+    return `$${num.toFixed(2)}`;
+  };
+
   const getStatusColor = (workflow: string) => {
     const statusColors: Record<string, string> = {
       'Supplier Missing': 'bg-red-100 text-red-800 border-red-200',
       'Supplier Assigned': 'bg-blue-100 text-blue-800 border-blue-200',
       'Payment Requested': 'bg-yellow-100 text-yellow-800 border-yellow-200',
       'Delivered': 'bg-green-100 text-green-800 border-green-200',
+      'On Hold': 'bg-gray-100 text-gray-800 border-gray-200',
     };
     return statusColors[workflow] || 'bg-gray-100 text-gray-800 border-gray-200';
+  };
+
+  const getPaymentStatusColor = (paymentStatus: string) => {
+    const colors: Record<string, string> = {
+      'Pending': 'bg-gray-100 text-gray-700 border-gray-300',
+      'Paid': 'bg-green-100 text-green-700 border-green-300',
+      'Partially Paid': 'bg-yellow-100 text-yellow-700 border-yellow-300',
+      'Failed': 'bg-red-100 text-red-700 border-red-300',
+    };
+    return colors[paymentStatus] || 'bg-gray-100 text-gray-700 border-gray-300';
   };
 
   const handleRefresh = () => {
@@ -18830,33 +19421,10 @@ const ClientOrderView = () => {
     }
   };
 
-  const handleInitiatePayment = async () => {
-    if (!orderId) return;
-
-    setLoadingPayment(true);
-    try {
-      const response = await paymentAPI.createPaymentIntent(Number(orderId));
-      setPaymentClientSecret(response.client_secret);
-      toast.success('Payment form loaded');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to load payment form');
-    } finally {
-      setLoadingPayment(false);
-    }
-  };
-
   const handlePaymentSuccess = () => {
     toast.success('Payment completed successfully!');
-    setPaymentClientSecret(null);
     refetch();
   };
-
-  // Auto-load payment if workflow is Payment Requested
-  useEffect(() => {
-    if (data?.data?.order?.workflow === 'Payment Requested' && !paymentClientSecret && !loadingPayment) {
-      handleInitiatePayment();
-    }
-  }, [data?.data?.order?.workflow]);
 
   if (isLoading) {
     return (
@@ -18891,7 +19459,9 @@ const ClientOrderView = () => {
   }
 
   const { order, items } = data.data;
-  const showPayment = order.workflow === 'Payment Requested';
+  const showPayment =
+    order.workflow === 'Payment Requested' &&
+    (order.payment_status === 'Pending' || order.payment_status === 'Partially Paid');
 
   return (
     <DashboardLayout menuItems={clientMenuItems}>
@@ -18907,88 +19477,46 @@ const ClientOrderView = () => {
             </button>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold text-gray-900">{order.po_number}</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Order #{order.po_number}</h1>
                 {order.repeat_order && (
-                  <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-semibold rounded-full">
+                  <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-semibold rounded-full border border-purple-300">
                     Repeat Order
                   </span>
                 )}
               </div>
-              <p className="text-gray-600 mt-1">Order Details</p>
+              {order.order_info && (
+                <div className="flex items-center gap-2 mt-1">
+                  <Info className="w-4 h-4 text-blue-600" />
+                  <p className="text-sm text-blue-600">{order.order_info}</p>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3">
             <button
+              onClick={handleRefresh}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+            <button
               onClick={handleRepeatOrder}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <RotateCcw className="w-4 h-4" />
               Repeat Order
             </button>
-            <button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
           </div>
         </div>
 
-        {/* Order Info Alert */}
-        {order.order_info && (
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <h3 className="font-semibold text-blue-900 mb-1">Order Information</h3>
-              <p className="text-sm text-blue-700">{order.order_info}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Payment Section - Show only when Payment Requested */}
-        {showPayment && (
-          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl p-6">
-            <div className="flex items-start gap-3 mb-6">
-              <AlertCircle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="text-lg font-bold text-yellow-900 mb-1">
-                  Payment Required
-                </h3>
-                <p className="text-sm text-yellow-800">
-                  Your order is ready for payment. Complete the payment below to proceed with delivery.
-                </p>
-              </div>
-            </div>
-
-            {paymentClientSecret ? (
-              <StripePayment
-                clientSecret={paymentClientSecret}
-                orderId={Number(orderId)}
-                totalAmount={parseFloat(order.total_price)}
-                onSuccess={handlePaymentSuccess}
-              />
-            ) : (
-              <button
-                onClick={handleInitiatePayment}
-                disabled={loadingPayment}
-                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 transition-all font-bold"
-              >
-                {loadingPayment ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    Loading Payment Form...
-                  </>
-                ) : (
-                  <>
-                    <DollarSign className="w-5 h-5" />
-                    Proceed to Payment
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+        {/* Payment Section */}
+        {showPayment && order.total_price && (
+          <StripePayment
+            orderId={Number(orderId)}
+            totalAmount={Number(order.total_price) || 0}
+            onSuccess={handlePaymentSuccess}
+          />
         )}
 
         {/* Status & Basic Info Grid */}
@@ -19011,6 +19539,16 @@ const ClientOrderView = () => {
                 </span>
               </div>
               <div>
+                <span className="text-sm text-gray-600 block mb-1">Payment Status</span>
+                <span
+                  className={`inline-flex px-3 py-1.5 rounded-full text-sm font-semibold border-2 ${getPaymentStatusColor(
+                    order.payment_status
+                  )}`}
+                >
+                  {order.payment_status}
+                </span>
+              </div>
+              <div>
                 <span className="text-sm text-gray-600 block mb-1">Order Date</span>
                 <span className="text-sm font-medium text-gray-900">
                   {formatDate(order.created_at)}
@@ -19028,13 +19566,13 @@ const ClientOrderView = () => {
             <div className="space-y-3">
               <div>
                 <span className="text-sm text-gray-600 block mb-1">Project Name</span>
-                <span className="text-sm font-medium text-gray-900">{order.project?.name}</span>
+                <span className="text-sm font-medium text-gray-900">{order.project?.name || '-'}</span>
               </div>
               {order.project?.site_contact_name && (
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-gray-400" />
-                  <div>
-                    <span className="text-xs text-gray-600 block">Site Contact</span>
+                <div>
+                  <span className="text-sm text-gray-600 block mb-1">Site Contact</span>
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-gray-400" />
                     <span className="text-sm font-medium text-gray-900">
                       {order.project.site_contact_name}
                     </span>
@@ -19042,22 +19580,13 @@ const ClientOrderView = () => {
                 </div>
               )}
               {order.project?.site_contact_phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <div>
-                    <span className="text-xs text-gray-600 block">Phone</span>
+                <div>
+                  <span className="text-sm text-gray-600 block mb-1">Phone</span>
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-gray-400" />
                     <span className="text-sm font-medium text-gray-900">
                       {order.project.site_contact_phone}
                     </span>
-                  </div>
-                </div>
-              )}
-              {order.project?.site_instructions && (
-                <div className="flex items-start gap-2">
-                  <FileText className="w-4 h-4 text-gray-400 mt-0.5" />
-                  <div>
-                    <span className="text-xs text-gray-600 block">Site Instructions</span>
-                    <span className="text-sm text-gray-900">{order.project.site_instructions}</span>
                   </div>
                 </div>
               )}
@@ -19067,180 +19596,199 @@ const ClientOrderView = () => {
 
         {/* Delivery Information */}
         <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Delivery Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-start gap-3">
-              <MapPin className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <span className="text-sm text-gray-600">Delivery Address</span>
-                <p className="text-sm font-medium text-gray-900">{order.delivery_address}</p>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Truck className="w-5 h-5" />
+            Delivery Information
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <span className="text-sm text-gray-600 block mb-1">Delivery Address</span>
+              <div className="flex items-start gap-2">
+                <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                <span className="text-sm font-medium text-gray-900">{order.delivery_address}</span>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <Calendar className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <span className="text-sm text-gray-600">Delivery Date & Time</span>
-                <p className="text-sm font-medium text-gray-900">
+            <div>
+              <span className="text-sm text-gray-600 block mb-1">Delivery Date & Time</span>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                <span className="text-sm font-medium text-gray-900">
                   {formatDateTime(order.delivery_date, order.delivery_time)}
-                </p>
+                </span>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <Truck className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+            {order.delivery_method && (
               <div>
-                <span className="text-sm text-gray-600">Delivery Method</span>
-                <p className="text-sm font-medium text-gray-900">{order.delivery_method}</p>
+                <span className="text-sm text-gray-600 block mb-1">Delivery Method</span>
+                <span className="text-sm font-medium text-gray-900">{order.delivery_method}</span>
               </div>
-            </div>
+            )}
           </div>
+          {order.project?.site_instructions && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <span className="text-sm text-gray-600 block mb-2">Site Instructions</span>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap">
+                {order.project.site_instructions}
+              </p>
+            </div>
+          )}
+          {order.reason && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <span className="text-sm text-gray-600 block mb-2">Special Notes</span>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap">{order.reason}</p>
+            </div>
+          )}
         </div>
 
-        {/* Order Items Table */}
-        <div className="bg-white rounded-xl border-2 border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b-2 border-gray-200 bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-900">Order Items</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b-2 border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Product
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quantity
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Unit Cost
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Delivery Cost
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Discount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Subtotal
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {items.map((item: any) => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        {item.product.photo ? (
-                          <img
-                            src={`${import.meta.env.VITE_IMG_URL}${item.product.photo}`}
-                            alt={item.product.product_name}
-                            className="w-12 h-12 rounded-lg object-cover border-2 border-gray-200"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-gray-200">
-                            <Package className="w-6 h-6 text-gray-400" />
+        {/* Order Items */}
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Package className="w-5 h-5" />
+            Order Items ({items?.length || 0})
+          </h2>
+          <div className="space-y-4">
+            {items && items.length > 0 ? (
+              items.map((item: any, index: number) => {
+                const displayPrice = item.is_quoted === 1 && item.quoted_price
+                  ? parseFloat(item.quoted_price) || 0
+                  : parseFloat(item.supplier_unit_cost || 0) || 0;
+
+                const itemTotal = displayPrice * (parseInt(item.quantity || 0) || 0);
+
+                return (
+                  <div
+                    key={index}
+                    className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 mb-1">
+                          {item.product?.product_name || 'Product'}
+                        </h3>
+                        {item.supplier && (
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            {item.supplier_confirms === 1 && (
+                              <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full border border-green-300">
+                                Confirmed
+                              </span>
+                            )}
+                            {item.supplier_confirms === 0 && (
+                              <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-full border border-yellow-300">
+                                Pending
+                              </span>
+                            )}
                           </div>
                         )}
-                        <div>
-                          <p className="font-medium text-gray-900">{item.product.product_name}</p>
-                          <p className="text-sm text-gray-600">{item.product.product_type}</p>
-                          {item.custom_blend_mix && (
-                            <p className="text-xs text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded inline-block">
-                              {item.custom_blend_mix}
-                            </p>
-                          )}
-                        </div>
+                        {!item.supplier && (
+                          <div className="flex items-center gap-2 text-sm text-red-600">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>--</span>
+                          </div>
+                        )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-medium text-gray-900">
-                        {parseFloat(item.quantity).toFixed(2)} {item.product.unit_of_measure}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-gray-900">
-                        ${parseFloat(item.supplier_unit_cost).toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-gray-900">
-                        ${parseFloat(item.supplier_delivery_cost).toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-green-600 font-medium">
-                        -${parseFloat(item.supplier_discount).toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-bold text-gray-900">
-                        ${(
-                          parseFloat(item.quantity) * parseFloat(item.supplier_unit_cost) +
-                          parseFloat(item.supplier_delivery_cost) -
-                          parseFloat(item.supplier_discount)
-                        ).toFixed(2)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-600 mb-1">Quantity</div>
+                        <div className="text-lg font-bold text-gray-900">{item.quantity}</div>
+                      </div>
+                    </div>
 
-          {/* Pricing Summary */}
-          <div className="border-t-2 border-gray-200 bg-gradient-to-br from-gray-50 to-white">
-            <div className="px-6 py-6">
-              <div className="flex items-center gap-2 mb-4">
-                <DollarSign className="w-5 h-5 text-green-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Order Summary</h3>
-              </div>
-              
-              <div className="space-y-3 max-w-md ml-auto">
-                <div className="flex items-center justify-between py-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-600">Subtotal</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    ${parseFloat(order.subtotal).toFixed(2)}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between py-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-600">Fuel Levy</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    ${parseFloat(order.fuel_levy).toFixed(2)}
-                  </span>
-                </div>
-                
-                {parseFloat(order.other_charges) > 0 && (
-                  <div className="flex items-center justify-between py-2 border-b border-gray-200">
-                    <span className="text-sm text-gray-600">Other Charges</span>
-                    <span className="text-sm font-medium text-gray-900">
-                      ${parseFloat(order.other_charges).toFixed(2)}
-                    </span>
+                    <div className="border-t border-gray-200 pt-3 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">
+                          {item.is_quoted === 1 ? 'Quoted Price:' : 'Unit Price:'}
+                        </span>
+                        <span className="font-medium text-gray-900">
+                          {formatCurrency(displayPrice)}
+                          {item.is_quoted === 1 && (
+                            <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded border border-blue-300">
+                              Custom Quote
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm font-semibold">
+                        <span className="text-gray-700">Item Total:</span>
+                        <span className="text-gray-900">{formatCurrency(itemTotal)}</span>
+                      </div>
+                      {item.supplier_discount && parseFloat(item.supplier_discount) > 0 && (
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>Discount Applied:</span>
+                          <span>-{formatCurrency(item.supplier_discount)}</span>
+                        </div>
+                      )}
+                      {item.delivery_type && (
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <span>Delivery Type:</span>
+                          <span className="font-medium">{item.delivery_type}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-                
-                <div className="flex items-center justify-between py-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-600">GST/Tax</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    ${parseFloat(order.gst_tax).toFixed(2)}
+                );
+              })
+            ) : (
+              <div className="text-center py-8 text-gray-500">No items found</div>
+            )}
+          </div>
+        </div>
+
+        {/* Order Summary */}
+        {(order.workflow === 'Payment Requested' || order.workflow === 'Delivered') && (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <DollarSign className="w-5 h-5" />
+              Order Summary
+            </h2>
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Items Cost:</span>
+                <span className="font-medium text-gray-900">
+                  {formatCurrency(order.customer_item_cost || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Delivery Cost:</span>
+                <span className="font-medium text-gray-900">
+                  {formatCurrency(order.customer_delivery_cost || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">GST (10%):</span>
+                <span className="font-medium text-gray-900">
+                  {formatCurrency(order.gst_tax || 0)}
+                </span>
+              </div>
+              {order.discount && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Discount:</span>
+                  <span className="font-medium">-{formatCurrency(order.discount)}</span>
+                </div>
+              )}
+              {order.other_charges && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Other Charges:</span>
+                  <span className="font-medium text-gray-900">
+                    {formatCurrency(order.other_charges)}
                   </span>
                 </div>
-                
-                <div className="flex items-center justify-between py-3 bg-green-50 px-4 rounded-lg border-2 border-green-200">
-                  <span className="text-base font-bold text-green-900">Total Amount</span>
-                  <span className="text-xl font-bold text-green-600">
-                    ${parseFloat(order.total_price).toFixed(2)}
+              )}
+              <div className="border-t-2 border-blue-300 pt-3 mt-3">
+                <div className="flex justify-between">
+                  <span className="text-lg font-bold text-gray-900">Total Amount:</span>
+                  <span className="text-2xl font-bold text-blue-600">
+                    {formatCurrency(order.total_price || 0)}
                   </span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Repeat Order Modal */}
         <RepeatOrderModal
           isOpen={repeatOrderModalOpen}
           onClose={() => setRepeatOrderModalOpen(false)}
-          order={data?.data ? { ...order, items } : null}
+          order={order && items ? { ...order, items } : null}
           onSubmit={handleRepeatOrderSubmit}
           isSubmitting={repeatOrderMutation.isPending}
         />
@@ -23541,9 +24089,11 @@ export interface DeliveryZone {
 // ==================== ELIGIBLE SUPPLIER ====================
 export interface EligibleSupplier {
   supplier_id: number;
+  id:number;
   name: string;
   offer_id: number;
   distance: number | null;
+  unit_cost: number | null;
 }
 
 // ==================== ORDER ITEM (UPDATED) ====================
@@ -23569,6 +24119,8 @@ export interface AdminOrderItem {
   supplier_discount?: number | null;
   delivery_cost?: number | null;
   delivery_type?: string | null;
+  supplier_delivery_date?: string | null;
+  supplier_notes?: string;
   
   // Status Fields
   supplier_confirms?: number; // 0 or 1
@@ -23601,6 +24153,7 @@ export interface AdminOrderDetail {
   supplier_item_cost: number;
   supplier_delivery_cost: number;
   supplier_total: number;
+  
   
   // NEW: Customer Costs Breakdown
   customer_item_cost: number;
@@ -23860,6 +24413,201 @@ export interface SetQuotedPriceResponse {
   };
 }
 
+
+
+/**
+ * Admin Update Order Item Payload
+ * Used for /admin/update-item-pricing/{orderItem} endpoint
+ */
+export interface AdminUpdateOrderItemPayload {
+  supplier_unit_cost?: number;
+  supplier_discount?: number;
+  delivery_cost?: number;
+  delivery_type?: 'Included' | 'Supplier' | 'ThirdParty' | 'Fleet' | 'None';
+  supplier_delivery_date?: string; // ISO date format
+  supplier_confirms?: boolean;
+  supplier_notes?: string;
+}
+
+/**
+ * Response from adminUpdateOrderItem endpoint
+ */
+export interface AdminUpdateOrderItemResponse {
+  success: boolean;
+  message: string;
+  data: AdminOrderItem;
+}
+
+
+
+
+
+
+
+/* FILE: src/types/clientOrder.types.ts */
+// FILE PATH: src/types/clientOrder.types.ts
+// Updated Client Order Types with proper pricing fields
+
+export interface ClientOrderItem {
+  id: number;
+  order_id: number;
+  product_id: number;
+  quantity: number;
+  supplier_id: number | null;
+  supplier_unit_cost: number | null;
+  supplier_discount: number | null;
+  delivery_cost: number | null;
+  delivery_type: string | null;
+  supplier_confirms: number; // 0 or 1
+  is_quoted: number; // 0 or 1
+  quoted_price: number | null;
+  
+  // Relationships
+  product?: {
+    id: number;
+    product_name: string;
+    category?: string;
+  };
+  supplier?: {
+    id: number;
+    name: string;
+    profile_image?: string;
+  };
+  
+  // Eligible suppliers (when supplier not assigned)
+  eligible_suppliers?: Array<{
+    id: number;
+    name: string;
+    profile_image?: string;
+  }>;
+}
+
+export interface ClientOrder {
+  id: number;
+  po_number: string;
+  client_id: number;
+  project_id: number;
+  
+  // Delivery Info
+  delivery_address: string;
+  delivery_lat: number | null;
+  delivery_long: number | null;
+  delivery_date: string;
+  delivery_time: string;
+  delivery_window?: string | null;
+  delivery_method?: string | null;
+  
+  // Status
+  workflow: 'Supplier Missing' | 'Supplier Assigned' | 'Payment Requested' | 'Delivered' | 'On Hold';
+  payment_status: 'Pending' | 'Paid' | 'Partially Paid' | 'Failed';
+  order_status?: string;
+  
+  // Pricing - NEW STRUCTURE
+  customer_item_cost: number;
+  customer_delivery_cost: number;
+  gst_tax: number;
+  discount: number;
+  other_charges: number;
+  total_price: number;
+  
+  // Legacy fields (may be present but not used)
+  subtotal?: number;
+  fuel_levy?: number;
+  
+  // Additional Info
+  repeat_order: boolean;
+  order_info?: string | null;
+  reason?: string | null;
+  special_notes?: string | null;
+  
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+  
+  // Relationships
+  project?: {
+    id: number;
+    name: string;
+    site_contact_name?: string;
+    site_contact_phone?: string;
+    site_instructions?: string;
+  };
+}
+
+export interface ClientOrderDetail {
+  order: ClientOrder;
+  items: ClientOrderItem[];
+}
+
+export interface ClientOrderListItem {
+  id: number;
+  po_number: string;
+  project_id: number;
+  client_id: number;
+  workflow: string;
+  payment_status: string;
+  delivery_address: string;
+  delivery_date: string;
+  delivery_time: string;
+  delivery_method?: string;
+  repeat_order: boolean;
+  order_info?: string | null;
+  created_at: string;
+  updated_at: string;
+  
+  // Pricing
+  customer_item_cost?: number;
+  customer_delivery_cost?: number;
+  total_price?: number;
+  
+  // Legacy
+  subtotal?: number;
+  fuel_levy?: number;
+  other_charges?: number;
+  gst_tax?: number;
+  
+  // Relationships
+  project?: {
+    id: number;
+    name: string;
+  };
+}
+
+export interface ClientOrderMetrics {
+  total_orders_count: number;
+  supplier_missing_count: number;
+  supplier_assigned_count: number;
+  awaiting_payment_count: number;
+  delivered_count: number;
+}
+
+export interface ClientOrdersResponse {
+  data: ClientOrderListItem[];
+  pagination: {
+    per_page: number;
+    current_page: number;
+    total_pages: number;
+    total_items: number;
+    has_more_pages: boolean;
+  };
+  metrics: ClientOrderMetrics;
+  projects?: Array<{
+    id: number;
+    name: string;
+  }>;
+}
+
+export interface ClientOrderDetailResponse {
+  success: boolean;
+  data: ClientOrderDetail;
+}
+
+export interface RepeatOrderPayload {
+  items: Array<{
+    product_id: number;
+    quantity: number;
+  }>;
+}
 /* FILE: src/types/order.types.ts */
 /* FILE: src/types/order.types.ts */
 // FILE PATH: src/types/order.types.ts

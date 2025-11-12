@@ -34,7 +34,8 @@ const ClientOrders = () => {
     dir: 'desc',
   });
 
-  const { data, isLoading, isFetching, refetch } = useClientOrders(filters, isFirstLoad);
+  const { data, isLoading, isFetching, refetch } = useClientOrders(filters);
+  console.log(isFirstLoad, 'sadsadsa')
   const repeatOrderMutation = useRepeatOrder();
   const markRepeatMutation = useMarkRepeatOrder();
 

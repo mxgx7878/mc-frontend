@@ -1,44 +1,36 @@
 // src/pages/client/projects/ProjectEdit.tsx
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { useProject, useUpdateProject } from '../../../features/projects/hooks';
 import ProjectForm from '../../../features/components/ProjectForm';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
-import {clientMenuItems} from '../../../utils/menuItems';
+import { clientMenuItems } from '../../../utils/menuItems';
+
 export default function ProjectEdit() {
   const { id } = useParams();
-  const pid = Number(id);
-  const { data, isLoading } = useProject(pid);
   const navigate = useNavigate();
-  const mut = useUpdateProject(pid);
+  const projectId = id ? parseInt(id, 10) : undefined;
+  
+  const { data, isLoading, error } = useProject(projectId);
+  const mut = useUpdateProject(projectId!);
 
   if (isLoading) {
     return (
       <DashboardLayout menuItems={clientMenuItems}>
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-primary-600 mx-auto mb-4" />
-            <p className="text-secondary-600">Loading project details...</p>
-          </div>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="animate-spin text-primary-600" size={48} />
         </div>
       </DashboardLayout>
     );
   }
 
-  if (!data) {
+  if (error || !data) {
     return (
       <DashboardLayout menuItems={clientMenuItems}>
-        <div className="text-center py-12">
-          <p className="text-error-500 mb-4 text-xl">❌ Project not found</p>
-          <button
-            onClick={() => navigate('/client/projects')}
-            className="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors inline-flex items-center gap-2"
-          >
-            <ArrowLeft size={20} />
-            Back to Projects
-          </button>
+        <div className="text-center text-red-600 py-8">
+          Failed to load project
         </div>
       </DashboardLayout>
     );
@@ -50,7 +42,7 @@ export default function ProjectEdit() {
         {/* Header with Back Button */}
         <div className="flex items-center justify-between">
           <button
-            onClick={() => navigate(`/client/projects/`)}
+            onClick={() => navigate(`/client/projects/${id}`)}
             className="flex items-center gap-2 text-secondary-600 hover:text-primary-600 transition-colors"
           >
             <ArrowLeft size={20} />
@@ -62,7 +54,7 @@ export default function ProjectEdit() {
         <div className="bg-white rounded-2xl shadow-card p-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-secondary-900">Edit Project</h1>
-            <p className="text-secondary-600 mt-2">Update project information</p>
+            <p className="text-secondary-600 mt-2">Update project information and delivery location</p>
           </div>
 
           <ProjectForm
@@ -70,12 +62,14 @@ export default function ProjectEdit() {
               name: data.name,
               site_contact_name: data.site_contact_name || undefined,
               site_contact_phone: data.site_contact_phone || undefined,
-              site_instructions: data.site_instructions || undefined
+              site_instructions: data.site_instructions || undefined,
+              delivery_address: data.delivery_address || undefined,
+              delivery_lat: data.delivery_lat || undefined,
+              delivery_long: data.delivery_long || undefined,
             }}
             onSubmit={(v) => mut.mutate(v, {
               onSuccess: () => {
                 toast.success('✅ Project updated successfully!');
-                // ✅ Navigate back to detail view
                 navigate(`/client/projects/${id}`);
               },
               onError: (e: any) => {

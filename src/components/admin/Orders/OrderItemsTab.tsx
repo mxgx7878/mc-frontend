@@ -1,9 +1,8 @@
-// FILE PATH: src/components/admin/Orders/OrderItemsTab.tsx
+// FILE PATH: src/components/admin/Orders/OrderItemsTab.tsx - UPDATED VERSION
 
 /**
- * Order Items Tab Component - FIXED v2
- * Displays items with supplier assignment, quoted price, and payment status management
- * ✅ Handles both supplier_id field AND supplier object
+ * Order Items Tab Component - WITH ADMIN EDIT
+ * Displays items with supplier assignment, quoted price, payment status, AND admin edit
  */
 
 import React, { useState } from 'react';
@@ -18,6 +17,7 @@ import {
   Check,
   CreditCard,
   User,
+  Edit,
 } from 'lucide-react';
 import type { AdminOrderItem, WorkflowStatus } from '../../../types/adminOrder.types';
 import { formatCurrency } from '../../../features/adminOrders/utils';
@@ -26,6 +26,7 @@ import {
   useSetQuotedPrice, 
   useMarkItemAsPaid 
 } from '../../../features/adminOrders/hooks';
+import AdminOrderItemEditModal from './AdminOrderItemEditModal';
 
 interface OrderItemsTabProps {
   items: AdminOrderItem[];
@@ -36,10 +37,30 @@ interface OrderItemsTabProps {
 const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId }) => {
   const [editingQuotedPrice, setEditingQuotedPrice] = useState<number | null>(null);
   const [quotedPriceValue, setQuotedPriceValue] = useState<string>('');
+  const [editingItem, setEditingItem] = useState<AdminOrderItem | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const assignSupplierMutation = useAssignSupplier();
   const setQuotedPriceMutation = useSetQuotedPrice();
   const markAsPaidMutation = useMarkItemAsPaid();
+
+  // Check if admin can edit item pricing
+  const canEditItemPricing = (item: AdminOrderItem) => {
+    const hasSupplier = item.supplier_id || item.supplier;
+    const allowedWorkflows: WorkflowStatus[] = ['Supplier Assigned', 'Payment Requested'];
+    return hasSupplier && allowedWorkflows.includes(workflow);
+  };
+
+  // Handle admin edit
+  const handleOpenEditModal = (item: AdminOrderItem) => {
+    setEditingItem(item);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditingItem(null);
+    setIsEditModalOpen(false);
+  };
 
   // Handle supplier selection
   const handleSupplierSelect = (itemId: number, supplierId: number, offerId: number) => {
@@ -123,22 +144,18 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             }
           }}
           disabled={assignSupplierMutation.isPending}
-          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium disabled:opacity-50 bg-white transition-colors"
-          defaultValue=""
+          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-white"
         >
-          <option value="" disabled>
-            Choose a supplier...
-          </option>
+          <option value="">Select a supplier...</option>
           {item.eligible_suppliers?.map((supplier) => (
             <option key={supplier.supplier_id} value={supplier.supplier_id}>
-              {supplier.name}
-              {supplier.distance !== null && ` - ${supplier.distance.toFixed(1)} km away`}
+              {supplier.name} - {formatCurrency(supplier.unit_cost as number)}
             </option>
           ))}
         </select>
-        {item.eligible_suppliers && item.eligible_suppliers.length === 0 && (
-          <p className="text-sm text-red-600 mt-3 flex items-center gap-2 font-medium">
-            <AlertCircle size={16} />
+        {!item.eligible_suppliers?.length && (
+          <p className="text-yellow-700 text-sm mt-2 flex items-center gap-1.5">
+            <AlertCircle size={14} />
             No eligible suppliers found for this product
           </p>
         )}
@@ -146,214 +163,247 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
     </div>
   );
 
-  // Render item for other workflows
-  const renderAssignedItem = (item: AdminOrderItem) => {
-    const isConfirmed = item.supplier_confirms === 1;
-    const isPaid = item.is_paid === 1;
-    const isQuoted = item.is_quoted === 1;
-    const isEditingPrice = editingQuotedPrice === item.id;
-
-    return (
-      <div
-        key={item.id}
-        className={`bg-white border-2 rounded-xl p-6 shadow-sm hover:shadow-md transition-all ${
-          isConfirmed ? 'border-green-300' : 'border-gray-300'
-        }`}
-      >
-        {/* Item Header */}
-        <div className="flex items-start justify-between mb-5">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <Package size={20} className="text-blue-600" />
-              <h4 className="font-bold text-gray-900 text-lg">{item.product_name}</h4>
-            </div>
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              <span className="font-medium">Quantity: <span className="text-gray-900 font-bold">{item.quantity}</span></span>
-            </div>
+  // Render item with supplier assigned (not yet confirmed or paid)
+  const renderSupplierAssignedItem = (item: AdminOrderItem) => (
+    <div key={item.id} className="bg-white border-2 border-indigo-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      {/* Header with Admin Edit Button */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <Package size={20} className="text-indigo-600" />
+            <h4 className="font-bold text-gray-900 text-lg">{item.product_name}</h4>
           </div>
-          
-          {/* Status Badges */}
-          <div className="flex flex-col gap-2 items-end">
-            {/* Confirmation Status */}
-            <span
-              className={`px-3 py-1.5 text-xs font-bold rounded-full flex items-center gap-1.5 border-2 transition-colors ${
-                isConfirmed
-                  ? 'bg-green-100 text-green-700 border-green-300'
-                  : 'bg-yellow-100 text-yellow-700 border-yellow-300'
-              }`}
-            >
-              {isConfirmed ? (
-                <>
-                  <CheckCircle size={14} />
-                  Confirmed
-                </>
-              ) : (
-                <>
-                  <Clock size={14} />
-                  Pending
-                </>
-              )}
-            </span>
-
-            {/* Quoted Price Badge */}
-            {isQuoted && (
-              <span className="px-3 py-1.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-full border-2 border-purple-300">
-                Quoted Price
-              </span>
-            )}
-
-            {/* Payment Status Badge/Button */}
-            {(item.supplier_id || item.supplier) && (
-              <button
-                onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
-                disabled={markAsPaidMutation.isPending}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold border-2 flex items-center gap-1.5 transition-all disabled:opacity-50 ${
-                  isPaid
-                    ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200'
-                    : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
-                }`}
-              >
-                <CreditCard size={14} />
-                {isPaid ? 'Paid ✓' : 'Mark as Paid'}
-              </button>
-            )}
+          <div className="flex items-center gap-4 text-sm text-gray-600">
+            <span className="font-medium">Quantity: <span className="text-gray-900 font-bold">{item.quantity}</span></span>
+            <span className="font-medium">Supplier: <span className="text-indigo-700 font-bold">{item.supplier?.name || 'Unknown'}</span></span>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          {item.supplier_confirms ? (
+            <span className="px-3 py-1.5 bg-green-100 text-green-800 text-xs font-bold rounded-full border-2 border-green-300 flex items-center gap-1.5">
+              <CheckCircle size={14} />
+              Confirmed
+            </span>
+          ) : (
+            <span className="px-3 py-1.5 bg-blue-100 text-blue-800 text-xs font-bold rounded-full border-2 border-blue-300 flex items-center gap-1.5">
+              <Clock size={14} />
+              Pending Confirmation
+            </span>
+          )}
+          {/* Admin Edit Button */}
+          {canEditItemPricing(item) && (
+            <button
+              onClick={() => handleOpenEditModal(item)}
+              className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-bold rounded-full hover:from-orange-600 hover:to-amber-600 transition-all shadow-md hover:shadow-lg flex items-center gap-1.5"
+              title="Admin Override - Edit Item Pricing"
+            >
+              <Edit size={14} />
+              Admin Edit
+            </button>
+          )}
+        </div>
+      </div>
 
-        {/* Supplier Info */}
-        {item.supplier && (
-          <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200 mb-4">
-            <div className="flex items-center gap-3 mb-3">
-              {item.supplier.profile_image ? (
-                <img
-                  src={`${import.meta.env.VITE_IMAGE_BASE_URL}${item.supplier.profile_image}`}
-                  alt={item.supplier.name}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-blue-300 shadow-sm"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center border-2 border-blue-300 shadow-sm">
-                  <span className="text-white font-bold text-lg">
-                    {item.supplier.name?.charAt(0) || 'S'}
-                  </span>
-                </div>
-              )}
-              <div>
-                <p className="font-bold text-gray-900">{item.supplier.name}</p>
-                <p className="text-xs text-blue-600">Assigned Supplier</p>
-              </div>
-            </div>
-
-            {/* Pricing Details */}
-            <div className="space-y-2 text-sm border-t-2 border-blue-200 pt-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Unit Cost:</span>
-                <span className="font-bold text-gray-900">{formatCurrency(item.supplier_unit_cost || 0)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Quantity:</span>
-                <span className="font-bold text-gray-900">×{item.quantity}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Subtotal:</span>
-                <span className="font-bold text-gray-900">
-                  {formatCurrency((item.supplier_unit_cost || 0) * item.quantity)}
-                </span>
-              </div>
-              {item.supplier_discount && item.supplier_discount > 0 && (
-                <div className="flex justify-between items-center text-green-600">
-                  <span className="font-medium">Supplier Discount:</span>
-                  <span className="font-bold">-{formatCurrency(item.supplier_discount)}</span>
-                </div>
-              )}
-              {item.supplier_delivery_cost && item.supplier_delivery_cost > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 font-medium">Delivery Cost:</span>
-                  <span className="font-bold text-gray-900">
-                    {formatCurrency(item.supplier_delivery_cost)}
-                  </span>
-                </div>
-              )}
-            </div>
+      {/* Pricing Details */}
+      <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 space-y-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-600">Unit Cost:</span>
+          <span className="font-bold text-gray-900">{formatCurrency(item.supplier_unit_cost as number)}</span>
+        </div>
+        {item.supplier_discount && item.supplier_discount > 0 && (
+          <div className="flex justify-between text-sm text-green-600">
+            <span>Discount:</span>
+            <span className="font-medium">-{formatCurrency(item.supplier_discount)}</span>
           </div>
         )}
-
-        {/* Quoted Price Section */}
-        <div className="bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <DollarSign size={18} className="text-purple-600" />
-              <span className="text-sm font-bold text-purple-900">Quoted Price</span>
-            </div>
-            {!isEditingPrice && (
-              <button
-                onClick={() => handleStartEditQuotedPrice(item)}
-                className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs font-bold flex items-center gap-1.5"
-              >
-                <Edit3 size={14} />
-                Edit
-              </button>
-            )}
+        {item.delivery_type && (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Delivery Type:</span>
+            <span className="font-medium text-gray-900">{item.delivery_type}</span>
           </div>
+        )}
+        {item.delivery_cost && item.delivery_cost > 0 && (
+          <div className="flex justify-between text-sm text-blue-600">
+            <span>Delivery Cost:</span>
+            <span className="font-medium">+{formatCurrency(item.delivery_cost)}</span>
+          </div>
+        )}
+      </div>
 
-          {isEditingPrice ? (
-            <div className="space-y-3">
+      {/* Quoted Price Section */}
+      <div className="mt-4 bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <DollarSign size={16} className="text-purple-600" />
+            <span className="text-sm font-bold text-gray-900">Quoted Price Override</span>
+          </div>
+          {editingQuotedPrice === item.id ? (
+            <div className="flex items-center gap-2">
               <input
                 type="number"
                 value={quotedPriceValue}
                 onChange={(e) => setQuotedPriceValue(e.target.value)}
-                placeholder="Enter quoted price or leave empty to clear"
+                placeholder="0.00"
                 step="0.01"
                 min="0"
-                className="w-full px-4 py-3 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-bold text-lg"
+                className="w-32 px-3 py-1.5 text-sm border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                autoFocus
               />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleSaveQuotedPrice(item.id)}
-                  disabled={setQuotedPriceMutation.isPending}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors font-bold text-sm"
-                >
-                  <Check size={16} />
-                  Save
-                </button>
-                <button
-                  onClick={handleCancelEditQuotedPrice}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-bold text-sm"
-                >
-                  <X size={16} />
-                  Cancel
-                </button>
-              </div>
+              <button
+                onClick={() => handleSaveQuotedPrice(item.id)}
+                disabled={setQuotedPriceMutation.isPending}
+                className="p-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                title="Save"
+              >
+                <Check size={16} />
+              </button>
+              <button
+                onClick={handleCancelEditQuotedPrice}
+                className="p-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                title="Cancel"
+              >
+                <X size={16} />
+              </button>
             </div>
           ) : (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">
-                {isQuoted ? 'Custom quoted price applied' : 'Using standard pricing'}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-purple-700">
+                {item.is_quoted === 1 && item.quoted_price !== null
+                  ? formatCurrency(item.quoted_price as number)
+                  : 'Not Set'}
               </span>
-              <span className="text-lg font-bold text-purple-900">
-                {isQuoted && item.quoted_price
-                  ? formatCurrency(item.quoted_price)
-                  : '—'}
-              </span>
+              <button
+                onClick={() => handleStartEditQuotedPrice(item)}
+                className="p-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                title="Edit Quoted Price"
+              >
+                <Edit3 size={16} />
+              </button>
             </div>
           )}
         </div>
       </div>
-    );
-  };
+
+      {/* Payment Status Section */}
+      <div className="mt-4 bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CreditCard size={16} className="text-blue-600" />
+            <span className="text-sm font-bold text-gray-900">Payment Status</span>
+          </div>
+          <button
+            onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
+            disabled={markAsPaidMutation.isPending}
+            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${
+              item.is_paid === 1
+                ? 'bg-green-100 text-green-800 border-2 border-green-300 hover:bg-green-200'
+                : 'bg-gray-100 text-gray-800 border-2 border-gray-300 hover:bg-gray-200'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {item.is_paid === 1 ? '✓ Paid' : 'Mark as Paid'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Render item with pricing visible (Payment Requested or Delivered)
+  const renderPricedItem = (item: AdminOrderItem) => (
+    <div key={item.id} className="bg-white border-2 border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+      {/* Header with Admin Edit Button */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <Package size={20} className="text-green-600" />
+            <h4 className="font-bold text-gray-900 text-lg">{item.product_name}</h4>
+          </div>
+          <div className="flex items-center gap-4 text-sm text-gray-600">
+            <span className="font-medium">Quantity: <span className="text-gray-900 font-bold">{item.quantity}</span></span>
+            <span className="font-medium">Supplier: <span className="text-green-700 font-bold">{item.supplier?.name || 'Unknown'}</span></span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1.5 bg-green-100 text-green-800 text-xs font-bold rounded-full border-2 border-green-300 flex items-center gap-1.5">
+            <CheckCircle size={14} />
+            {workflow === 'Delivered' ? 'Delivered' : 'Ready'}
+          </span>
+          {/* Admin Edit Button - only for Payment Requested */}
+          {workflow === 'Payment Requested' && canEditItemPricing(item) && (
+            <button
+              onClick={() => handleOpenEditModal(item)}
+              className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-bold rounded-full hover:from-orange-600 hover:to-amber-600 transition-all shadow-md hover:shadow-lg flex items-center gap-1.5"
+              title="Admin Override - Edit Item Pricing"
+            >
+              <Edit size={14} />
+              Admin Edit
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Full Pricing Breakdown */}
+      <div className="space-y-4">
+        {/* Supplier Costs */}
+        <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+          <h5 className="text-xs font-bold text-gray-600 uppercase mb-3">Supplier Costs</h5>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Unit Cost × {item.quantity}:</span>
+              <span className="font-bold text-gray-900">
+                {formatCurrency((item.supplier_unit_cost || 0) * item.quantity)}
+              </span>
+            </div>
+            {item.supplier_discount && item.supplier_discount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>Discount:</span>
+                <span className="font-medium">-{formatCurrency(item.supplier_discount)}</span>
+              </div>
+            )}
+            {item.delivery_type && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Delivery ({item.delivery_type}):</span>
+                <span className="font-medium text-gray-900">
+                  {item.delivery_cost ? formatCurrency(item.delivery_cost) : 'Included'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Payment Status */}
+        <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CreditCard size={16} className="text-blue-600" />
+              <span className="text-sm font-bold text-gray-900">Payment Status</span>
+            </div>
+            <button
+              onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
+              disabled={markAsPaidMutation.isPending}
+              className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${
+                item.is_paid === 1
+                  ? 'bg-green-100 text-green-800 border-2 border-green-300 hover:bg-green-200'
+                  : 'bg-gray-100 text-gray-800 border-2 border-gray-300 hover:bg-gray-200'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {item.is_paid === 1 ? '✓ Paid' : 'Mark as Paid'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl p-6 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white shadow-lg">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/10 rounded-lg">
-              <Package size={28} />
-            </div>
-            <div>
-              <h3 className="text-2xl font-bold">Order Items</h3>
-              <p className="text-purple-100 text-sm mt-1">{items.length} item{items.length !== 1 ? 's' : ''} in this order</p>
-            </div>
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Order Items</h2>
+            <p className="text-blue-100">
+              {items.length} item{items.length !== 1 ? 's' : ''} in this order
+            </p>
           </div>
           <div className="px-4 py-2 bg-white/20 rounded-lg border-2 border-white/30">
             <span className="text-2xl font-bold">{items.length}</span>
@@ -364,15 +414,27 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
       {/* Items List */}
       <div className="space-y-4">
         {items.map((item) => {
-          // ✅ FIX v2: Check BOTH supplier_id AND supplier object
           const hasSupplier = item.supplier_id || item.supplier;
           
           if (!hasSupplier) {
             return renderSupplierMissingItem(item);
+          } else if (workflow === 'Payment Requested' || workflow === 'Delivered') {
+            return renderPricedItem(item);
+          } else {
+            return renderSupplierAssignedItem(item);
           }
-          return renderAssignedItem(item);
         })}
       </div>
+
+      {/* Admin Edit Modal */}
+      <AdminOrderItemEditModal
+        item={editingItem}
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        onSuccess={() => {
+          // Refetch is handled by the mutation hook
+        }}
+      />
     </div>
   );
 };

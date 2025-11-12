@@ -17,9 +17,11 @@ export interface DeliveryZone {
 // ==================== ELIGIBLE SUPPLIER ====================
 export interface EligibleSupplier {
   supplier_id: number;
+  id:number;
   name: string;
   offer_id: number;
   distance: number | null;
+  unit_cost: number | null;
 }
 
 // ==================== ORDER ITEM (UPDATED) ====================
@@ -45,6 +47,8 @@ export interface AdminOrderItem {
   supplier_discount?: number | null;
   delivery_cost?: number | null;
   delivery_type?: string | null;
+  supplier_delivery_date?: string | null;
+  supplier_notes?: string;
   
   // Status Fields
   supplier_confirms?: number; // 0 or 1
@@ -77,6 +81,7 @@ export interface AdminOrderDetail {
   supplier_item_cost: number;
   supplier_delivery_cost: number;
   supplier_total: number;
+  
   
   // NEW: Customer Costs Breakdown
   customer_item_cost: number;
@@ -335,3 +340,34 @@ export interface SetQuotedPriceResponse {
     quoted_price: number | null;
   };
 }
+
+
+
+/**
+ * Admin Update Order Item Payload
+ * Used for /admin/update-item-pricing/{orderItem} endpoint
+ */
+export interface AdminUpdateOrderItemPayload {
+  supplier_unit_cost?: number;
+  supplier_discount?: number;
+  delivery_cost?: number;
+  delivery_type?: 'Included' | 'Supplier' | 'ThirdParty' | 'Fleet' | 'None';
+  supplier_delivery_date?: string; // ISO date format
+  supplier_confirms?: boolean;
+  supplier_notes?: string;
+}
+
+/**
+ * Response from adminUpdateOrderItem endpoint
+ */
+export interface AdminUpdateOrderItemResponse {
+  success: boolean;
+  message: string;
+  data: AdminOrderItem;
+}
+
+
+
+
+
+
