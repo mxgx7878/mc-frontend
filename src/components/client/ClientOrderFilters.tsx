@@ -8,7 +8,7 @@ const ClientOrderFilters = ({ filters, onFilterChange, onClearFilters, projects 
   const hasActiveFilters = 
     filters.search || 
     filters.project_id || 
-    filters.workflow || 
+    filters.order_status || 
     filters.delivery_date ||
     filters.repeat_order;
 
@@ -56,15 +56,18 @@ const ClientOrderFilters = ({ filters, onFilterChange, onClearFilters, projects 
 
         <div>
           <select
-            value={filters.workflow || ''}
-            onChange={(e) => onFilterChange('workflow', e.target.value)}
+            value={filters.order_status || ''}
+            onChange={(e) => onFilterChange('order_status', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">All Statuses</option>
-            <option value="Supplier Missing">Supplier Missing</option>
-            <option value="Supplier Assigned">Supplier Assigned</option>
-            <option value="Payment Requested">Payment Requested</option>
+            <option value="Draft">Draft</option>
+            <option value="Confirmed">Confirmed</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="In Transit">In Transit</option>
             <option value="Delivered">Delivered</option>
+            <option value="Completed">Completed</option>
+            <option value="Cancelled">Cancelled</option>
           </select>
         </div>
 

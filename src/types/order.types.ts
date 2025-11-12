@@ -70,6 +70,9 @@ export interface Project {
   site_contact_name?: string | null;
   site_contact_phone?: string | null;
   site_instructions?: string | null;
+  delivery_address?: string;
+  delivery_lat?: number;
+  delivery_long?: number;
   added_by: number;
   created_at: string;
   updated_at: string;

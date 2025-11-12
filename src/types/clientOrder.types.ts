@@ -53,7 +53,7 @@ export interface ClientOrder {
   // Status
   workflow: 'Supplier Missing' | 'Supplier Assigned' | 'Payment Requested' | 'Delivered' | 'On Hold';
   payment_status: 'Pending' | 'Paid' | 'Partially Paid' | 'Failed';
-  order_status?: string;
+  order_status: string;
   
   // Pricing - NEW STRUCTURE
   customer_item_cost: number;

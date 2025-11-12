@@ -15,6 +15,8 @@ import {
   User,
   Phone,
   AlertCircle,
+  Edit2,
+  RotateCcw,
 } from 'lucide-react';
 import Autocomplete from 'react-google-autocomplete';
 import { orderFormSchema } from '../../utils/validators';
@@ -43,6 +45,8 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [projectSearchTerm, setProjectSearchTerm] = useState('');
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [addressKey, setAddressKey] = useState(0); // For forcing Autocomplete re-render
 
   const {
     register,
@@ -54,6 +58,7 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
     resolver: zodResolver(orderFormSchema),
   });
 
+  const watchDeliveryAddress = watch('delivery_address');
   const watchDeliveryLat = watch('delivery_lat');
   const watchDeliveryLong = watch('delivery_long');
 
@@ -68,9 +73,14 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
     setSelectedProject(project);
     setValue('project_id', project.id, { shouldValidate: true });
     
-    // Auto-fill delivery address if available
-    // Note: Projects don't have lat/long in the current schema
-    // But when they do, this will auto-fill
+    // Auto-fill delivery address from project
+    if (project.delivery_address && project.delivery_lat && project.delivery_long) {
+      setValue('delivery_address', project.delivery_address, { shouldValidate: true });
+      setValue('delivery_lat', project.delivery_lat, { shouldValidate: true });
+      setValue('delivery_long', project.delivery_long, { shouldValidate: true });
+      setIsEditingAddress(false);
+      setAddressKey(prev => prev + 1); // Force Autocomplete to update
+    }
     
     setShowProjectDropdown(false);
     setProjectSearchTerm('');
@@ -85,6 +95,16 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
       const lng = place.geometry.location.lng();
       setValue('delivery_lat', lat, { shouldValidate: true });
       setValue('delivery_long', lng, { shouldValidate: true });
+    }
+  };
+
+  const handleResetToProjectAddress = () => {
+    if (selectedProject?.delivery_address && selectedProject?.delivery_lat && selectedProject?.delivery_long) {
+      setValue('delivery_address', selectedProject.delivery_address, { shouldValidate: true });
+      setValue('delivery_lat', selectedProject.delivery_lat, { shouldValidate: true });
+      setValue('delivery_long', selectedProject.delivery_long, { shouldValidate: true });
+      setIsEditingAddress(false);
+      setAddressKey(prev => prev + 1); // Force Autocomplete to update
     }
   };
 
@@ -117,22 +137,17 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                       src={
                         item.product_photo.startsWith('http')
                           ? item.product_photo
-                          : `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '/storage')}/${item.product_photo}`
+                          : `${import.meta.env.VITE_IMAGE_BASE_URL}${item.product_photo}`
                       }
                       alt={item.product_name}
                       className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjZTVlN2ViIi8+PC9zdmc+';
-                      }}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-secondary-900 truncate">
+                    <p className="font-semibold text-secondary-900 text-sm truncate">
                       {item.product_name}
                     </p>
-                    <p className="text-xs text-secondary-600">{item.product_type}</p>
-                    <p className="text-xs text-primary-600 font-medium mt-1">
+                    <p className="text-xs text-secondary-600 mt-1">
                       Qty: {item.quantity} {item.unit_of_measure}
                     </p>
                   </div>
@@ -140,12 +155,9 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
               ))}
             </div>
 
-            {/* Pricing Note */}
-            <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs text-blue-900 leading-relaxed">
-                <span className="font-semibold">💡 Note:</span> Final pricing will be 
-                calculated after order placement based on delivery location and availability. 
-                You'll receive a detailed invoice within 20 minutes.
+            <div className="mt-4 pt-4 border-t border-secondary-200">
+              <p className="text-sm text-secondary-600">
+                Total Items: <span className="font-bold text-secondary-900">{cartItems.length}</span>
               </p>
             </div>
           </div>
@@ -160,21 +172,22 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
               <h3 className="font-bold text-secondary-900">Select Project</h3>
             </div>
 
-            {/* Project Selector */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-                className={`w-full px-4 py-3 rounded-lg border-2 transition-colors text-left flex items-center justify-between ${
-                  errors.project_id
-                    ? 'border-red-300 bg-red-50'
-                    : selectedProject
-                    ? 'border-primary-300 bg-primary-50'
-                    : 'border-secondary-300 hover:border-secondary-400'
-                }`}
+                className={`
+                  w-full flex items-center justify-between px-4 py-3 border rounded-lg
+                  transition-all
+                  ${
+                    selectedProject
+                      ? 'border-primary-500 bg-primary-50'
+                      : 'border-secondary-300 bg-white hover:border-primary-400'
+                  }
+                `}
               >
                 <span className={selectedProject ? 'text-secondary-900 font-medium' : 'text-secondary-500'}>
-                  {selectedProject ? selectedProject.name : 'Select a project...'}
+                  {selectedProject ? selectedProject.name : 'Choose a project...'}
                 </span>
                 <ChevronDown
                   size={20}
@@ -182,10 +195,8 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                 />
               </button>
 
-              {/* Dropdown */}
               {showProjectDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-secondary-200 rounded-lg shadow-xl z-30 max-h-80 overflow-hidden">
-                  {/* Search */}
+                <div className="absolute z-10 w-full mt-2 bg-white border border-secondary-300 rounded-lg shadow-lg max-h-80 overflow-hidden">
                   <div className="p-3 border-b border-secondary-200">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={18} />
@@ -194,60 +205,44 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                         placeholder="Search projects..."
                         value={projectSearchTerm}
                         onChange={(e) => setProjectSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2 rounded-lg border border-secondary-300 focus:border-primary-500 focus:outline-none text-sm"
+                        className="w-full pl-10 pr-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                       />
                     </div>
                   </div>
 
-                  {/* Project List */}
                   <div className="max-h-60 overflow-y-auto">
-                    {filteredProjects.length === 0 ? (
-                      <div className="p-4 text-center text-secondary-600 text-sm">
-                        No projects found
-                      </div>
-                    ) : (
+                    {filteredProjects.length > 0 ? (
                       filteredProjects.map((project) => (
                         <button
                           key={project.id}
                           type="button"
                           onClick={() => handleProjectSelect(project)}
-                          className="w-full text-left px-4 py-3 hover:bg-secondary-50 transition-colors border-b border-secondary-100 last:border-0"
+                          className="w-full px-4 py-3 text-left hover:bg-secondary-50 transition-colors border-b border-secondary-100 last:border-0"
                         >
-                          <p className="font-semibold text-secondary-900">{project.name}</p>
-                          {(project.site_contact_name || project.site_contact_phone) && (
-                            <div className="mt-1 space-y-1">
-                              {project.site_contact_name && (
-                                <p className="text-xs text-secondary-600 flex items-center gap-1">
-                                  <User size={12} />
-                                  {project.site_contact_name}
-                                </p>
-                              )}
-                              {project.site_contact_phone && (
-                                <p className="text-xs text-secondary-600 flex items-center gap-1">
-                                  <Phone size={12} />
-                                  {project.site_contact_phone}
-                                </p>
-                              )}
-                            </div>
+                          <p className="font-medium text-secondary-900">{project.name}</p>
+                          {project.site_contact_name && (
+                            <p className="text-sm text-secondary-600 mt-1">Contact: {project.site_contact_name}</p>
                           )}
                         </button>
                       ))
+                    ) : (
+                      <div className="px-4 py-8 text-center text-secondary-500">
+                        No projects found
+                      </div>
                     )}
                   </div>
 
-                  {/* Create New Project */}
                   {onCreateProject && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowProjectDropdown(false);
-                        onCreateProject();
-                      }}
-                      className="w-full px-4 py-3 bg-primary-50 hover:bg-primary-100 transition-colors border-t-2 border-primary-200 text-primary-700 font-semibold text-sm flex items-center justify-center gap-2"
-                    >
-                      <Plus size={18} />
-                      Create New Project
-                    </button>
+                    <div className="p-3 border-t border-secondary-200">
+                      <button
+                        type="button"
+                        onClick={onCreateProject}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                      >
+                        <Plus size={18} />
+                        Create New Project
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
@@ -303,153 +298,181 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
 
               {/* Delivery Address with Google Autocomplete */}
               <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Delivery Address <span className="text-red-500">*</span>
-                </label>
-                <Autocomplete
-                  apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-                  onPlaceSelected={handlePlaceSelected}
-                  options={{
-                    types: ['address'],
-                    componentRestrictions: { country: 'au' }, // Adjust country as needed
-                  }}
-                  placeholder="Start typing address..."
-                  className="w-full px-4 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20"
-                />
-                {errors.delivery_address && (
-                  <p className="text-sm text-red-600 mt-1">{errors.delivery_address.message}</p>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-secondary-700">
+                    Delivery Address
+                  </label>
+                  {selectedProject?.delivery_address && !isEditingAddress && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingAddress(true);
+                        setAddressKey(prev => prev + 1);
+                      }}
+                      className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+                    >
+                      <Edit2 size={12} />
+                      Change Address
+                    </button>
+                  )}
+                  {selectedProject?.delivery_address && isEditingAddress && (
+                    <button
+                      type="button"
+                      onClick={handleResetToProjectAddress}
+                      className="flex items-center gap-1 text-xs text-secondary-600 hover:text-secondary-700"
+                    >
+                      <RotateCcw size={12} />
+                      Reset to Project Address
+                    </button>
+                  )}
+                </div>
+
+                {!isEditingAddress && watchDeliveryAddress && selectedProject?.delivery_address && 
+                 watchDeliveryAddress === selectedProject.delivery_address ? (
+                  // Show static address when not editing and it matches project address
+                  <div className="w-full px-4 py-3 bg-secondary-50 border border-secondary-300 rounded-lg">
+                    <p className="text-secondary-900">{watchDeliveryAddress}</p>
+                    {watchDeliveryLat && watchDeliveryLong && (
+                      <p className="text-xs text-secondary-600 mt-1">
+                        📍 {watchDeliveryLat.toFixed(6)}, {watchDeliveryLong.toFixed(6)}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  // Show Google Autocomplete when editing or no project address
+                  <Autocomplete
+                    key={addressKey}
+                    apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                    onPlaceSelected={handlePlaceSelected}
+                    options={{
+                      types: ['address'],
+                      componentRestrictions: { country: 'au' },
+                    }}
+                    defaultValue={watchDeliveryAddress || ''}
+                    className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Start typing delivery address..."
+                  />
                 )}
-                {watchDeliveryLat && watchDeliveryLong && (
-                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                    ✓ Location confirmed
+
+                {errors.delivery_address && (
+                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.delivery_address.message}
+                  </p>
+                )}
+
+                {/* Show coordinates if available */}
+                {isEditingAddress && watchDeliveryLat && watchDeliveryLong && (
+                  <p className="text-xs text-secondary-600 mt-1">
+                    📍 Location: {watchDeliveryLat.toFixed(6)}, {watchDeliveryLong.toFixed(6)}
                   </p>
                 )}
               </div>
 
-              {/* Date & Time Row */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    <Calendar size={16} className="inline mr-1" />
-                    Delivery Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    {...register('delivery_date')}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-4 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none"
-                  />
-                  {errors.delivery_date && (
-                    <p className="text-sm text-red-600 mt-1">{errors.delivery_date.message}</p>
-                  )}
-                </div>
+              {/* Hidden fields for lat/long */}
+              <input type="hidden" {...register('delivery_lat', { valueAsNumber: true })} />
+              <input type="hidden" {...register('delivery_long', { valueAsNumber: true })} />
 
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    <Clock size={16} className="inline mr-1" />
-                    Preferred Time (Optional)
-                  </label>
-                  <input
-                    type="time"
-                    {...register('delivery_time')}
-                    className="w-full px-4 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none"
-                  />
-                  {errors.delivery_time && (
-                    <p className="text-sm text-red-600 mt-1">{errors.delivery_time.message}</p>
-                  )}
-                </div>
+              {/* Delivery Date */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1 flex items-center gap-2">
+                  <Calendar size={16} className="text-primary-600" />
+                  Delivery Date
+                </label>
+                <input
+                  type="date"
+                  {...register('delivery_date')}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+                {errors.delivery_date && (
+                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.delivery_date.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Delivery Time (Optional) */}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1 flex items-center gap-2">
+                  <Clock size={16} className="text-primary-600" />
+                  Delivery Time (Optional)
+                </label>
+                <input
+                  type="time"
+                  {...register('delivery_time')}
+                  className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
               </div>
 
               {/* Delivery Method */}
               <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  <Truck size={16} className="inline mr-1" />
-                  Delivery Method <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-secondary-700 mb-1 flex items-center gap-2">
+                  <Truck size={16} className="text-primary-600" />
+                  Delivery Method
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <select
+                  {...register('delivery_method')}
+                  className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
                   {deliveryMethods.map((method) => (
-                    <label
-                      key={method}
-                      className="relative flex items-center justify-center px-4 py-3 rounded-lg border-2 cursor-pointer transition-all hover:border-primary-300"
-                    >
-                      <input
-                        type="radio"
-                        value={method}
-                        {...register('delivery_method')}
-                        className="sr-only peer"
-                      />
-                      <span className="text-sm font-medium text-secondary-700 peer-checked:text-primary-700">
-                        {method}
-                      </span>
-                      <div className="absolute inset-0 rounded-lg border-2 border-transparent peer-checked:border-primary-600 peer-checked:bg-primary-50 pointer-events-none" />
-                    </label>
+                    <option key={method} value={method}>
+                      {method}
+                    </option>
                   ))}
-                </div>
+                </select>
                 {errors.delivery_method && (
-                  <p className="text-sm text-red-600 mt-1">{errors.delivery_method.message}</p>
+                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.delivery_method.message}
+                  </p>
                 )}
               </div>
 
-              {/* Load Size & Special Equipment */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <Input
-                  label="Load Size (Optional)"
-                  placeholder="e.g., 6m³"
-                  {...register('load_size')}
-                  error={errors.load_size?.message}
-                />
-                <Input
-                  label="Special Equipment (Optional)"
-                  placeholder="e.g., Extension chute"
-                  {...register('special_equipment')}
-                  error={errors.special_equipment?.message}
-                />
-              </div>
+              {/* Load Size (Optional) */}
+              <Input
+                label="Load Size (Optional)"
+                placeholder="e.g., 6m³"
+                {...register('load_size')}
+                error={errors.load_size?.message}
+              />
 
-              {/* Special Notes */}
+              {/* Special Equipment (Optional) */}
+              <Input
+                label="Special Equipment (Optional)"
+                placeholder="e.g., Pump required"
+                {...register('special_equipment')}
+                error={errors.special_equipment?.message}
+              />
+
+              {/* Special Notes (Optional) */}
               <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Special Instructions (Optional)
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Special Notes (Optional)
                 </label>
                 <textarea
                   {...register('special_notes')}
-                  rows={3}
-                  placeholder="Any special instructions or notes..."
-                  className="w-full px-4 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20"
+                  rows={4}
+                  placeholder="Any additional instructions or notes..."
+                  className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
                 />
                 {errors.special_notes && (
-                  <p className="text-sm text-red-600 mt-1">{errors.special_notes.message}</p>
+                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.special_notes.message}
+                  </p>
                 )}
-              </div>
-
-              {/* Repeat Order Checkbox */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  {...register('repeat_order')}
-                  id="repeat_order"
-                  className="w-4 h-4 text-primary-600 border-secondary-300 rounded focus:ring-primary-500"
-                />
-                <label htmlFor="repeat_order" className="text-sm text-secondary-700">
-                  Mark as repeat order (for faster reordering in future)
-                </label>
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3">
-            <Button type="button" variant="outline" onClick={onBack} fullWidth={false} className="px-8">
-              ← Back
+          <div className="flex gap-4">
+            <Button type="button" variant="outline" onClick={onBack} disabled={isSubmitting}>
+              ← Back to Products
             </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              isLoading={isSubmitting}
-              disabled={isSubmitting}
-              fullWidth
-              className="py-3 text-base font-semibold"
-            >
+            <Button type="submit" variant="primary" disabled={isSubmitting} className="flex-1">
               {isSubmitting ? 'Processing...' : 'Review Order →'}
             </Button>
           </div>

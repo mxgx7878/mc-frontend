@@ -12,7 +12,7 @@ export interface ClientOrdersQueryParams {
   per_page?: number;
   page?: number;
   search?: string;
-  workflow?: string;
+  order_status?: string;
   project_id?: string;
   delivery_date_from?: string;
   delivery_date_to?: string;

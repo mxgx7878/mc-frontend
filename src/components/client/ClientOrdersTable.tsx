@@ -11,14 +11,17 @@ const ClientOrdersTable = ({ orders, loading, pagination, onPageChange, onRepeat
     navigate(`/client/orders/${orderId}`);
   };
 
-  const getStatusColor = (workflow: string) => {
+  const getStatusColor = (order_status: string) => {
     const statusColors: Record<string, string> = {
-      'Supplier Missing': 'bg-red-100 text-red-800',
-      'Supplier Assigned': 'bg-blue-100 text-blue-800',
-      'Payment Requested': 'bg-yellow-100 text-yellow-800',
+      'Draft': 'bg-red-100 text-red-800',
+      'Confirmed': 'bg-orange-100 text-orange-800',
+      'Scheduled': 'bg-indigo-100 text-indigo-800',
+      'In Transit': 'bg-blue-100 text-blue-800',
       'Delivered': 'bg-green-100 text-green-800',
+      'Completed': 'bg-emerald-100 text-emerald-800',
+      'Cancelled': 'bg-gray-200 text-gray-800'
     };
-    return statusColors[workflow] || 'bg-gray-100 text-gray-800';
+    return statusColors[order_status] || 'bg-gray-100 text-gray-800';
   };
 
   const formatDate = (dateString: string) => {
@@ -106,8 +109,8 @@ const ClientOrdersTable = ({ orders, loading, pagination, onPageChange, onRepeat
                   <span className="text-sm text-gray-600">{formatDate(order.delivery_date)}</span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.workflow)}`}>
-                    {order.workflow}
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.order_status)}`}>
+                    {order.order_status}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
