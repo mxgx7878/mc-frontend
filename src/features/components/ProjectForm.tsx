@@ -31,7 +31,7 @@ export default function ProjectForm({ initial, onSubmit, submitting }: Props) {
       ? { lat: initial.delivery_lat, lng: initial.delivery_long } 
       : null
   );
-
+console.log(locationCoords);
   const handlePlaceSelected = (place: any) => {
     if (place.formatted_address) {
       setValue('delivery_address', place.formatted_address, { shouldValidate: true });
@@ -103,7 +103,7 @@ export default function ProjectForm({ initial, onSubmit, submitting }: Props) {
         )}
         {locationCoords && (
           <p className="text-xs text-secondary-600 mt-1">
-            📍 Location: {locationCoords.lat.toFixed(6)}, {locationCoords.lng.toFixed(6)}
+            📍 Location: {Number(locationCoords.lat).toFixed(6)}, {Number(locationCoords.lng).toFixed(6)}
           </p>
         )}
       </div>

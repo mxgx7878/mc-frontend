@@ -355,6 +355,7 @@ export interface AdminUpdateOrderItemPayload {
   supplier_delivery_date?: string; // ISO date format
   supplier_confirms?: boolean;
   supplier_notes?: string;
+  quantity?: number; // NEW: Allow quantity update
 }
 
 /**

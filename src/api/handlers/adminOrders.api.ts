@@ -109,6 +109,22 @@ export const adminOrdersAPI = {
   },
 
 
+  updateOrderStatus: async (
+    orderId: number,
+    order_status: string
+  ): Promise<{ order_status: string; message: string }> => {
+    try {
+      const response = await api.post(
+        `/admin/orders/update-order-status/${orderId}`,
+        { order_status }
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to update order status');
+    }
+  },
+
+
   /**
    * Admin update order item pricing
    * Endpoint: POST /admin/update-item-pricing/{orderItem}
@@ -123,6 +139,7 @@ export const adminOrdersAPI = {
       supplier_delivery_date?: string;
       supplier_confirms?: boolean;
       supplier_notes?: string;
+      quantity?: number;
     }
   ): Promise<{ success: boolean; message: string; data: any }> => {
     try {

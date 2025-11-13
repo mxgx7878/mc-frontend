@@ -1,3 +1,4 @@
+/* FILE: src/pages/client/projects/ProjectsList.tsx */
 // src/pages/client/projects/ProjectsList.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -16,6 +17,10 @@ import {
   Filter,
   X,
   Loader2,
+  Package,
+  DollarSign,
+  ShoppingCart,
+  MapPin,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -32,12 +37,33 @@ const formatDate = (dateString: string) => {
   return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 };
 
+// Helper to format currency
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount);
+};
+
+// Helper to get order status badge color
+const getOrderStatusColor = (status: string) => {
+  const colors: Record<string, string> = {
+    'Payment Requested': 'bg-amber-50 text-amber-700 border-amber-200',
+    'Delivered': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'Cancelled': 'bg-rose-50 text-rose-700 border-rose-200',
+    'Supplier Missing': 'bg-orange-50 text-orange-700 border-orange-200',
+    'Supplier Assigned': 'bg-blue-50 text-blue-700 border-blue-200',
+    'Requested': 'bg-violet-50 text-violet-700 border-violet-200',
+    'On Hold': 'bg-slate-50 text-slate-700 border-slate-200',
+    'In Transit': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  };
+  return colors[status] || 'bg-gray-50 text-gray-700 border-gray-200';
+};
+
 const ProjectsList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-
-
 
   // State
   const [showFilters, setShowFilters] = useState(false);
@@ -49,8 +75,9 @@ const ProjectsList = () => {
   const search = searchParams.get('search') || '';
   const sort = searchParams.get('sort') || 'created_at';
   const dir = searchParams.get('dir') || 'desc';
-  const date_from = searchParams.get('date_from') || '';
-  const date_to = searchParams.get('date_to') || '';
+  const order_status = searchParams.get('order_status') || '';
+  const delivery_date_from = searchParams.get('delivery_date_from') || '';
+  const delivery_date_to = searchParams.get('delivery_date_to') || '';
 
   // Debounce search
   useEffect(() => {
@@ -64,8 +91,8 @@ const ProjectsList = () => {
 
   // Fetch projects
   const { data, isLoading, error } = useQuery<Paginated<ProjectDTO>>({
-    queryKey: ['projects', { page, per_page, search, sort, dir, date_from, date_to }],
-    queryFn: () => projectsAPI.list({ page, per_page, search, sort, dir, date_from, date_to }),
+    queryKey: ['projects', { page, per_page, search, sort, dir, order_status, delivery_date_from, delivery_date_to }],
+    queryFn: () => projectsAPI.list({ page, per_page, search, sort, dir, order_status, delivery_date_from, delivery_date_to }),
     placeholderData: keepPreviousData,
   });
 
@@ -116,7 +143,7 @@ const ProjectsList = () => {
     to: Math.min(page * per_page, data?.meta?.total ?? 0),
   };
 
-  const hasActiveFilters = search || date_from || date_to || sort !== 'created_at' || dir !== 'desc';
+  const hasActiveFilters = search || order_status || delivery_date_from || delivery_date_to || sort !== 'created_at' || dir !== 'desc';
 
   return (
     <DashboardLayout menuItems={clientMenuItems}>
@@ -124,8 +151,8 @@ const ProjectsList = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-secondary-900">Projects</h1>
-            <p className="text-secondary-600 mt-1">Manage your construction projects</p>
+            <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
+            <p className="text-gray-600 mt-1">Manage your construction projects</p>
           </div>
           <Button
             onClick={() => navigate('/client/projects/create')}
@@ -138,19 +165,19 @@ const ProjectsList = () => {
         </div>
 
         {/* Main Card */}
-        <div className="bg-white rounded-2xl shadow-card overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Filters Bar */}
-          <div className="border-b border-secondary-200 p-6">
+          <div className="border-b border-gray-200 p-6">
             <div className="flex items-center gap-4 mb-4">
               {/* Search */}
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="text"
                   placeholder="Search projects..."
                   value={localSearch}
                   onChange={(e) => setLocalSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
@@ -161,7 +188,7 @@ const ProjectsList = () => {
                   const [newSort, newDir] = e.target.value.split('-');
                   updateParams({ sort: newSort, dir: newDir, page: '1' });
                 }}
-                className="px-4 py-3 border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500"
+                className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               >
                 <option value="created_at-desc">Newest First</option>
                 <option value="created_at-asc">Oldest First</option>
@@ -172,56 +199,74 @@ const ProjectsList = () => {
               {/* Filter Toggle */}
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-3 rounded-lg border-2 flex items-center gap-2 transition-all ${
+                className={`px-4 py-2.5 rounded-lg border flex items-center gap-2 transition-all ${
                   showFilters || hasActiveFilters
-                    ? 'bg-primary-50 border-primary-500 text-primary-600'
-                    : 'border-secondary-200 text-secondary-600 hover:bg-secondary-50'
+                    ? 'bg-blue-50 border-blue-300 text-blue-700'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 <Filter size={20} />
                 Filters
                 {hasActiveFilters && (
-                  <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                 )}
               </button>
             </div>
 
-            {/* Expandable Filters */}
+            {/* Advanced Filters */}
             {showFilters && (
-              <div className="pt-4 border-t border-secondary-200 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Date From */}
+              <div className="pt-4 border-t border-gray-200 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-secondary-700 mb-2">
-                      From Date
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Order Status
+                    </label>
+                    <select
+                      value={order_status}
+                      onChange={(e) => updateParams({ order_status: e.target.value, page: '1' })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="">All Statuses</option>
+                      <option value="Requested">Requested</option>
+                      <option value="Supplier Assigned">Supplier Assigned</option>
+                      <option value="Payment Requested">Payment Requested</option>
+                      <option value="On Hold">On Hold</option>
+                      <option value="In Transit">In Transit</option>
+                      <option value="Delivered">Delivered</option>
+                      <option value="Cancelled">Cancelled</option>
+                      <option value="Supplier Missing">Supplier Missing</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Delivery Date From
                     </label>
                     <input
                       type="date"
-                      value={date_from}
-                      onChange={(e) => updateParams({ date_from: e.target.value, page: '1' })}
-                      className="w-full px-4 py-2 border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500"
+                      value={delivery_date_from}
+                      onChange={(e) => updateParams({ delivery_date_from: e.target.value, page: '1' })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
-
-                  {/* Date To */}
+                  
                   <div>
-                    <label className="block text-sm font-medium text-secondary-700 mb-2">
-                      To Date
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Delivery Date To
                     </label>
                     <input
                       type="date"
-                      value={date_to}
-                      onChange={(e) => updateParams({ date_to: e.target.value, page: '1' })}
-                      className="w-full px-4 py-2 border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500"
+                      value={delivery_date_to}
+                      onChange={(e) => updateParams({ delivery_date_to: e.target.value, page: '1' })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
                 </div>
 
-                {/* Clear Filters */}
                 {hasActiveFilters && (
                   <button
                     onClick={clearFilters}
-                    className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
+                    className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700 font-medium"
                   >
                     <X size={16} />
                     Clear all filters
@@ -231,32 +276,30 @@ const ProjectsList = () => {
             )}
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
+          {/* Content */}
+          <div className="p-6">
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="w-10 h-10 animate-spin text-primary-600" />
-                  <p className="text-secondary-500">Loading projects...</p>
-                </div>
+              <div className="flex flex-col items-center justify-center py-16">
+                <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-3" />
+                <p className="text-gray-500">Loading projects...</p>
               </div>
             ) : error ? (
-              <div className="flex flex-col items-center justify-center py-12 text-error-500">
+              <div className="flex flex-col items-center justify-center py-12 text-red-500">
                 <p className="mb-2">Failed to load projects</p>
                 <button 
                   onClick={() => queryClient.invalidateQueries({queryKey:['projects']})}
-                  className="text-sm text-primary-600 hover:underline"
+                  className="text-sm text-blue-600 hover:underline"
                 >
                   Try again
                 </button>
               </div>
             ) : projects.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-secondary-500">
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                 <p className="mb-2">No projects found</p>
                 {hasActiveFilters ? (
                   <button 
                     onClick={clearFilters}
-                    className="text-sm text-primary-600 hover:underline"
+                    className="text-sm text-blue-600 hover:underline"
                   >
                     Clear filters
                   </button>
@@ -273,107 +316,154 @@ const ProjectsList = () => {
                 )}
               </div>
             ) : (
-              <table className="w-full">
-                <thead className="bg-secondary-50 border-b border-secondary-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">
-                      Project Name
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">
-                      Site Contact
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-secondary-600 uppercase tracking-wider">
-                      Created
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-secondary-600 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-secondary-100">
-                  {projects.map((project: any) => (
-                    <tr key={project.id} className="hover:bg-secondary-50 transition-colors">
-                      {/* Project Name */}
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-medium text-secondary-900">{project.name}</p>
-                          {project.site_instructions && (
-                            <p className="text-sm text-secondary-500 mt-1 line-clamp-1">
-                              {project.site_instructions}
+              <div className="grid grid-cols-1 gap-5">
+                {projects.map((project) => {
+                  // Calculate avg order value on frontend
+                  const avgOrderValue = project.total_orders > 0 
+                    ? project.total_order_amount / project.total_orders 
+                    : 0;
+
+                  return (
+                    <div
+                      key={project.id}
+                      className="border border-gray-200 rounded-lg hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden bg-white"
+                    >
+                      {/* Project Header */}
+                      <div className="bg-gradient-to-r from-slate-50 to-slate-100 p-5 border-b border-gray-200">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                              {project.name}
+                            </h3>
+                            
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
+                              {project.delivery_address && (
+                                <div className="flex items-center gap-1.5">
+                                  <MapPin size={15} className="text-gray-400 flex-shrink-0" />
+                                  <span className="truncate">{project.delivery_address}</span>
+                                </div>
+                              )}
+                              {project.site_contact_name && (
+                                <div className="flex items-center gap-1.5">
+                                  <User size={15} className="text-gray-400 flex-shrink-0" />
+                                  <span>{project.site_contact_name}</span>
+                                </div>
+                              )}
+                              {project.site_contact_phone && (
+                                <div className="flex items-center gap-1.5">
+                                  <Phone size={15} className="text-gray-400 flex-shrink-0" />
+                                  <span>{project.site_contact_phone}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <button
+                              onClick={() => navigate(`/client/projects/${project.id}`)}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-medium text-sm"
+                              title="View Details"
+                            >
+                              <Eye size={16} />
+                              View
+                            </button>
+                            <button
+                              onClick={() => navigate(`/client/projects/${project.id}/edit`)}
+                              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Edit Project"
+                            >
+                              <Edit2 size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(project.id, project.name)}
+                              disabled={deleteMutation.isPending}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Delete Project"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stats Section */}
+                      <div className="p-5">
+                        <div className="grid grid-cols-3 gap-4">
+                          {/* Total Orders */}
+                          <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-100">
+                            <div className="flex items-center justify-center gap-2 mb-1">
+                              <ShoppingCart size={16} className="text-blue-600" />
+                              <span className="text-xs font-medium text-blue-900">Orders</span>
+                            </div>
+                            <p className="text-2xl font-bold text-blue-700">{project.total_orders}</p>
+                          </div>
+
+                          {/* Total Amount */}
+                          <div className="text-center p-4 bg-emerald-50 rounded-lg border border-emerald-100">
+                            <div className="flex items-center justify-center gap-2 mb-1">
+                              <DollarSign size={16} className="text-emerald-600" />
+                              <span className="text-xs font-medium text-emerald-900">Total</span>
+                            </div>
+                            <p className="text-2xl font-bold text-emerald-700">
+                              {formatCurrency(project.total_order_amount)}
                             </p>
+                          </div>
+
+                          {/* Average Order */}
+                          <div className="text-center p-4 bg-violet-50 rounded-lg border border-violet-100">
+                            <div className="flex items-center justify-center gap-2 mb-1">
+                              <Package size={16} className="text-violet-600" />
+                              <span className="text-xs font-medium text-violet-900">Average</span>
+                            </div>
+                            <p className="text-2xl font-bold text-violet-700">
+                              {formatCurrency(avgOrderValue)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Order Status Breakdown - Only show if data exists */}
+                        {project.order_status_breakdown && Object.keys(project.order_status_breakdown).length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="flex flex-wrap gap-2">
+                              {Object.entries(project.order_status_breakdown).map(([status, count]) => (
+                                <span
+                                  key={status}
+                                  className={`px-3 py-1 rounded-full text-xs font-medium border ${getOrderStatusColor(status)}`}
+                                >
+                                  {status}: {count}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Footer Info */}
+                        <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar size={14} className="text-gray-400" />
+                            <span>Created {formatDate(project.created_at)}</span>
+                          </div>
+                          
+                          {project.last_order_date && (
+                            <div className="flex items-center gap-1.5">
+                              <span>Last order: {formatDate(project.last_order_date)}</span>
+                            </div>
                           )}
                         </div>
-                      </td>
-
-                      {/* Site Contact */}
-                      <td className="px-6 py-4">
-                        {project.site_contact_name || project.site_contact_phone ? (
-                          <div className="text-sm">
-                            {project.site_contact_name && (
-                              <p className="text-secondary-900 flex items-center gap-1">
-                                <User size={14} className="text-secondary-400" />
-                                {project.site_contact_name}
-                              </p>
-                            )}
-                            {project.site_contact_phone && (
-                              <p className="text-secondary-500 flex items-center gap-1 mt-1">
-                                <Phone size={14} className="text-secondary-400" />
-                                {project.site_contact_phone}
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-secondary-400 text-sm">No contact</span>
-                        )}
-                      </td>
-
-                      {/* Created Date */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1 text-sm text-secondary-700">
-                          <Calendar size={14} className="text-secondary-400" />
-                          {formatDate(project.created_at)}
-                        </div>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => navigate(`/client/projects/${project.id}`)}
-                            className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                            title="View Details"
-                          >
-                            <Eye size={18} />
-                          </button>
-                          <button
-                            onClick={() => navigate(`/client/projects/${project.id}/edit`)}
-                            className="p-2 text-secondary-600 hover:bg-secondary-100 rounded-lg transition-colors"
-                            title="Edit Project"
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(project.id, project.name)}
-                            disabled={deleteMutation.isPending}
-                            className="p-2 text-error-600 hover:bg-error-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="Delete Project"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
 
           {/* Pagination */}
           {!isLoading && projects.length > 0 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-secondary-200">
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-secondary-600">
+                <span className="text-sm text-gray-600">
                   Showing {pagination.from} to {pagination.to} of {pagination.total} projects
                 </span>
               </div>
@@ -383,7 +473,7 @@ const ProjectsList = () => {
                 <select
                   value={per_page}
                   onChange={(e) => updateParams({ per_page: e.target.value, page: '1' })}
-                  className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:border-primary-500"
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 >
                   <option value={10}>10 per page</option>
                   <option value={25}>25 per page</option>
@@ -396,19 +486,19 @@ const ProjectsList = () => {
                   <button
                     onClick={() => updateParams({ page: String(page - 1) })}
                     disabled={page === 1}
-                    className="p-2 border border-secondary-300 rounded-lg hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="p-2 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronLeft size={18} />
                   </button>
                   
-                  <span className="text-sm text-secondary-700 px-3">
+                  <span className="text-sm text-gray-700 px-3">
                     Page {pagination.currentPage} of {pagination.lastPage}
                   </span>
 
                   <button
                     onClick={() => updateParams({ page: String(page + 1) })}
                     disabled={page === pagination.lastPage}
-                    className="p-2 border border-secondary-300 rounded-lg hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="p-2 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronRight size={18} />
                   </button>

@@ -180,6 +180,7 @@ export const useAdminUpdateOrderItem = () => {
         supplier_delivery_date?: string;
         supplier_confirms?: boolean;
         supplier_notes?: string;
+        quantity:number;
       };
     }) => adminOrdersAPI.adminUpdateOrderItem(orderItemId, payload),
     onSuccess: () => {

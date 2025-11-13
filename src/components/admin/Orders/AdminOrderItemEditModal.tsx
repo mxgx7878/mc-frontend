@@ -37,6 +37,7 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
     supplier_delivery_date: '',
     supplier_notes: '',
     supplier_confirms: false,
+    quantity: '', // NEW: Add quantity field
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -52,6 +53,7 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
         supplier_delivery_date: item.supplier_delivery_date?.split('T')[0] || '',
         supplier_notes: item.supplier_notes || '',
         supplier_confirms: Boolean(item.supplier_confirms),
+        quantity: item.quantity?.toString() || '1', // NEW: Set quantity from item
       });
     }
   }, [item]);
@@ -109,6 +111,11 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
       }
     }
 
+    // NEW: Validate quantity
+    if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
+      newErrors.quantity = 'Quantity must be greater than 0';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -136,6 +143,7 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
           supplier_delivery_date: formData.supplier_delivery_date,
           supplier_notes: formData.supplier_notes,
           supplier_confirms: formData.supplier_confirms,
+          quantity: parseFloat(formData.quantity), // NEW: Include quantity in payload
         },
       },
       {
@@ -155,7 +163,7 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
     const unitCost = parseFloat(formData.supplier_unit_cost) || 0;
     const discount = parseFloat(formData.supplier_discount) || 0;
     const deliveryCost = shouldShowDeliveryCost() ? parseFloat(formData.delivery_cost) || 0 : 0;
-    const quantity = item?.quantity || 1;
+    const quantity = parseFloat(formData.quantity) || 1; // NEW: Use dynamic quantity
     return (unitCost * quantity - discount + deliveryCost).toFixed(2);
   };
 
@@ -212,8 +220,8 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
               <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-600">Quantity:</span>
-                    <span className="ml-2 font-bold text-gray-900">{item.quantity}</span>
+                    <span className="text-gray-600">Product:</span>
+                    <span className="ml-2 font-bold text-gray-900">{item.product_name}</span>
                   </div>
                   <div>
                     <span className="text-gray-600">Supplier:</span>
@@ -222,6 +230,33 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
                     </span>
                   </div>
                 </div>
+              </div>
+
+              {/* NEW: Quantity Field */}
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <Package size={16} className="text-purple-600" />
+                  Quantity *
+                </label>
+                <input
+                  type="number"
+                  name="quantity"
+                  value={formData.quantity}
+                  onChange={handleChange}
+                  step="0.01"
+                  min="0.01"
+                  required
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                    errors.quantity ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
+                  placeholder="1.00"
+                />
+                {errors.quantity && (
+                  <p className="text-red-600 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.quantity}
+                  </p>
+                )}
               </div>
 
               {/* Supplier Unit Cost */}
@@ -280,7 +315,7 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
               {/* Delivery Type */}
               <div>
                 <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                  <Truck size={16} className="text-purple-600" />
+                  <Truck size={16} className="text-blue-600" />
                   Delivery Type *
                 </label>
                 <select
@@ -288,7 +323,7 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
                   value={formData.delivery_type}
                   onChange={handleChange}
                   required
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white ${
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
                     errors.delivery_type ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
                 >
@@ -408,10 +443,10 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">
-                      Unit Cost × {item.quantity}:
+                      Unit Cost × {parseFloat(formData.quantity) || 1}:
                     </span>
                     <span className="font-medium text-gray-900">
-                      ${((parseFloat(formData.supplier_unit_cost) || 0) * item.quantity).toFixed(2)}
+                      ${((parseFloat(formData.supplier_unit_cost) || 0) * (parseFloat(formData.quantity) || 1)).toFixed(2)}
                     </span>
                   </div>
                   {parseFloat(formData.supplier_discount) > 0 && (
