@@ -1,137 +1,120 @@
-// FILE PATH: src/types/clientOrder.types.ts
-// Updated Client Order Types with proper pricing fields
+// src/types/clientOrder.types.ts
 
-export interface ClientOrderItem {
-  id: number;
-  order_id: number;
-  product_id: number;
-  quantity: number;
-  supplier_id: number | null;
-  supplier_unit_cost: number | null;
-  supplier_discount: number | null;
-  delivery_cost: number | null;
-  delivery_type: string | null;
-  supplier_confirms: number; // 0 or 1
-  is_quoted: number; // 0 or 1
-  quoted_price: number | null;
-  
-  // Relationships
-  product?: {
-    id: number;
-    product_name: string;
-    category?: string;
-  };
-  supplier?: {
-    id: number;
-    name: string;
-    profile_image?: string;
-  };
-  
-  // Eligible suppliers (when supplier not assigned)
-  eligible_suppliers?: Array<{
-    id: number;
-    name: string;
-    profile_image?: string;
-  }>;
-}
+import type { WorkflowStatus } from "./adminOrder.types";
+
+export type OrderStatus = 'Draft' | 'Confirmed' | 'Scheduled' | 'In Transit' | 'Delivered' | 'Completed' | 'Cancelled';
+export type PaymentStatus = 'Pending' | 'Partially Paid' | 'Paid' | 'Partial Refunded' | 'Refunded' | 'Requested';
 
 export interface ClientOrder {
   id: number;
   po_number: string;
-  client_id: number;
-  project_id: number;
-  
-  // Delivery Info
+
+  project: {
+    id: number;
+    name: string;
+    added_by: number;
+    site_contact_name?: string | null;
+    site_contact_phone?: string | null;
+    site_instructions?: string | null;
+    delivery_address?: string | null;
+    delivery_lat?: number | null;
+    delivery_long?: number | null;
+    created_at: string;
+    updated_at: string;
+  };
+
+  // Delivery
   delivery_address: string;
-  delivery_lat: number | null;
-  delivery_long: number | null;
   delivery_date: string;
   delivery_time: string;
-  delivery_window?: string | null;
-  delivery_method?: string | null;
-  
+  delivery_method: string;
+
   // Status
-  workflow: 'Supplier Missing' | 'Supplier Assigned' | 'Payment Requested' | 'Delivered' | 'On Hold';
-  payment_status: 'Pending' | 'Paid' | 'Partially Paid' | 'Failed';
-  order_status: string;
-  
-  // Pricing - NEW STRUCTURE
-  customer_item_cost: number;
-  customer_delivery_cost: number;
+  order_status: OrderStatus;
+  workflow: WorkflowStatus;
+  payment_status: PaymentStatus;
+
+  // Counts / totals
+  items_count: number;
+  total_price: number;
   gst_tax: number;
   discount: number;
-  other_charges: number;
-  total_price: number;
-  
-  // Legacy fields (may be present but not used)
-  subtotal?: number;
-  fuel_levy?: number;
-  
-  // Additional Info
+
   repeat_order: boolean;
   order_info?: string | null;
-  reason?: string | null;
-  special_notes?: string | null;
-  
-  // Timestamps
+
   created_at: string;
   updated_at: string;
-  
-  // Relationships
-  project?: {
-    id: number;
-    name: string;
-    site_contact_name?: string;
-    site_contact_phone?: string;
-    site_instructions?: string;
-  };
-}
+  reason?: string;
 
-export interface ClientOrderDetail {
-  order: ClientOrder;
-  items: ClientOrderItem[];
-}
-
-export interface ClientOrderListItem {
-  id: number;
-  po_number: string;
-  project_id: number;
-  client_id: number;
-  workflow: string;
-  payment_status: string;
-  delivery_address: string;
-  delivery_date: string;
-  delivery_time: string;
-  delivery_method?: string;
-  repeat_order: boolean;
-  order_info?: string | null;
-  created_at: string;
-  updated_at: string;
-  
-  // Pricing
+  // Pricing breakdown (NEW)
   customer_item_cost?: number;
   customer_delivery_cost?: number;
-  total_price?: number;
-  
-  // Legacy
-  subtotal?: number;
-  fuel_levy?: number;
+  supplier_item_cost?: number;
+  supplier_delivery_cost?: number;
   other_charges?: number;
-  gst_tax?: number;
-  
-  // Relationships
-  project?: {
-    id: number;
-    name: string;
-  };
 }
+
 
 export interface ClientOrderMetrics {
   total_orders_count: number;
-  supplier_missing_count: number;
-  supplier_assigned_count: number;
-  awaiting_payment_count: number;
+  draft_count: number;
+  confirmed_count: number;
+  scheduled_count: number;
+  in_transit_count: number;
   delivered_count: number;
+  completed_count: number;
+  cancelled_count: number;
+}
+
+export interface ProjectFilter {
+  id: number;
+  name: string;
+}
+
+export interface ClientOrderFilters {
+  projects: ProjectFilter[];
+  order_statuses: OrderStatus[];
+  payment_statuses: PaymentStatus[];
+  delivery_methods: string[];
+}
+
+export interface ClientOrdersListResponse {
+  data: ClientOrder[];
+  pagination: {
+    per_page: number;
+    current_page: number;
+    total_pages: number;
+    total_items: number;
+    has_more_pages: boolean;
+  };
+  metrics: ClientOrderMetrics;
+  projects?: ProjectFilter[];
+  order_statuses?: OrderStatus[];
+  payment_statuses?: PaymentStatus[];
+  delivery_methods?: string[];
+}
+
+export interface ClientOrdersQueryParams {
+  per_page?: number;
+  search?: string;
+  project_id?: string;
+  order_status?: string;
+  payment_status?: string;
+  delivery_date?: string;
+  delivery_method?: string;
+  repeat_order?: string;
+  sort?: string;
+  dir?: string;
+  details?: boolean;
+  page?: number;
+}
+
+export interface RepeatOrderPayload {
+  items: Array<{
+    product_id: number;
+    quantity: number;
+  }>;
 }
 
 export interface ClientOrdersResponse {
@@ -148,6 +131,54 @@ export interface ClientOrdersResponse {
     id: number;
     name: string;
   }>;
+  order_statuses?: OrderStatus[];
+  payment_statuses?: PaymentStatus[];
+  delivery_methods?: string[];
+}
+
+
+export interface ClientOrderListItem {
+  id: number;
+  po_number: string;
+  project_id: number;
+  client_id: number;
+  workflow: string;
+
+  // Status
+  order_status: OrderStatus;
+  payment_status: PaymentStatus;
+
+  delivery_address: string;
+  delivery_date: string;
+  delivery_time: string;
+  delivery_method?: string;
+
+  repeat_order: boolean;
+  order_info?: string | null;
+
+  created_at: string;
+  updated_at: string;
+
+  // Counts / totals for list view
+  items_count: number;
+  discount: number;
+  total_price?: number;
+  gst_tax?: number;
+
+  // Pricing breakdown (optional)
+  customer_item_cost?: number;
+  customer_delivery_cost?: number;
+
+  // Legacy
+  subtotal?: number;
+  fuel_levy?: number;
+  other_charges?: number;
+
+  // Relationships
+  project?: {
+    id: number;
+    name: string;
+  };
 }
 
 export interface ClientOrderDetailResponse {
@@ -155,9 +186,11 @@ export interface ClientOrderDetailResponse {
   data: ClientOrderDetail;
 }
 
-export interface RepeatOrderPayload {
-  items: Array<{
-    product_id: number;
-    quantity: number;
-  }>;
+
+export interface ClientOrderDetail {
+  order: ClientOrder;
+  items: ClientOrderItem[];
+}
+
+export interface ClientOrderItem {
 }

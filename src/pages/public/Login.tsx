@@ -38,6 +38,8 @@ const Login = () => {
           admin: '/admin/dashboard',
           client: '/client/dashboard',
           supplier: '/supplier/dashboard',
+          accountant: '/admin/dashboard',
+          support:'/admin/dashboard'
         };
         navigate(map[user?.role ?? 'client'] || '/login', { replace: true });
       }

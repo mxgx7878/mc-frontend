@@ -1,45 +1,37 @@
-// ============================================================================
-// FILE: src/components/client/ClientOrdersTable.tsx - UPDATED WITH MARK/REPEAT LOGIC
-// ============================================================================
+// src/components/client/ClientOrdersTable.tsx
 
-import { Eye, Info, RotateCcw, Bookmark } from 'lucide-react';
-import { format } from 'date-fns';
+import React from 'react';
+import { Eye, Package, Calendar, RefreshCw } from 'lucide-react';
+import type {ClientOrderListItem } from '../../types/clientOrder.types';
+import { getOrderStatusBadgeClass, getPaymentStatusBadgeClass, formatCurrency, formatDate } from '../../features/clientOrders/utils';
 
-const ClientOrdersTable = ({ orders, loading, pagination, onPageChange, onRepeatOrder, onMarkRepeat, navigate }: any) => {
+interface ClientOrdersTableProps {
+  orders: ClientOrderListItem[];
+  loading: boolean;
+  pagination: {
+    per_page: number;
+    current_page: number;
+    total_pages: number;
+    total_items: number;
+  } | null;
+  onPageChange: (page: number) => void;
+  onViewOrder: (orderId: number) => void;
+}
 
-  const handleViewOrder = (orderId: number) => {
-    navigate(`/client/orders/${orderId}`);
-  };
-
-  const getStatusColor = (order_status: string) => {
-    const statusColors: Record<string, string> = {
-      'Draft': 'bg-red-100 text-red-800',
-      'Confirmed': 'bg-orange-100 text-orange-800',
-      'Scheduled': 'bg-indigo-100 text-indigo-800',
-      'In Transit': 'bg-blue-100 text-blue-800',
-      'Delivered': 'bg-green-100 text-green-800',
-      'Completed': 'bg-emerald-100 text-emerald-800',
-      'Cancelled': 'bg-gray-200 text-gray-800'
-    };
-    return statusColors[order_status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '-';
-    try {
-      return format(new Date(dateString), 'MMM dd, yyyy');
-    } catch {
-      return '-';
-    }
-  };
+const ClientOrdersTable: React.FC<ClientOrdersTableProps> = ({
+  orders,
+  loading,
+  pagination,
+  onPageChange,
+  onViewOrder,
+}) => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="animate-pulse space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-gray-200 rounded"></div>
-          ))}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="p-8 text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading orders...</p>
         </div>
       </div>
     );
@@ -47,116 +39,102 @@ const ClientOrdersTable = ({ orders, loading, pagination, onPageChange, onRepeat
 
   if (!orders || orders.length === 0) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-            <Eye className="w-8 h-8 text-gray-400" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No orders found</h3>
-            <p className="text-gray-600">
-              You haven't placed any orders yet. Start by creating a new order from your project.
-            </p>
-          </div>
-        </div>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
+        <Package size={64} className="mx-auto text-gray-300 mb-4" />
+        <h3 className="text-xl font-bold text-gray-900 mb-2">No Orders Found</h3>
+        <p className="text-gray-600">Try adjusting your filters or create a new order.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                PO Number
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Project
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Delivery Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">PO Number</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Project</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Delivery</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Status</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Payment</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Items</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Total</th>
+              <th className="px-6 py-4 text-center text-sm font-bold text-gray-900">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {orders.map((order: any) => (
+            {orders.map((order) => (
               <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{order.po_number}</span>
+                <td className="px-6 py-4">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-gray-900">{order.po_number}</span>
+                    <span className="text-xs text-gray-500">ID: {order.id}</span>
                     {order.repeat_order && (
-                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
+                      <span className="inline-flex items-center gap-1 text-xs text-blue-600 font-medium mt-1">
+                        <RefreshCw size={12} />
                         Repeat
                       </span>
                     )}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm text-gray-900">{order.project.name}</span>
+                <td className="px-6 py-4">
+                  <span className="font-medium text-gray-900">{order.project?.name || 'N/A'}</span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm text-gray-600">{formatDate(order.delivery_date)}</span>
+                <td className="px-6 py-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar size={14} className="text-gray-400" />
+                      <span className="font-medium text-gray-900">{formatDate(order.delivery_date)}</span>
+                    </div>
+                    {order.delivery_time && (
+                      <span className="text-xs text-gray-600">{order.delivery_time}</span>
+                    )}
+                    {/* <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <span>{getDeliveryMethodIcon(order.delivery_method)}</span>
+                      <span>{order.delivery_method}</span>
+                    </div> */}
+                  </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.order_status)}`}>
+                <td className="px-6 py-4">
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getOrderStatusBadgeClass(order.order_status)}`}>
                     {order.order_status}
                   </span>
+                  {order.order_info && (
+                    <div className="text-xs text-gray-600 mt-1">{order.order_info}</div>
+                  )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm font-semibold text-gray-900">
-                    ${parseFloat(order.total_price).toFixed(2)}
+                <td className="px-6 py-4">
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getPaymentStatusBadgeClass(order.payment_status)}`}>
+                    {order.payment_status}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    {order.order_info && (
-                      <div className="relative group">
-                        <Info className="w-5 h-5 text-blue-600 cursor-help" />
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                          <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
-                            {order.order_info}
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1">
-                              <div className="border-4 border-transparent border-t-gray-900"></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                    <Package size={16} className="text-gray-400" />
+                    <span className="font-semibold text-gray-900">{order.items_count}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-gray-900 text-lg">{formatCurrency(order.total_price ?? 0)}</span>
+                    {(order.gst_tax ?? 0) > 0 && (
+                      <span className="text-xs text-gray-500">GST: {formatCurrency((order.gst_tax ?? 0))}</span>
                     )}
+                    {order.discount > 0 && (
+                      <span className="text-xs text-green-600">Discount: -{formatCurrency(order.discount)}</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex justify-center">
                     <button
-                      onClick={() => handleViewOrder(order.id)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="View Order"
+                      onClick={() => onViewOrder(order.id)}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
                     >
-                      <Eye className="w-5 h-5" />
+                      <Eye size={16} />
+                      View
                     </button>
-                    {order.repeat_order ? (
-                      <button
-                        onClick={() => onRepeatOrder(order)}
-                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                        title="Repeat Order"
-                      >
-                        <RotateCcw className="w-5 h-5" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => onMarkRepeat(order.id)}
-                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                        title="Mark as Repeat Order"
-                      >
-                        <Bookmark className="w-5 h-5" />
-                      </button>
-                    )}
                   </div>
                 </td>
               </tr>
@@ -165,56 +143,29 @@ const ClientOrdersTable = ({ orders, loading, pagination, onPageChange, onRepeat
         </table>
       </div>
 
+      {/* Pagination */}
       {pagination && pagination.total_pages > 1 && (
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            Showing {((pagination.current_page - 1) * pagination.per_page) + 1} to{' '}
-            {Math.min(pagination.current_page * pagination.per_page, pagination.total_items)} of{' '}
-            {pagination.total_items} orders
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => onPageChange(pagination.current_page - 1)}
-              disabled={pagination.current_page === 1}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <div className="flex items-center gap-1">
-              {[...Array(pagination.total_pages)].map((_, i) => {
-                const page = i + 1;
-                if (
-                  page === 1 ||
-                  page === pagination.total_pages ||
-                  (page >= pagination.current_page - 1 && page <= pagination.current_page + 1)
-                ) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => onPageChange(page)}
-                      className={`px-4 py-2 rounded-lg ${
-                        page === pagination.current_page
-                          ? 'bg-blue-600 text-white'
-                          : 'border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                }
-                if (page === pagination.current_page - 2 || page === pagination.current_page + 2) {
-                  return <span key={page} className="px-2">...</span>;
-                }
-                return null;
-              })}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Showing page {pagination.current_page} of {pagination.total_pages} ({pagination.total_items} total orders)
             </div>
-            <button
-              onClick={() => onPageChange(pagination.current_page + 1)}
-              disabled={!pagination.has_more_pages}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onPageChange(pagination.current_page - 1)}
+                disabled={pagination.current_page === 1}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => onPageChange(pagination.current_page + 1)}
+                disabled={pagination.current_page === pagination.total_pages}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       )}

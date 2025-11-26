@@ -1,4 +1,4 @@
-// FILE PATH: src/pages/client/ClientOrderView.tsx
+// src/pages/client/Orders/ClientOrderView.tsx
 
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -59,25 +59,28 @@ const ClientOrderView = () => {
     return `$${num.toFixed(2)}`;
   };
 
-  const getStatusColor = (workflow: string) => {
+  const getOrderStatusColor = (orderStatus: string) => {
     const statusColors: Record<string, string> = {
-      'Supplier Missing': 'bg-red-100 text-red-800 border-red-200',
-      'Supplier Assigned': 'bg-blue-100 text-blue-800 border-blue-200',
-      'Payment Requested': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      'Delivered': 'bg-green-100 text-green-800 border-green-200',
-      'On Hold': 'bg-gray-100 text-gray-800 border-gray-200',
+      'Draft': 'bg-gray-100 text-gray-800 border-gray-300',
+      'Confirmed': 'bg-blue-100 text-blue-800 border-blue-300',
+      'Scheduled': 'bg-indigo-100 text-indigo-800 border-indigo-300',
+      'In Transit': 'bg-purple-100 text-purple-800 border-purple-300',
+      'Delivered': 'bg-green-100 text-green-800 border-green-300',
+      'Completed': 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      'Cancelled': 'bg-red-100 text-red-800 border-red-300',
     };
-    return statusColors[workflow] || 'bg-gray-100 text-gray-800 border-gray-200';
+    return statusColors[orderStatus] || 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   const getPaymentStatusColor = (paymentStatus: string) => {
     const colors: Record<string, string> = {
-      'Pending': 'bg-gray-100 text-gray-700 border-gray-300',
-      'Paid': 'bg-green-100 text-green-700 border-green-300',
-      'Partially Paid': 'bg-yellow-100 text-yellow-700 border-yellow-300',
-      'Failed': 'bg-red-100 text-red-700 border-red-300',
+      'Unpaid': 'bg-red-100 text-red-800 border-red-300',
+      'Pending': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      'Paid': 'bg-green-100 text-green-800 border-green-300',
+      'Partially Paid': 'bg-orange-100 text-orange-800 border-orange-300',
+      'Failed': 'bg-red-100 text-red-800 border-red-300',
     };
-    return colors[paymentStatus] || 'bg-gray-100 text-gray-700 border-gray-300';
+    return colors[paymentStatus] || 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   const handleRefresh = () => {
@@ -146,14 +149,13 @@ const ClientOrderView = () => {
 
   const { order, items } = data.data;
   const showPayment =
-    order.workflow === 'Payment Requested' &&
-    (order.payment_status === 'Pending' || order.payment_status === 'Partially Paid');
+    order.workflow === 'Payment Requested';
 
   return (
     <DashboardLayout menuItems={clientMenuItems}>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/client/orders')}
@@ -162,18 +164,26 @@ const ClientOrderView = () => {
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
             <div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-bold text-gray-900">Order #{order.po_number}</h1>
+                <span
+                  className={`px-3 py-1 text-sm font-semibold rounded-full border-2 ${getOrderStatusColor(
+                    order.order_status
+                  )}`}
+                >
+                  {order.order_status}
+                </span>
                 {order.repeat_order && (
-                  <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-semibold rounded-full border border-purple-300">
+                  <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-semibold rounded-full border-2 border-purple-300 flex items-center gap-1">
+                    <RefreshCw size={14} />
                     Repeat Order
                   </span>
                 )}
               </div>
               {order.order_info && (
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-2">
                   <Info className="w-4 h-4 text-blue-600" />
-                  <p className="text-sm text-blue-600">{order.order_info}</p>
+                  <p className="text-sm text-blue-600 font-medium">{order.order_info}</p>
                 </div>
               )}
             </div>
@@ -181,14 +191,14 @@ const ClientOrderView = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={handleRefresh}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
             >
               <RefreshCw className="w-4 h-4" />
               Refresh
             </button>
             <button
               onClick={handleRepeatOrder}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md hover:shadow-lg"
             >
               <RotateCcw className="w-4 h-4" />
               Repeat Order
@@ -208,26 +218,26 @@ const ClientOrderView = () => {
         {/* Status & Basic Info Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Order Status Card */}
-          <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+          <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <ClipboardList className="w-5 h-5" />
+              <ClipboardList className="w-5 h-5 text-blue-600" />
               Order Status
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <span className="text-sm text-gray-600 block mb-1">Current Status</span>
+                <span className="text-sm text-gray-600 block mb-2">Current Status</span>
                 <span
-                  className={`inline-flex px-3 py-1.5 rounded-full text-sm font-semibold border-2 ${getStatusColor(
-                    order.workflow
+                  className={`inline-flex px-4 py-2 rounded-full text-sm font-bold border-2 ${getOrderStatusColor(
+                    order.order_status
                   )}`}
                 >
-                  {order.workflow}
+                  {order.order_status}
                 </span>
               </div>
               <div>
-                <span className="text-sm text-gray-600 block mb-1">Payment Status</span>
+                <span className="text-sm text-gray-600 block mb-2">Payment Status</span>
                 <span
-                  className={`inline-flex px-3 py-1.5 rounded-full text-sm font-semibold border-2 ${getPaymentStatusColor(
+                  className={`inline-flex px-4 py-2 rounded-full text-sm font-bold border-2 ${getPaymentStatusColor(
                     order.payment_status
                   )}`}
                 >
@@ -235,31 +245,39 @@ const ClientOrderView = () => {
                 </span>
               </div>
               <div>
-                <span className="text-sm text-gray-600 block mb-1">Order Date</span>
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-sm text-gray-600 block mb-2">Order Date</span>
+                <span className="text-sm font-semibold text-gray-900">
                   {formatDate(order.created_at)}
                 </span>
               </div>
+              {order.updated_at && order.updated_at !== order.created_at && (
+                <div>
+                  <span className="text-sm text-gray-600 block mb-2">Last Updated</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {formatDate(order.updated_at)}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Project Details Card */}
-          <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+          <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
+              <Building2 className="w-5 h-5 text-blue-600" />
               Project Details
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <span className="text-sm text-gray-600 block mb-1">Project Name</span>
-                <span className="text-sm font-medium text-gray-900">{order.project?.name || '-'}</span>
+                <span className="text-sm text-gray-600 block mb-2">Project Name</span>
+                <span className="text-sm font-semibold text-gray-900">{order.project?.name || '-'}</span>
               </div>
               {order.project?.site_contact_name && (
                 <div>
-                  <span className="text-sm text-gray-600 block mb-1">Site Contact</span>
+                  <span className="text-sm text-gray-600 block mb-2">Site Contact</span>
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-semibold text-gray-900">
                       {order.project.site_contact_name}
                     </span>
                   </div>
@@ -267,10 +285,10 @@ const ClientOrderView = () => {
               )}
               {order.project?.site_contact_phone && (
                 <div>
-                  <span className="text-sm text-gray-600 block mb-1">Phone</span>
+                  <span className="text-sm text-gray-600 block mb-2">Phone</span>
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-semibold text-gray-900">
                       {order.project.site_contact_phone}
                     </span>
                   </div>
@@ -281,39 +299,41 @@ const ClientOrderView = () => {
         </div>
 
         {/* Delivery Information */}
-        <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Truck className="w-5 h-5" />
+            <Truck className="w-5 h-5 text-blue-600" />
             Delivery Information
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <span className="text-sm text-gray-600 block mb-1">Delivery Address</span>
+              <span className="text-sm text-gray-600 block mb-2">Delivery Address</span>
               <div className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-                <span className="text-sm font-medium text-gray-900">{order.delivery_address}</span>
+                <MapPin className="w-4 h-4 text-blue-600 mt-0.5" />
+                <span className="text-sm font-semibold text-gray-900">{order.delivery_address}</span>
               </div>
             </div>
             <div>
-              <span className="text-sm text-gray-600 block mb-1">Delivery Date & Time</span>
+              <span className="text-sm text-gray-600 block mb-2">Delivery Date & Time</span>
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-medium text-gray-900">
+                <Calendar className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-semibold text-gray-900">
                   {formatDateTime(order.delivery_date, order.delivery_time)}
                 </span>
               </div>
             </div>
             {order.delivery_method && (
               <div>
-                <span className="text-sm text-gray-600 block mb-1">Delivery Method</span>
-                <span className="text-sm font-medium text-gray-900">{order.delivery_method}</span>
+                <span className="text-sm text-gray-600 block mb-2">Delivery Method</span>
+                <span className="text-sm font-semibold text-gray-900 px-3 py-1 bg-blue-50 rounded-full border border-blue-200">
+                  {order.delivery_method}
+                </span>
               </div>
             )}
           </div>
           {order.project?.site_instructions && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <span className="text-sm text-gray-600 block mb-2">Site Instructions</span>
-              <p className="text-sm text-gray-900 whitespace-pre-wrap">
+              <p className="text-sm text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">
                 {order.project.site_instructions}
               </p>
             </div>
@@ -321,15 +341,15 @@ const ClientOrderView = () => {
           {order.reason && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <span className="text-sm text-gray-600 block mb-2">Special Notes</span>
-              <p className="text-sm text-gray-900 whitespace-pre-wrap">{order.reason}</p>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">{order.reason}</p>
             </div>
           )}
         </div>
 
         {/* Order Items */}
-        <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Package className="w-5 h-5" />
+            <Package className="w-5 h-5 text-blue-600" />
             Order Items ({items?.length || 0})
           </h2>
           <div className="space-y-4">
@@ -344,23 +364,26 @@ const ClientOrderView = () => {
                 return (
                   <div
                     key={index}
-                    className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors"
+                    className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors bg-gray-50"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 mb-1">
+                        <h3 className="font-bold text-gray-900 mb-2">
                           {item.product?.product_name || 'Product'}
                         </h3>
+                        {item.product?.specifications && (
+                          <p className="text-xs text-gray-600 mb-2">{item.product.specifications}</p>
+                        )}
                         {item.supplier && (
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             {item.supplier_confirms === 1 && (
-                              <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full border border-green-300">
-                                Confirmed
+                              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border-2 border-green-300">
+                                ✓ Confirmed
                               </span>
                             )}
                             {item.supplier_confirms === 0 && (
-                              <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-full border border-yellow-300">
-                                Pending
+                              <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full border-2 border-yellow-300">
+                                ⏱ Pending Confirmation
                               </span>
                             )}
                           </div>
@@ -368,36 +391,37 @@ const ClientOrderView = () => {
                         {!item.supplier && (
                           <div className="flex items-center gap-2 text-sm text-red-600">
                             <AlertCircle className="w-4 h-4" />
-                            <span>--</span>
+                            <span className="font-medium">Awaiting for confirmation</span>
                           </div>
                         )}
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm text-gray-600 mb-1">Quantity</div>
-                        <div className="text-lg font-bold text-gray-900">{item.quantity}</div>
+                      <div className="text-right bg-white rounded-lg p-3 border-2 border-gray-200">
+                        <div className="text-xs text-gray-600 mb-1">Quantity</div>
+                        <div className="text-xl font-bold text-gray-900">{item.quantity}</div>
+                        <div className="text-xs text-gray-500 mt-1">{item.product?.unit_of_measure || 'units'}</div>
                       </div>
                     </div>
 
-                    <div className="border-t border-gray-200 pt-3 space-y-2">
+                    <div className="border-t border-gray-300 pt-3 space-y-2 bg-white rounded-lg p-3">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">
+                        <span className="text-gray-600 font-medium">
                           {item.is_quoted === 1 ? 'Quoted Price:' : 'Unit Price:'}
                         </span>
-                        <span className="font-medium text-gray-900">
+                        <span className="font-bold text-gray-900">
                           {formatCurrency(displayPrice)}
                           {item.is_quoted === 1 && (
-                            <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded border border-blue-300">
+                            <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded border-2 border-blue-300">
                               Custom Quote
                             </span>
                           )}
                         </span>
                       </div>
-                      <div className="flex justify-between text-sm font-semibold">
+                      <div className="flex justify-between text-base font-bold border-t pt-2">
                         <span className="text-gray-700">Item Total:</span>
-                        <span className="text-gray-900">{formatCurrency(itemTotal)}</span>
+                        <span className="text-blue-600">{formatCurrency(itemTotal)}</span>
                       </div>
                       {item.supplier_discount && parseFloat(item.supplier_discount) > 0 && (
-                        <div className="flex justify-between text-sm text-green-600">
+                        <div className="flex justify-between text-sm text-green-600 font-semibold">
                           <span>Discount Applied:</span>
                           <span>-{formatCurrency(item.supplier_discount)}</span>
                         </div>
@@ -405,7 +429,7 @@ const ClientOrderView = () => {
                       {item.delivery_type && (
                         <div className="flex justify-between text-sm text-gray-600">
                           <span>Delivery Type:</span>
-                          <span className="font-medium">{item.delivery_type}</span>
+                          <span className="font-semibold">{item.delivery_type}</span>
                         </div>
                       )}
                     </div>
@@ -419,49 +443,49 @@ const ClientOrderView = () => {
         </div>
 
         {/* Order Summary */}
-        {(order.workflow === 'Payment Requested' || order.workflow === 'Delivered') && (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 p-6">
+        {order.total_price && (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-300 p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
+              <DollarSign className="w-5 h-5 text-blue-600" />
               Order Summary
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-3 bg-white rounded-lg p-4">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Items Cost:</span>
-                <span className="font-medium text-gray-900">
+                <span className="font-semibold text-gray-900">
                   {formatCurrency(order.customer_item_cost || 0)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Delivery Cost:</span>
-                <span className="font-medium text-gray-900">
+                <span className="font-semibold text-gray-900">
                   {formatCurrency(order.customer_delivery_cost || 0)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">GST (10%):</span>
-                <span className="font-medium text-gray-900">
+                <span className="font-semibold text-gray-900">
                   {formatCurrency(order.gst_tax || 0)}
                 </span>
               </div>
-              {order.discount && (
-                <div className="flex justify-between text-sm text-green-600">
+              {order.discount && parseFloat(order.discount.toString()) > 0 && (
+                <div className="flex justify-between text-sm text-green-600 font-semibold">
                   <span>Discount:</span>
-                  <span className="font-medium">-{formatCurrency(order.discount)}</span>
+                  <span>-{formatCurrency(order.discount)}</span>
                 </div>
               )}
-              {order.other_charges && (
+              {order.other_charges && parseFloat(order.other_charges.toString()) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Other Charges:</span>
-                  <span className="font-medium text-gray-900">
+                  <span className="font-semibold text-gray-900">
                     {formatCurrency(order.other_charges)}
                   </span>
                 </div>
               )}
               <div className="border-t-2 border-blue-300 pt-3 mt-3">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-lg font-bold text-gray-900">Total Amount:</span>
-                  <span className="text-2xl font-bold text-blue-600">
+                  <span className="text-3xl font-bold text-blue-600">
                     {formatCurrency(order.total_price || 0)}
                   </span>
                 </div>

@@ -417,6 +417,15 @@ const OrderCreate = () => {
               onSubmit={handleStep2Submit}
               onBack={handleBackToStep1}
               isSubmitting={false}
+              onCreateProject={undefined}
+              
+              // ADD THESE THREE LINES:
+              onUpdateQuantity={handleUpdateQuantity}
+              onRemoveItem={handleRemoveItem}
+              onUpdateCustomBlend={(productId, blend) => {
+                const updated = cartUtils.updateCustomBlend(productId, blend);
+                setCartItems(updated);
+              }}
             />
           )}
 

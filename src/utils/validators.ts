@@ -174,14 +174,12 @@ export const orderFormSchema = z.object({
       return selectedDate >= today;
     }, 'Delivery date cannot be in the past'),
   
-  // Optional delivery time
-  delivery_time: z.string().optional(),
+  // Required delivery time
+  delivery_time: z.string().min(1, 'Delivery time is required'),
   
-  // Required delivery method (using enum)
-  delivery_method: DeliveryMethodEnum,
   
-  // Optional load size
-  load_size: z.string().max(50).optional(),
+  // Required load size
+  load_size: z.string().min(1, 'Load size is required').max(50, 'Load size is too long'),
   
   // Optional special equipment
   special_equipment: z.string().max(255).optional(),

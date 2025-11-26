@@ -32,7 +32,7 @@ const userCreateSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.enum(['admin', 'client', 'supplier']),
+  role: z.enum(['admin', 'client', 'supplier', 'accountant','support']),
   contact_name: z.string().optional(),
   contact_number: z.string().optional(),
   company_name: z.string().optional(),
@@ -199,6 +199,8 @@ const UserCreate = () => {
                     <option value="admin">Admin</option>
                     <option value="client">Client</option>
                     <option value="supplier">Supplier</option>
+                    <option value="accountant">Accountant</option>
+                    <option value="support">Support</option>
                   </select>
                   {errors.role && (
                     <p className="text-sm text-error-500 mt-1">{errors.role.message}</p>
@@ -218,6 +220,7 @@ const UserCreate = () => {
             </div>
 
             {/* Contact Details */}
+            {(watchedRole === 'client' || watchedRole === 'supplier')  && (
             <div className="space-y-5">
               <h3 className="text-lg font-semibold text-secondary-900 border-b pb-3">
                 Contact Information
@@ -252,7 +255,7 @@ const UserCreate = () => {
                 error={errors.company_name?.message}
               />
             </div>
-
+            )}
             {/* Client-Specific Fields */}
             {watchedRole === 'client' && (
               <div className="space-y-5 border-t pt-6">

@@ -21,17 +21,21 @@ import { usersAPI } from '../../api/handlers/users.api';
 import { adminMenuItems } from '../../utils/menuItems';
 
 // Role Badge Component
-const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
+const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' | 'accountant' | 'support' }) => {
   const styles = {
     admin: 'bg-error-100 text-error-700 border-error-200',
     client: 'bg-primary-100 text-primary-700 border-primary-200',
     supplier: 'bg-success-100 text-success-700 border-success-200',
+    support: 'bg-warning-100 text-warning-700 border-warning-200',
+    accountant: 'bg-purple-100 text-purple-700 border-purple-200',
   };
 
   const icons = {
     admin: '👑',
     client: '👤',
     supplier: '🏢',
+    support: '🎧',
+    accountant: '💼',
   };
 
   return (

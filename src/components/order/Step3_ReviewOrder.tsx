@@ -54,13 +54,13 @@ const Step3_ReviewOrder: React.FC<Step3Props> = ({
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  const deliveryMethods: Record<string, string> = {
-    Other: 'Other',
-    Tipper: '🚛 Tipper',
-    Agitator: '🔄 Agitator',
-    Pump: '⚙️ Pump',
-    Ute: '🚐 Ute',
-  };
+  // const deliveryMethods: Record<string, string> = {
+  //   Other: 'Other',
+  //   Tipper: '🚛 Tipper',
+  //   Agitator: '🔄 Agitator',
+  //   Pump: '⚙️ Pump',
+  //   Ute: '🚐 Ute',
+  // };
 
   return (
     <div className="space-y-6">
@@ -232,7 +232,7 @@ const Step3_ReviewOrder: React.FC<Step3Props> = ({
                 )}
               </div>
 
-              {/* Delivery Method */}
+              {/* Delivery Method
               <div className="flex items-start gap-3">
                 <Truck className="text-secondary-500 flex-shrink-0 mt-0.5" size={18} />
                 <div>
@@ -241,7 +241,7 @@ const Step3_ReviewOrder: React.FC<Step3Props> = ({
                     {deliveryMethods[orderDetails.delivery_method] || orderDetails.delivery_method}
                   </p>
                 </div>
-              </div>
+              </div> */}
 
               {/* Load Size */}
               {orderDetails.load_size && (

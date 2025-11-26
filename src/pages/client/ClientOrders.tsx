@@ -1,68 +1,71 @@
-// ============================================================================
-// FILE: src/pages/client/ClientOrders.tsx - UPDATED WITH MARK REPEAT
-// ============================================================================
+// src/pages/client/Orders/ClientOrdersList.tsx
 
-import { useState, useEffect } from 'react';
-import { RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
-import { useClientOrders, useRepeatOrder, useMarkRepeatOrder } from '../../features/clientOrders/hooks';
+import { RefreshCw, Search } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import ClientOrderMetricsCards from '../../components/client/ClientOrderMetricsCards';
 import ClientOrderFilters from '../../components/client/ClientOrderFilters';
+import ClientActiveFilterChips from '../../components/client/ClientActiveFilterChips';
 import ClientOrdersTable from '../../components/client/ClientOrdersTable';
-import RepeatOrderModal from '../../components/client/RepeatOrderModal';
+import { useClientOrders } from '../../features/clientOrders/hooks';
 import { clientMenuItems } from '../../utils/menuItems';
 
-const ClientOrders = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+const ClientOrdersList: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [projects, setProjects] = useState<any[]>([]);
-  const [repeatOrderModalOpen, setRepeatOrderModalOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [availableFilters, setAvailableFilters] = useState<any>(null);
 
   const [filters, setFilters] = useState({
     search: searchParams.get('search') || '',
     project_id: searchParams.get('project_id') || '',
-    workflow: searchParams.get('workflow') || '',
+    order_status: searchParams.get('order_status') || '',
+    payment_status: searchParams.get('payment_status') || '',
     delivery_date: searchParams.get('delivery_date') || '',
+    delivery_method: searchParams.get('delivery_method') || '',
     repeat_order: searchParams.get('repeat_order') || '',
+    sort: searchParams.get('sort') || 'created_at',
+    dir: searchParams.get('dir') || 'desc',
     page: parseInt(searchParams.get('page') || '1'),
     per_page: 10,
-    sort: 'created_at',
-    dir: 'desc',
   });
 
-  const { data, isLoading, isFetching, refetch } = useClientOrders(filters);
-  console.log(isFirstLoad, 'sadsadsa')
-  const repeatOrderMutation = useRepeatOrder();
-  const markRepeatMutation = useMarkRepeatOrder();
+  const { data, isLoading, isFetching, refetch } = useClientOrders({
+    ...filters,
+    details: isFirstLoad,
+  });
 
   useEffect(() => {
-    if (isFirstLoad && data?.projects) {
-      setProjects(data.projects);
+    if (isFirstLoad && data) {
+      if (data.projects) setProjects(data.projects);
+      if (data.order_statuses || data.payment_statuses || data.delivery_methods) {
+        setAvailableFilters({
+          order_statuses: data.order_statuses,
+          payment_statuses: data.payment_statuses,
+          delivery_methods: data.delivery_methods,
+        });
+      }
       setIsFirstLoad(false);
     }
   }, [data, isFirstLoad]);
 
   useEffect(() => {
     const params: Record<string, string> = {};
-    if (filters.search) params.search = filters.search;
-    if (filters.project_id) params.project_id = filters.project_id;
-    if (filters.workflow) params.workflow = filters.workflow;
-    if (filters.delivery_date) params.delivery_date = filters.delivery_date;
-    if (filters.repeat_order) params.repeat_order = filters.repeat_order;
-    if (filters.page > 1) params.page = filters.page.toString();
-
-    setSearchParams(params);
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== '' && key !== 'per_page') {
+        params[key] = String(value);
+      }
+    });
+    setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
-      page: 1,
+      page: key !== 'page' ? 1 : prev.page,
     }));
   };
 
@@ -70,113 +73,92 @@ const ClientOrders = () => {
     setFilters({
       search: '',
       project_id: '',
-      workflow: '',
+      order_status: '',
+      payment_status: '',
       delivery_date: '',
+      delivery_method: '',
       repeat_order: '',
-      page: 1,
-      per_page: 10,
       sort: 'created_at',
       dir: 'desc',
+      page: 1,
+      per_page: 10,
     });
   };
 
-  const handlePageChange = (newPage: number) => {
-    setFilters((prev) => ({
-      ...prev,
-      page: newPage,
-    }));
+  const handlePageChange = (page: number) => {
+    setFilters((prev) => ({ ...prev, page }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleRefresh = () => {
-    refetch();
-    toast.success('Orders refreshed');
-  };
-
-  const handleRepeatOrder = (order: any) => {
-    setSelectedOrder(order);
-    setRepeatOrderModalOpen(true);
-  };
-
-  const handleMarkRepeat = async (orderId: number) => {
-    try {
-      await markRepeatMutation.mutateAsync(orderId);
-      toast.success('Order marked as repeat order!');
-      refetch();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to mark order as repeat');
-    }
-  };
-
-  const handleRepeatOrderSubmit = async (items: any[]) => {
-    if (!selectedOrder) return;
-
-    try {
-      await repeatOrderMutation.mutateAsync({
-        orderId: selectedOrder.id,
-        payload: { items },
-      });
-      toast.success('Order repeated successfully!');
-      setRepeatOrderModalOpen(false);
-      setSelectedOrder(null);
-      refetch();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to repeat order');
-    }
+  const handleViewOrder = (orderId: number) => {
+    navigate(`/client/orders/${orderId}`);
   };
 
   return (
     <DashboardLayout menuItems={clientMenuItems}>
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-            <p className="text-gray-600 mt-1">View and manage your orders</p>
+            <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              My Orders
+            </h1>
+            <p className="text-gray-600 mt-1">Track and manage your orders</p>
           </div>
           <button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 font-medium shadow-sm hover:shadow-md"
           >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw size={18} className={isFetching ? 'animate-spin' : ''} />
             Refresh
           </button>
         </div>
 
-        <ClientOrderMetricsCards 
-          metrics={data?.metrics || null} 
-          loading={isLoading} 
-        />
+        {/* Metrics Cards */}
+        <ClientOrderMetricsCards metrics={data?.metrics || null} loading={isLoading} />
 
+        {/* Search Bar */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+              placeholder="Search by PO number..."
+              className="w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+            />
+          </div>
+        </div>
+
+        {/* Filters */}
         <ClientOrderFilters
           filters={filters}
           onFilterChange={handleFilterChange}
           onClearFilters={handleClearFilters}
           projects={projects}
+          availableFilters={availableFilters}
         />
 
+        {/* Active Filter Chips */}
+        <ClientActiveFilterChips
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          projects={projects}
+        />
+
+        {/* Orders Table */}
         <ClientOrdersTable
           orders={data?.data || []}
-          loading={isLoading}
+          loading={isLoading || isFetching}
           pagination={data?.pagination || null}
           onPageChange={handlePageChange}
-          onRepeatOrder={handleRepeatOrder}
-          onMarkRepeat={handleMarkRepeat}
-          navigate={navigate}
-        />
-
-        <RepeatOrderModal
-          isOpen={repeatOrderModalOpen}
-          onClose={() => {
-            setRepeatOrderModalOpen(false);
-            setSelectedOrder(null);
-          }}
-          order={selectedOrder}
-          onSubmit={handleRepeatOrderSubmit}
-          isSubmitting={repeatOrderMutation.isPending}
+          onViewOrder={handleViewOrder}
         />
       </div>
     </DashboardLayout>
   );
 };
 
-export default ClientOrders;
+export default ClientOrdersList;

@@ -6,7 +6,7 @@ interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'client' | 'supplier';
+  role: 'admin' | 'client' | 'supplier' | 'support' | 'accountant';
   profile_image?: string;
   company_id?: number;
   contact_name?: string;
@@ -108,9 +108,10 @@ export const useAuthStore = create<AuthState>()(
       },
       
       // Role checks
-      isAdmin: () => get().user?.role === 'admin',
+      isAdmin: () => get().user?.role === 'admin' || get().user?.role === 'support' || get().user?.role === 'accountant',
       isClient: () => get().user?.role === 'client',
       isSupplier: () => get().user?.role === 'supplier',
+
     }),
     {
       name: 'auth-storage',

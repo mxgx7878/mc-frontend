@@ -1,4 +1,4 @@
-// SRC BUNDLE 2025-11-13T09:18:06.102Z
+// SRC BUNDLE 2025-11-25T07:10:05.327Z
 
 /* FILE: src/api/axios.config.ts */
 // src/api/axios.config.ts
@@ -7397,56 +7397,180 @@ const SupplierZoneCard: React.FC<SupplierZoneCardProps> = ({ supplier, color }) 
 };
 
 export default SupplierZoneCard;
-/* FILE: src/components/client/ClientOrderFilters.tsx */
-// ============================================================================
-// FILE: src/components/client/ClientOrderFilters.tsx - UPDATED WITH REPEAT FILTER
-// ============================================================================
+/* FILE: src/components/client/ClientActiveFilterChips.tsx */
+// src/components/client/ClientActiveFilterChips.tsx
 
-import { Search, X, Calendar } from 'lucide-react';
+import React from 'react';
+import { X } from 'lucide-react';
+import type { ProjectFilter } from '../../types/clientOrder.types';
 
-const ClientOrderFilters = ({ filters, onFilterChange, onClearFilters, projects }: any) => {
-  const hasActiveFilters = 
-    filters.search || 
-    filters.project_id || 
-    filters.order_status || 
-    filters.delivery_date ||
-    filters.repeat_order;
+interface ClientActiveFilterChipsProps {
+  filters: {
+    project_id: string;
+    order_status: string;
+    payment_status: string;
+    delivery_date: string;
+    delivery_method: string;
+    repeat_order: string;
+  };
+  onFilterChange: (key: string, value: string) => void;
+  projects: ProjectFilter[];
+}
+
+const ClientActiveFilterChips: React.FC<ClientActiveFilterChipsProps> = ({
+  filters,
+  onFilterChange,
+  projects,
+}) => {
+  const activeFilters: Array<{ key: string; label: string; value: string }> = [];
+
+  if (filters.project_id) {
+    const project = projects.find((p) => p.id.toString() === filters.project_id);
+    if (project) {
+      activeFilters.push({
+        key: 'project_id',
+        label: 'Project',
+        value: project.name,
+      });
+    }
+  }
+
+  if (filters.order_status) {
+    activeFilters.push({
+      key: 'order_status',
+      label: 'Status',
+      value: filters.order_status,
+    });
+  }
+
+  if (filters.payment_status) {
+    activeFilters.push({
+      key: 'payment_status',
+      label: 'Payment',
+      value: filters.payment_status,
+    });
+  }
+
+  if (filters.delivery_date) {
+    activeFilters.push({
+      key: 'delivery_date',
+      label: 'Delivery Date',
+      value: new Date(filters.delivery_date).toLocaleDateString(),
+    });
+  }
+
+  if (filters.delivery_method) {
+    activeFilters.push({
+      key: 'delivery_method',
+      label: 'Method',
+      value: filters.delivery_method,
+    });
+  }
+
+  if (filters.repeat_order) {
+    activeFilters.push({
+      key: 'repeat_order',
+      label: 'Type',
+      value: filters.repeat_order === 'true' ? 'Repeat Orders' : 'New Orders',
+    });
+  }
+
+  if (activeFilters.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+    <div className="flex flex-wrap gap-2">
+      {activeFilters.map((filter) => (
+        <div
+          key={filter.key}
+          className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+        >
+          <span className="font-semibold">{filter.label}:</span>
+          <span>{filter.value}</span>
+          <button
+            onClick={() => onFilterChange(filter.key, '')}
+            className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default ClientActiveFilterChips;
+/* FILE: src/components/client/ClientOrderFilters.tsx */
+// src/components/client/ClientOrderFilters.tsx
+
+import React from 'react';
+import { X } from 'lucide-react';
+import type { ProjectFilter } from '../../types/clientOrder.types';
+
+interface ClientOrderFiltersProps {
+  filters: {
+    search: string;
+    project_id: string;
+    order_status: string;
+    payment_status: string;
+    delivery_date: string;
+    delivery_method: string;
+    repeat_order: string;
+    sort: string;
+    dir: string;
+  };
+  onFilterChange: (key: string, value: string) => void;
+  onClearFilters: () => void;
+  projects: ProjectFilter[];
+  availableFilters?: {
+    order_statuses?: string[];
+    payment_statuses?: string[];
+    delivery_methods?: string[];
+  };
+}
+
+const ClientOrderFilters: React.FC<ClientOrderFiltersProps> = ({
+  filters,
+  onFilterChange,
+  onClearFilters,
+  projects,
+  availableFilters,
+}) => {
+  const hasActiveFilters = Object.entries(filters).some(
+    ([key, value]) =>
+      value !== '' &&
+      key !== 'sort' &&
+      key !== 'dir' &&
+      key !== 'per_page' &&
+      key !== 'page' &&
+      key !== 'search'
+  );
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold text-gray-900">Filters</h3>
         {hasActiveFilters && (
           <button
             onClick={onClearFilters}
-            className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700 font-medium"
+            className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1 font-medium"
           >
-            <X className="w-4 h-4" />
-            Clear Filters
+            <X size={16} />
+            Clear All
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search by PO Number..."
-            value={filters.search || ''}
-            onChange={(e) => onFilterChange('search', e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Project Filter */}
         <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
           <select
-            value={filters.project_id || ''}
+            value={filters.project_id}
             onChange={(e) => onFilterChange('project_id', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">All Projects</option>
-            {projects.map((project: any) => (
+            {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.name}
               </option>
@@ -7454,43 +7578,108 @@ const ClientOrderFilters = ({ filters, onFilterChange, onClearFilters, projects 
           </select>
         </div>
 
+        {/* Order Status Filter */}
         <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Order Status</label>
           <select
-            value={filters.order_status || ''}
+            value={filters.order_status}
             onChange={(e) => onFilterChange('order_status', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">All Statuses</option>
-            <option value="Draft">Draft</option>
-            <option value="Confirmed">Confirmed</option>
-            <option value="Scheduled">Scheduled</option>
-            <option value="In Transit">In Transit</option>
-            <option value="Delivered">Delivered</option>
-            <option value="Completed">Completed</option>
-            <option value="Cancelled">Cancelled</option>
+            {(availableFilters?.order_statuses || ['Draft', 'Confirmed', 'Scheduled', 'In Transit', 'Delivered', 'Completed', 'Cancelled']).map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
           </select>
         </div>
 
+        {/* Payment Status Filter */}
         <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
           <select
-            value={filters.repeat_order || ''}
-            onChange={(e) => onFilterChange('repeat_order', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            value={filters.payment_status}
+            onChange={(e) => onFilterChange('payment_status', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
-            <option value="">All Orders</option>
-            <option value="true">Repeat Orders</option>
-            <option value="false">Non-Repeat Orders</option>
+            <option value="">All Payment Statuses</option>
+            {(availableFilters?.payment_statuses || ['Unpaid', 'Partially Paid', 'Paid']).map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
           </select>
         </div>
 
-        <div className="relative">
-          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+        {/* Delivery Method Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Method</label>
+          <select
+            value={filters.delivery_method}
+            onChange={(e) => onFilterChange('delivery_method', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Methods</option>
+            {(availableFilters?.delivery_methods || ['Tipper', 'Agitator', 'Pump', 'Ute', 'Other']).map((method) => (
+              <option key={method} value={method}>
+                {method}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Delivery Date Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Date</label>
           <input
             type="date"
-            value={filters.delivery_date || ''}
+            value={filters.delivery_date}
             onChange={(e) => onFilterChange('delivery_date', e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
+        </div>
+
+        {/* Repeat Order Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Repeat Orders</label>
+          <select
+            value={filters.repeat_order}
+            onChange={(e) => onFilterChange('repeat_order', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Orders</option>
+            <option value="true">Repeat Orders Only</option>
+            <option value="false">New Orders Only</option>
+          </select>
+        </div>
+
+        {/* Sort By */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+          <select
+            value={filters.sort}
+            onChange={(e) => onFilterChange('sort', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="created_at">Created Date</option>
+            <option value="delivery_date">Delivery Date</option>
+            <option value="po_number">PO Number</option>
+            <option value="total_price">Total Amount</option>
+          </select>
+        </div>
+
+        {/* Sort Direction */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Direction</label>
+          <select
+            value={filters.dir}
+            onChange={(e) => onFilterChange('dir', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="desc">Newest First</option>
+            <option value="asc">Oldest First</option>
+          </select>
         </div>
       </div>
     </div>
@@ -7499,83 +7688,91 @@ const ClientOrderFilters = ({ filters, onFilterChange, onClearFilters, projects 
 
 export default ClientOrderFilters;
 /* FILE: src/components/client/ClientOrderMetricsCards.tsx */
-// ============================================================================
-// FILE: src/components/client/ClientOrderMetricsCards.tsx - FIXED WITH COLORS
-// ============================================================================
+// src/components/client/ClientOrderMetricsCards.tsx
 
-import { ShoppingCart, AlertTriangle, CheckCircle, Clock, TruckIcon } from 'lucide-react';
+import React from 'react';
+import { ShoppingCart, FileText, Truck, CheckCircle } from 'lucide-react';
+import type { ClientOrderMetrics } from '../../types/clientOrder.types';
 
-const ClientOrderMetricsCards = ({ metrics, loading }: any) => {
-  const metricsConfig = [
+interface MetricsCardsProps {
+  metrics: ClientOrderMetrics | null;
+  loading: boolean;
+}
+
+const ClientOrderMetricsCards: React.FC<MetricsCardsProps> = ({ metrics, loading }) => {
+  const cards = [
     {
       label: 'Total Orders',
       value: metrics?.total_orders_count || 0,
       icon: ShoppingCart,
-      color: 'bg-gradient-to-br from-blue-500 to-blue-600',
-      textColor: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
+      gradient: 'from-blue-500 to-blue-600',
+      lightBg: 'bg-blue-50',
+      iconColor: 'text-blue-600',
+      shadowColor: 'hover:shadow-blue-200',
     },
     {
-      label: 'Supplier Missing',
-      value: metrics?.supplier_missing_count || 0,
-      icon: AlertTriangle,
-      color: 'bg-gradient-to-br from-red-500 to-red-600',
-      textColor: 'text-red-600',
-      bgColor: 'bg-red-50',
-      borderColor: 'border-red-200',
+      label: 'Draft',
+      value: metrics?.draft_count || 0,
+      icon: FileText,
+      gradient: 'from-gray-500 to-gray-600',
+      lightBg: 'bg-gray-50',
+      iconColor: 'text-gray-600',
+      shadowColor: 'hover:shadow-gray-200',
     },
     {
-      label: 'Supplier Assigned',
-      value: metrics?.supplier_assigned_count || 0,
-      icon: TruckIcon,
-      color: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
-      textColor: 'text-indigo-600',
-      bgColor: 'bg-indigo-50',
-      borderColor: 'border-indigo-200',
+      label: 'Active',
+      value: (metrics?.confirmed_count || 0) + (metrics?.scheduled_count || 0) + (metrics?.in_transit_count || 0),
+      icon: Truck,
+      gradient: 'from-indigo-500 to-purple-600',
+      lightBg: 'bg-indigo-50',
+      iconColor: 'text-indigo-600',
+      shadowColor: 'hover:shadow-indigo-200',
     },
     {
-      label: 'Awaiting Payment',
-      value: metrics?.awaiting_payment_count || 0,
-      icon: Clock,
-      color: 'bg-gradient-to-br from-yellow-500 to-yellow-600',
-      textColor: 'text-yellow-600',
-      bgColor: 'bg-yellow-50',
-      borderColor: 'border-yellow-200',
-    },
-    {
-      label: 'Delivered',
-      value: metrics?.delivered_count || 0,
+      label: 'Completed',
+      value: (metrics?.delivered_count || 0) + (metrics?.completed_count || 0),
       icon: CheckCircle,
-      color: 'bg-gradient-to-br from-green-500 to-green-600',
-      textColor: 'text-green-600',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-200',
+      gradient: 'from-green-500 to-emerald-600',
+      lightBg: 'bg-green-50',
+      iconColor: 'text-green-600',
+      shadowColor: 'hover:shadow-green-200',
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="h-4 bg-gray-200 rounded w-24 mb-3"></div>
+                <div className="h-8 bg-gray-200 rounded w-16"></div>
+              </div>
+              <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-      {metricsConfig.map((metric) => {
-        const Icon = metric.icon;
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {cards.map((card, index) => {
+        const Icon = card.icon;
         return (
-          <div 
-            key={metric.label} 
-            className={`${metric.bgColor} rounded-xl border-2 ${metric.borderColor} p-6 transition-all hover:shadow-lg hover:scale-105`}
+          <div
+            key={index}
+            className={`bg-gradient-to-br ${card.gradient} rounded-xl shadow-lg ${card.shadowColor} transition-all duration-300 p-6 text-white group hover:scale-105`}
           >
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">{metric.label}</p>
-                {loading ? (
-                  <div className="h-8 w-16 bg-gray-200 animate-pulse rounded"></div>
-                ) : (
-                  <p className={`text-3xl font-bold ${metric.textColor}`}>
-                    {metric.value}
-                  </p>
-                )}
+              <div className="flex-1">
+                <p className="text-white/90 text-sm font-medium mb-1">{card.label}</p>
+                <p className="text-4xl font-bold">{card.value}</p>
               </div>
-              <div className={`${metric.color} p-3 rounded-xl shadow-lg`}>
-                <Icon className="w-6 h-6 text-white" />
+              <div className="bg-white/20 rounded-full p-3 group-hover:bg-white/30 transition-colors">
+                <Icon size={28} />
               </div>
             </div>
           </div>
@@ -7587,48 +7784,40 @@ const ClientOrderMetricsCards = ({ metrics, loading }: any) => {
 
 export default ClientOrderMetricsCards;
 /* FILE: src/components/client/ClientOrdersTable.tsx */
-// ============================================================================
-// FILE: src/components/client/ClientOrdersTable.tsx - UPDATED WITH MARK/REPEAT LOGIC
-// ============================================================================
+// src/components/client/ClientOrdersTable.tsx
 
-import { Eye, Info, RotateCcw, Bookmark } from 'lucide-react';
-import { format } from 'date-fns';
+import React from 'react';
+import { Eye, Package, Calendar, RefreshCw } from 'lucide-react';
+import type {ClientOrderListItem } from '../../types/clientOrder.types';
+import { getOrderStatusBadgeClass, getPaymentStatusBadgeClass, formatCurrency, formatDate } from '../../features/clientOrders/utils';
 
-const ClientOrdersTable = ({ orders, loading, pagination, onPageChange, onRepeatOrder, onMarkRepeat, navigate }: any) => {
+interface ClientOrdersTableProps {
+  orders: ClientOrderListItem[];
+  loading: boolean;
+  pagination: {
+    per_page: number;
+    current_page: number;
+    total_pages: number;
+    total_items: number;
+  } | null;
+  onPageChange: (page: number) => void;
+  onViewOrder: (orderId: number) => void;
+}
 
-  const handleViewOrder = (orderId: number) => {
-    navigate(`/client/orders/${orderId}`);
-  };
-
-  const getStatusColor = (order_status: string) => {
-    const statusColors: Record<string, string> = {
-      'Draft': 'bg-red-100 text-red-800',
-      'Confirmed': 'bg-orange-100 text-orange-800',
-      'Scheduled': 'bg-indigo-100 text-indigo-800',
-      'In Transit': 'bg-blue-100 text-blue-800',
-      'Delivered': 'bg-green-100 text-green-800',
-      'Completed': 'bg-emerald-100 text-emerald-800',
-      'Cancelled': 'bg-gray-200 text-gray-800'
-    };
-    return statusColors[order_status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '-';
-    try {
-      return format(new Date(dateString), 'MMM dd, yyyy');
-    } catch {
-      return '-';
-    }
-  };
+const ClientOrdersTable: React.FC<ClientOrdersTableProps> = ({
+  orders,
+  loading,
+  pagination,
+  onPageChange,
+  onViewOrder,
+}) => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="animate-pulse space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-gray-200 rounded"></div>
-          ))}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="p-8 text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading orders...</p>
         </div>
       </div>
     );
@@ -7636,116 +7825,102 @@ const ClientOrdersTable = ({ orders, loading, pagination, onPageChange, onRepeat
 
   if (!orders || orders.length === 0) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-            <Eye className="w-8 h-8 text-gray-400" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No orders found</h3>
-            <p className="text-gray-600">
-              You haven't placed any orders yet. Start by creating a new order from your project.
-            </p>
-          </div>
-        </div>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
+        <Package size={64} className="mx-auto text-gray-300 mb-4" />
+        <h3 className="text-xl font-bold text-gray-900 mb-2">No Orders Found</h3>
+        <p className="text-gray-600">Try adjusting your filters or create a new order.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                PO Number
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Project
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Delivery Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">PO Number</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Project</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Delivery</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Status</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Payment</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Items</th>
+              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Total</th>
+              <th className="px-6 py-4 text-center text-sm font-bold text-gray-900">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {orders.map((order: any) => (
+            {orders.map((order) => (
               <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{order.po_number}</span>
+                <td className="px-6 py-4">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-gray-900">{order.po_number}</span>
+                    <span className="text-xs text-gray-500">ID: {order.id}</span>
                     {order.repeat_order && (
-                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
+                      <span className="inline-flex items-center gap-1 text-xs text-blue-600 font-medium mt-1">
+                        <RefreshCw size={12} />
                         Repeat
                       </span>
                     )}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm text-gray-900">{order.project.name}</span>
+                <td className="px-6 py-4">
+                  <span className="font-medium text-gray-900">{order.project?.name || 'N/A'}</span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm text-gray-600">{formatDate(order.delivery_date)}</span>
+                <td className="px-6 py-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar size={14} className="text-gray-400" />
+                      <span className="font-medium text-gray-900">{formatDate(order.delivery_date)}</span>
+                    </div>
+                    {order.delivery_time && (
+                      <span className="text-xs text-gray-600">{order.delivery_time}</span>
+                    )}
+                    {/* <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <span>{getDeliveryMethodIcon(order.delivery_method)}</span>
+                      <span>{order.delivery_method}</span>
+                    </div> */}
+                  </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.order_status)}`}>
+                <td className="px-6 py-4">
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getOrderStatusBadgeClass(order.order_status)}`}>
                     {order.order_status}
                   </span>
+                  {order.order_info && (
+                    <div className="text-xs text-gray-600 mt-1">{order.order_info}</div>
+                  )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm font-semibold text-gray-900">
-                    ${parseFloat(order.total_price).toFixed(2)}
+                <td className="px-6 py-4">
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getPaymentStatusBadgeClass(order.payment_status)}`}>
+                    {order.payment_status}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    {order.order_info && (
-                      <div className="relative group">
-                        <Info className="w-5 h-5 text-blue-600 cursor-help" />
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                          <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap">
-                            {order.order_info}
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1">
-                              <div className="border-4 border-transparent border-t-gray-900"></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                    <Package size={16} className="text-gray-400" />
+                    <span className="font-semibold text-gray-900">{order.items_count}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-gray-900 text-lg">{formatCurrency(order.total_price ?? 0)}</span>
+                    {(order.gst_tax ?? 0) > 0 && (
+                      <span className="text-xs text-gray-500">GST: {formatCurrency((order.gst_tax ?? 0))}</span>
                     )}
+                    {order.discount > 0 && (
+                      <span className="text-xs text-green-600">Discount: -{formatCurrency(order.discount)}</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex justify-center">
                     <button
-                      onClick={() => handleViewOrder(order.id)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="View Order"
+                      onClick={() => onViewOrder(order.id)}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
                     >
-                      <Eye className="w-5 h-5" />
+                      <Eye size={16} />
+                      View
                     </button>
-                    {order.repeat_order ? (
-                      <button
-                        onClick={() => onRepeatOrder(order)}
-                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                        title="Repeat Order"
-                      >
-                        <RotateCcw className="w-5 h-5" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => onMarkRepeat(order.id)}
-                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                        title="Mark as Repeat Order"
-                      >
-                        <Bookmark className="w-5 h-5" />
-                      </button>
-                    )}
                   </div>
                 </td>
               </tr>
@@ -7754,56 +7929,29 @@ const ClientOrdersTable = ({ orders, loading, pagination, onPageChange, onRepeat
         </table>
       </div>
 
+      {/* Pagination */}
       {pagination && pagination.total_pages > 1 && (
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            Showing {((pagination.current_page - 1) * pagination.per_page) + 1} to{' '}
-            {Math.min(pagination.current_page * pagination.per_page, pagination.total_items)} of{' '}
-            {pagination.total_items} orders
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => onPageChange(pagination.current_page - 1)}
-              disabled={pagination.current_page === 1}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <div className="flex items-center gap-1">
-              {[...Array(pagination.total_pages)].map((_, i) => {
-                const page = i + 1;
-                if (
-                  page === 1 ||
-                  page === pagination.total_pages ||
-                  (page >= pagination.current_page - 1 && page <= pagination.current_page + 1)
-                ) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => onPageChange(page)}
-                      className={`px-4 py-2 rounded-lg ${
-                        page === pagination.current_page
-                          ? 'bg-blue-600 text-white'
-                          : 'border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                }
-                if (page === pagination.current_page - 2 || page === pagination.current_page + 2) {
-                  return <span key={page} className="px-2">...</span>;
-                }
-                return null;
-              })}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Showing page {pagination.current_page} of {pagination.total_pages} ({pagination.total_items} total orders)
             </div>
-            <button
-              onClick={() => onPageChange(pagination.current_page + 1)}
-              disabled={!pagination.has_more_pages}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onPageChange(pagination.current_page - 1)}
+                disabled={pagination.current_page === 1}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => onPageChange(pagination.current_page + 1)}
+                disabled={pagination.current_page === pagination.total_pages}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -10210,7 +10358,6 @@ import {
   MapPin,
   Calendar,
   Clock,
-  Truck,
   FileText,
   Building2,
   Plus,
@@ -10221,6 +10368,8 @@ import {
   AlertCircle,
   Edit2,
   RotateCcw,
+  Minus,
+  Trash2,
 } from 'lucide-react';
 import Autocomplete from 'react-google-autocomplete';
 import { orderFormSchema } from '../../utils/validators';
@@ -10236,6 +10385,9 @@ interface Step2Props {
   onBack: () => void;
   isSubmitting: boolean;
   onCreateProject?: () => void;
+  onUpdateQuantity: (productId: number, quantity: number) => void;
+  onRemoveItem: (productId: number) => void;
+  onUpdateCustomBlend?: (productId: number, blend: string) => void;
 }
 
 const Step2_ProjectDelivery: React.FC<Step2Props> = ({
@@ -10245,12 +10397,15 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   onBack,
   isSubmitting,
   onCreateProject,
+  onUpdateQuantity,
+  onRemoveItem,
+  onUpdateCustomBlend,
 }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [projectSearchTerm, setProjectSearchTerm] = useState('');
   const [isEditingAddress, setIsEditingAddress] = useState(false);
-  const [addressKey, setAddressKey] = useState(0); // For forcing Autocomplete re-render
+  const [addressKey, setAddressKey] = useState(0);
 
   const {
     register,
@@ -10263,10 +10418,9 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   });
 
   const watchDeliveryAddress = watch('delivery_address');
-  const watchDeliveryLat = watch('delivery_lat');
-  const watchDeliveryLong = watch('delivery_long');
+  // const watchDeliveryLat = watch('delivery_lat');
+  // const watchDeliveryLong = watch('delivery_long');
 
-  // Auto-select if only one project
   useEffect(() => {
     if (projects.length === 1 && !selectedProject) {
       handleProjectSelect(projects[0]);
@@ -10277,13 +10431,12 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
     setSelectedProject(project);
     setValue('project_id', project.id, { shouldValidate: true });
     
-    // Auto-fill delivery address from project
     if (project.delivery_address && project.delivery_lat && project.delivery_long) {
       setValue('delivery_address', project.delivery_address, { shouldValidate: true });
-      setValue('delivery_lat', project.delivery_lat, { shouldValidate: true });
-      setValue('delivery_long', project.delivery_long, { shouldValidate: true });
+      setValue('delivery_lat', Number(project.delivery_lat), { shouldValidate: true });
+      setValue('delivery_long', Number(project.delivery_long), { shouldValidate: true });
       setIsEditingAddress(false);
-      setAddressKey(prev => prev + 1); // Force Autocomplete to update
+      setAddressKey(prev => prev + 1);
     }
     
     setShowProjectDropdown(false);
@@ -10295,8 +10448,8 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
       setValue('delivery_address', place.formatted_address, { shouldValidate: true });
     }
     if (place.geometry?.location) {
-      const lat = place.geometry.location.lat();
-      const lng = place.geometry.location.lng();
+      const lat = Number(place.geometry.location.lat());
+      const lng = Number(place.geometry.location.lng());
       setValue('delivery_lat', lat, { shouldValidate: true });
       setValue('delivery_long', lng, { shouldValidate: true });
     }
@@ -10305,10 +10458,10 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   const handleResetToProjectAddress = () => {
     if (selectedProject?.delivery_address && selectedProject?.delivery_lat && selectedProject?.delivery_long) {
       setValue('delivery_address', selectedProject.delivery_address, { shouldValidate: true });
-      setValue('delivery_lat', selectedProject.delivery_lat, { shouldValidate: true });
-      setValue('delivery_long', selectedProject.delivery_long, { shouldValidate: true });
+      setValue('delivery_lat', Number(selectedProject.delivery_lat), { shouldValidate: true });
+      setValue('delivery_long', Number(selectedProject.delivery_long), { shouldValidate: true });
       setIsEditingAddress(false);
-      setAddressKey(prev => prev + 1); // Force Autocomplete to update
+      setAddressKey(prev => prev + 1);
     }
   };
 
@@ -10316,13 +10469,29 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
     project.name.toLowerCase().includes(projectSearchTerm.toLowerCase())
   );
 
-  // Get delivery methods from schema
-  const deliveryMethods = ['Other', 'Tipper', 'Agitator', 'Pump', 'Ute'];
+  const handleQuantityChange = (productId: number, value: string) => {
+    const quantity = parseInt(value);
+    if (!isNaN(quantity) && quantity > 0) {
+      onUpdateQuantity(productId, quantity);
+    }
+  };
+
+  const handleIncrement = (productId: number, currentQuantity: number) => {
+    onUpdateQuantity(productId, currentQuantity + 1);
+  };
+
+  const handleDecrement = (productId: number, currentQuantity: number) => {
+    if (currentQuantity > 1) {
+      onUpdateQuantity(productId, currentQuantity - 1);
+    }
+  };
+
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* LEFT: Order Summary (Sticky on desktop) */}
+        {/* LEFT: Order Summary with EDITABLE QUANTITIES */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-5 lg:sticky lg:top-6">
             <h3 className="font-bold text-secondary-900 mb-4 flex items-center gap-2">
@@ -10330,39 +10499,119 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
               Order Summary
             </h3>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {cartItems.map((item) => (
                 <div
                   key={item.product_id}
-                  className="flex items-start gap-3 pb-3 border-b border-secondary-100 last:border-0"
+                  className="pb-4 border-b border-secondary-100 last:border-0"
                 >
-                  <div className="w-12 h-12 rounded-lg bg-secondary-100 flex-shrink-0 overflow-hidden">
-                    <img
-                      src={
-                        item.product_photo.startsWith('http')
-                          ? item.product_photo
-                          : `${import.meta.env.VITE_IMAGE_BASE_URL}${item.product_photo}`
-                      }
-                      alt={item.product_name}
-                      className="w-full h-full object-cover"
+                  {/* Product Info */}
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="w-14 h-14 rounded-lg bg-secondary-100 flex-shrink-0 overflow-hidden">
+                      <img
+                        src={
+                          item.product_photo.startsWith('http')
+                            ? item.product_photo
+                            : `${import.meta.env.VITE_IMAGE_BASE_URL}storage/${item.product_photo}`
+                        }
+                        alt={item.product_name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-secondary-900 text-sm">
+                        {item.product_name}
+                      </p>
+                      <p className="text-xs text-secondary-600 mt-1">
+                        {item.product_type}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Remove ${item.product_name}?`)) {
+                          onRemoveItem(item.product_id);
+                        }
+                      }}
+                      className="text-red-500 hover:text-red-700 p-1"
+                      title="Remove item"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+
+                  {/* Quantity Controls */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDecrement(item.product_id, item.quantity)}
+                      disabled={item.quantity <= 1}
+                      className={`w-8 h-8 rounded-lg border flex items-center justify-center ${
+                        item.quantity <= 1
+                          ? 'border-secondary-200 text-secondary-400 cursor-not-allowed'
+                          : 'border-secondary-300 hover:border-primary-500 hover:bg-primary-50 text-secondary-700'
+                      }`}
+                    >
+                      <Minus size={14} />
+                    </button>
+                    
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => handleQuantityChange(item.product_id, e.target.value)}
+                      min="1"
+                      className="w-16 px-2 py-1.5 border border-secondary-300 rounded-lg text-center text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
+                    
+                    <button
+                      type="button"
+                      onClick={() => handleIncrement(item.product_id, item.quantity)}
+                      className="w-8 h-8 rounded-lg border border-secondary-300 hover:border-primary-500 hover:bg-primary-50 text-secondary-700 flex items-center justify-center"
+                    >
+                      <Plus size={14} />
+                    </button>
+                    
+                    <span className="text-xs text-secondary-600 ml-1">
+                      {item.unit_of_measure}
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-secondary-900 text-sm truncate">
-                      {item.product_name}
-                    </p>
-                    <p className="text-xs text-secondary-600 mt-1">
-                      Qty: {item.quantity} {item.unit_of_measure}
-                    </p>
-                  </div>
+
+                  {/* Custom Blend Input */}
+                  {onUpdateCustomBlend && (
+                    <div className="mt-3">
+                      <input
+                        type="text"
+                        value={item.custom_blend_mix || ''}
+                        onChange={(e) => onUpdateCustomBlend(item.product_id, e.target.value)}
+                        placeholder="Custom blend (optional)"
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
 
+            <div className="mt-4 pt-4 border-t border-secondary-200 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-secondary-600">Total Items:</span>
+                <span className="font-bold text-secondary-900">{cartItems.length}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-secondary-600">Total Quantity:</span>
+                <span className="font-bold text-secondary-900">{totalItems} units</span>
+              </div>
+            </div>
+
             <div className="mt-4 pt-4 border-t border-secondary-200">
-              <p className="text-sm text-secondary-600">
-                Total Items: <span className="font-bold text-secondary-900">{cartItems.length}</span>
-              </p>
+              <Button
+                type="button"
+                onClick={onBack}
+                variant="outline"
+                className="w-full"
+              >
+                ← Add More Products
+              </Button>
             </div>
           </div>
         </div>
@@ -10371,6 +10620,23 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
         <div className="lg:col-span-2 space-y-6">
           {/* Section 1: Project Selection */}
           <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+            {/* Validation Errors Summary */}
+            {Object.keys(errors).length > 0 && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <p className="text-sm font-semibold text-red-900">Please fix the following errors:</p>
+                    <ul className="mt-2 text-sm text-red-800 list-disc list-inside space-y-1">
+                      {Object.entries(errors).map(([key, error]) => (
+                        <li key={key}>{error.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="flex items-center gap-2 mb-4">
               <Building2 className="text-primary-600" size={22} />
               <h3 className="font-bold text-secondary-900">Select Project</h3>
@@ -10450,35 +10716,26 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                   )}
                 </div>
               )}
-
+              
               {errors.project_id && (
-                <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                  <AlertCircle size={14} />
-                  {errors.project_id.message}
-                </p>
+                <p className="mt-2 text-sm text-red-600">{errors.project_id.message}</p>
               )}
             </div>
 
-            {/* Selected Project Info */}
             {selectedProject && (
-              <div className="mt-4 bg-primary-50 border border-primary-200 rounded-lg p-4">
-                <p className="font-semibold text-primary-900 mb-2">✓ Project Selected</p>
+              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="font-medium text-blue-900 mb-2">{selectedProject.name}</p>
                 {selectedProject.site_contact_name && (
-                  <p className="text-sm text-primary-700 flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm text-blue-800 mt-1">
                     <User size={14} />
-                    {selectedProject.site_contact_name}
-                  </p>
+                    <span>{selectedProject.site_contact_name}</span>
+                  </div>
                 )}
                 {selectedProject.site_contact_phone && (
-                  <p className="text-sm text-primary-700 flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 text-sm text-blue-800 mt-1">
                     <Phone size={14} />
-                    {selectedProject.site_contact_phone}
-                  </p>
-                )}
-                {selectedProject.site_instructions && (
-                  <p className="text-sm text-primary-700 mt-2">
-                    <span className="font-medium">Instructions:</span> {selectedProject.site_instructions}
-                  </p>
+                    <span>{selectedProject.site_contact_phone}</span>
+                  </div>
                 )}
               </div>
             )}
@@ -10488,62 +10745,48 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
           <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
             <div className="flex items-center gap-2 mb-4">
               <MapPin className="text-primary-600" size={22} />
-              <h3 className="font-bold text-secondary-900">Delivery Information</h3>
+              <h3 className="font-bold text-secondary-900">Delivery Details</h3>
             </div>
 
             <div className="space-y-4">
-              {/* PO Number (Optional) */}
+              {/* PO Number */}
               <Input
                 label="PO Number (Optional)"
-                placeholder="e.g., PO-2025-001"
+                placeholder="Enter PO number if you have one"
                 {...register('po_number')}
                 error={errors.po_number?.message}
               />
 
-              {/* Delivery Address with Google Autocomplete */}
+              {/* Delivery Address */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-secondary-700">
-                    Delivery Address
-                  </label>
-                  {selectedProject?.delivery_address && !isEditingAddress && (
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Delivery Address *
+                </label>
+                {!isEditingAddress && watchDeliveryAddress ? (
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 px-4 py-3 bg-secondary-50 border border-secondary-200 rounded-lg">
+                      <p className="text-sm text-secondary-900">{watchDeliveryAddress}</p>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsEditingAddress(true);
-                        setAddressKey(prev => prev + 1);
-                      }}
-                      className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+                      onClick={() => setIsEditingAddress(true)}
+                      className="p-3 border border-secondary-300 rounded-lg hover:bg-secondary-50"
+                      title="Edit address"
                     >
-                      <Edit2 size={12} />
-                      Change Address
+                      <Edit2 size={18} />
                     </button>
-                  )}
-                  {selectedProject?.delivery_address && isEditingAddress && (
-                    <button
-                      type="button"
-                      onClick={handleResetToProjectAddress}
-                      className="flex items-center gap-1 text-xs text-secondary-600 hover:text-secondary-700"
-                    >
-                      <RotateCcw size={12} />
-                      Reset to Project Address
-                    </button>
-                  )}
-                </div>
-
-                {!isEditingAddress && watchDeliveryAddress && selectedProject?.delivery_address && 
-                 watchDeliveryAddress === selectedProject.delivery_address ? (
-                  // Show static address when not editing and it matches project address
-                  <div className="w-full px-4 py-3 bg-secondary-50 border border-secondary-300 rounded-lg">
-                    <p className="text-secondary-900">{watchDeliveryAddress}</p>
-                    {watchDeliveryLat && watchDeliveryLong && (
-                      <p className="text-xs text-secondary-600 mt-1">
-                        📍 {watchDeliveryLat.toFixed(6)}, {watchDeliveryLong.toFixed(6)}
-                      </p>
+                    {selectedProject?.delivery_address && watchDeliveryAddress !== selectedProject.delivery_address && (
+                      <button
+                        type="button"
+                        onClick={handleResetToProjectAddress}
+                        className="p-3 border border-secondary-300 rounded-lg hover:bg-secondary-50"
+                        title="Reset to project address"
+                      >
+                        <RotateCcw size={18} />
+                      </button>
                     )}
                   </div>
                 ) : (
-                  // Show Google Autocomplete when editing or no project address
                   <Autocomplete
                     key={addressKey}
                     apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
@@ -10554,118 +10797,92 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                     }}
                     defaultValue={watchDeliveryAddress || ''}
                     className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Start typing delivery address..."
+                    placeholder="Start typing to search address..."
                   />
                 )}
-
                 {errors.delivery_address && (
-                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                    <AlertCircle size={14} />
-                    {errors.delivery_address.message}
-                  </p>
+                  <p className="mt-2 text-sm text-red-600">{errors.delivery_address.message}</p>
                 )}
-
-                {/* Show coordinates if available */}
-                {isEditingAddress && watchDeliveryLat && watchDeliveryLong && (
-                  <p className="text-xs text-secondary-600 mt-1">
-                    📍 Location: {watchDeliveryLat.toFixed(6)}, {watchDeliveryLong.toFixed(6)}
-                  </p>
+                {errors.delivery_lat && (
+                  <p className="mt-2 text-sm text-red-600">{errors.delivery_lat.message}</p>
                 )}
+                {errors.delivery_long && (
+                  <p className="mt-2 text-sm text-red-600">{errors.delivery_long.message}</p>
+                )}
+                
+                {/* Hidden inputs for lat/long */}
+                <input type="hidden" {...register('delivery_lat')} />
+                <input type="hidden" {...register('delivery_long')} />
               </div>
 
-              {/* Hidden fields for lat/long */}
-              <input type="hidden" {...register('delivery_lat', { valueAsNumber: true })} />
-              <input type="hidden" {...register('delivery_long', { valueAsNumber: true })} />
+              {/* Date and Time */}
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Delivery Date */}
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Delivery Date *
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                    <input
+                      type="date"
+                      {...register('delivery_date')}
+                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  {errors.delivery_date && (
+                    <p className="mt-2 text-sm text-red-600">{errors.delivery_date.message}</p>
+                  )}
+                </div>
 
-              {/* Delivery Date */}
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-1 flex items-center gap-2">
-                  <Calendar size={16} className="text-primary-600" />
-                  Delivery Date
-                </label>
-                <input
-                  type="date"
-                  {...register('delivery_date')}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                />
-                {errors.delivery_date && (
-                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                    <AlertCircle size={14} />
-                    {errors.delivery_date.message}
-                  </p>
-                )}
+                {/* Delivery Time */}
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Delivery Time *
+                  </label>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                    <input
+                      type="time"
+                      {...register('delivery_time')}
+                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  {errors.delivery_time && (
+                    <p className="mt-2 text-sm text-red-600">{errors.delivery_time.message}</p>
+                  )}
+                </div>
               </div>
 
-              {/* Delivery Time (Optional) */}
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-1 flex items-center gap-2">
-                  <Clock size={16} className="text-primary-600" />
-                  Delivery Time (Optional)
-                </label>
-                <input
-                  type="time"
-                  {...register('delivery_time')}
-                  className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
-
-              {/* Delivery Method */}
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-1 flex items-center gap-2">
-                  <Truck size={16} className="text-primary-600" />
-                  Delivery Method
-                </label>
-                <select
-                  {...register('delivery_method')}
-                  className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                >
-                  {deliveryMethods.map((method) => (
-                    <option key={method} value={method}>
-                      {method}
-                    </option>
-                  ))}
-                </select>
-                {errors.delivery_method && (
-                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                    <AlertCircle size={14} />
-                    {errors.delivery_method.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Load Size (Optional) */}
+              {/* Load Size */}
               <Input
-                label="Load Size (Optional)"
-                placeholder="e.g., 6m³"
+                label="Load Size *"
+                placeholder="e.g., 6 cubic meters"
                 {...register('load_size')}
                 error={errors.load_size?.message}
               />
 
-              {/* Special Equipment (Optional) */}
+              {/* Special Equipment */}
               <Input
                 label="Special Equipment (Optional)"
-                placeholder="e.g., Pump required"
+                placeholder="Any special equipment required"
                 {...register('special_equipment')}
                 error={errors.special_equipment?.message}
               />
 
-              {/* Special Notes (Optional) */}
+              {/* Special Notes */}
               <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
                   Special Notes (Optional)
                 </label>
                 <textarea
                   {...register('special_notes')}
-                  rows={4}
-                  placeholder="Any additional instructions or notes..."
-                  className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                  rows={3}
+                  className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Any special instructions or notes..."
                 />
                 {errors.special_notes && (
-                  <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                    <AlertCircle size={14} />
-                    {errors.special_notes.message}
-                  </p>
+                  <p className="mt-2 text-sm text-red-600">{errors.special_notes.message}</p>
                 )}
               </div>
             </div>
@@ -10673,11 +10890,20 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
 
           {/* Action Buttons */}
           <div className="flex gap-4">
-            <Button type="button" variant="outline" onClick={onBack} disabled={isSubmitting}>
-              ← Back to Products
+            <Button
+              type="button"
+              onClick={onBack}
+              variant="outline"
+              className="flex-1"
+            >
+              ← Back
             </Button>
-            <Button type="submit" variant="primary" disabled={isSubmitting} className="flex-1">
-              {isSubmitting ? 'Processing...' : 'Review Order →'}
+            <Button
+              type="submit"
+              disabled={isSubmitting || cartItems.length === 0}
+              className="flex-1"
+            >
+              {isSubmitting ? 'Processing...' : 'Continue to Review →'}
             </Button>
           </div>
         </div>
@@ -10744,13 +10970,13 @@ const Step3_ReviewOrder: React.FC<Step3Props> = ({
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  const deliveryMethods: Record<string, string> = {
-    Other: 'Other',
-    Tipper: '🚛 Tipper',
-    Agitator: '🔄 Agitator',
-    Pump: '⚙️ Pump',
-    Ute: '🚐 Ute',
-  };
+  // const deliveryMethods: Record<string, string> = {
+  //   Other: 'Other',
+  //   Tipper: '🚛 Tipper',
+  //   Agitator: '🔄 Agitator',
+  //   Pump: '⚙️ Pump',
+  //   Ute: '🚐 Ute',
+  // };
 
   return (
     <div className="space-y-6">
@@ -10922,7 +11148,7 @@ const Step3_ReviewOrder: React.FC<Step3Props> = ({
                 )}
               </div>
 
-              {/* Delivery Method */}
+              {/* Delivery Method
               <div className="flex items-start gap-3">
                 <Truck className="text-secondary-500 flex-shrink-0 mt-0.5" size={18} />
                 <div>
@@ -10931,7 +11157,7 @@ const Step3_ReviewOrder: React.FC<Step3Props> = ({
                     {deliveryMethods[orderDetails.delivery_method] || orderDetails.delivery_method}
                   </p>
                 </div>
-              </div>
+              </div> */}
 
               {/* Load Size */}
               {orderDetails.load_size && (
@@ -14800,6 +15026,57 @@ export const useMarkRepeatOrder = () => {
 //   detail: (id: number) => [...clientOrderKeys.details(), id] as const,
 // };
 
+/* FILE: src/features/clientOrders/utils.ts */
+// src/features/clientOrders/utils.ts
+
+import type { OrderStatus, PaymentStatus } from '../../types/clientOrder.types';
+
+export const getOrderStatusBadgeClass = (status: OrderStatus): string => {
+  const classes: Record<OrderStatus, string> = {
+    'Draft': 'bg-gray-100 text-gray-800 border-2 border-gray-300',
+    'Confirmed': 'bg-blue-100 text-blue-800 border-2 border-blue-300',
+    'Scheduled': 'bg-indigo-100 text-indigo-800 border-2 border-indigo-300',
+    'In Transit': 'bg-purple-100 text-purple-800 border-2 border-purple-300',
+    'Delivered': 'bg-green-100 text-green-800 border-2 border-green-300',
+    'Completed': 'bg-emerald-100 text-emerald-800 border-2 border-emerald-300',
+    'Cancelled': 'bg-red-100 text-red-800 border-2 border-red-300',
+  };
+  return classes[status] || 'bg-gray-100 text-gray-800 border-2 border-gray-300';
+};
+
+export const getPaymentStatusBadgeClass = (status: PaymentStatus): string => {
+  const classes: Record<PaymentStatus, string> = {
+    'Pending': 'bg-gray-100 text-gray-800 border-2 border-gray-300',
+    'Partially Paid': 'bg-yellow-100 text-yellow-800 border-2 border-yellow-300',
+    'Paid': 'bg-green-100 text-green-800 border-2 border-green-300',
+    'Partial Refunded': 'bg-orange-100 text-orange-800 border-2 border-orange-300',
+    'Refunded': 'bg-blue-100 text-blue-800 border-2 border-blue-300',
+    'Requested': 'bg-purple-100 text-purple-800 border-2 border-purple-300'
+  };
+  return classes[status] || 'bg-gray-100 text-gray-800 border-2 border-gray-300';
+};
+
+export const formatCurrency = (amount: number | string): string => {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(num);
+};
+
+export const formatDate = (dateString: string): string => {
+  if (!dateString) return '-';
+  try {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
+  } catch {
+    return dateString;
+  }
+};
 /* FILE: src/features/components/ProjectForm.tsx */
 // --- src/features/projects/components/ProjectForm.tsx ---
 import { useState } from 'react';
@@ -17819,7 +18096,7 @@ const userCreateSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.enum(['admin', 'client', 'supplier']),
+  role: z.enum(['admin', 'client', 'supplier', 'accountant','support']),
   contact_name: z.string().optional(),
   contact_number: z.string().optional(),
   company_name: z.string().optional(),
@@ -17986,6 +18263,8 @@ const UserCreate = () => {
                     <option value="admin">Admin</option>
                     <option value="client">Client</option>
                     <option value="supplier">Supplier</option>
+                    <option value="accountant">Accountant</option>
+                    <option value="support">Support</option>
                   </select>
                   {errors.role && (
                     <p className="text-sm text-error-500 mt-1">{errors.role.message}</p>
@@ -18005,6 +18284,7 @@ const UserCreate = () => {
             </div>
 
             {/* Contact Details */}
+            {(watchedRole === 'client' || watchedRole === 'supplier')  && (
             <div className="space-y-5">
               <h3 className="text-lg font-semibold text-secondary-900 border-b pb-3">
                 Contact Information
@@ -18039,7 +18319,7 @@ const UserCreate = () => {
                 error={errors.company_name?.message}
               />
             </div>
-
+            )}
             {/* Client-Specific Fields */}
             {watchedRole === 'client' && (
               <div className="space-y-5 border-t pt-6">
@@ -18195,17 +18475,21 @@ import { usersAPI } from '../../api/handlers/users.api';
 import { adminMenuItems } from '../../utils/menuItems';
 
 // Role Badge Component
-const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
+const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' | 'accountant' | 'support' }) => {
   const styles = {
     admin: 'bg-error-100 text-error-700 border-error-200',
     client: 'bg-primary-100 text-primary-700 border-primary-200',
     supplier: 'bg-success-100 text-success-700 border-success-200',
+    support: 'bg-warning-100 text-warning-700 border-warning-200',
+    accountant: 'bg-purple-100 text-purple-700 border-purple-200',
   };
 
   const icons = {
     admin: '👑',
     client: '👤',
     supplier: '🏢',
+    support: '🎧',
+    accountant: '💼',
   };
 
   return (
@@ -18432,7 +18716,7 @@ const userEditSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
-  role: z.enum(['admin', 'client', 'supplier']),
+  role: z.enum(['admin', 'client', 'supplier','support','accountant']),
   contact_name: z.string().optional(),
   contact_number: z.string().optional(),
   company_name: z.string().optional(),
@@ -18748,6 +19032,8 @@ const UserEdit = () => {
                     <option value="admin">Admin</option>
                     <option value="client">Client</option>
                     <option value="supplier">Supplier</option>
+                    <option value="accountant">Accountant</option>
+                    <option value="support">Support</option>
                   </select>
                 </div>
 
@@ -18769,6 +19055,7 @@ const UserEdit = () => {
             </div>
 
             {/* Contact Information */}
+            {(watchedRole === 'client' || watchedRole === 'supplier')  && (
             <div className="space-y-5">
               <h3 className="text-lg font-semibold text-secondary-900 border-b pb-3">
                 Contact Information
@@ -18809,7 +19096,7 @@ const UserEdit = () => {
                 />
               </div>
             </div>
-
+            )}
             {/* Client-Specific Fields */}
             {watchedRole === 'client' && (
               <div className="space-y-5 border-t pt-6">
@@ -18966,12 +19253,16 @@ const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
     admin: 'bg-error-100 text-error-700 border-error-200',
     client: 'bg-primary-100 text-primary-700 border-primary-200',
     supplier: 'bg-success-100 text-success-700 border-success-200',
+    support: 'bg-warning-100 text-warning-700 border-warning-200',
+    accountant: 'bg-purple-100 text-purple-700 border-purple-200',
   };
 
   const icons = {
     admin: '👑',
     client: '👤',
     supplier: '🏢',
+    support: '🎧',
+    accountant: '💼',
   };
 
   return (
@@ -19163,6 +19454,8 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
                 <option value="admin">Admin</option>
                 <option value="client">Client</option>
                 <option value="supplier">Supplier</option>
+                <option value="accountant">Accountant</option>
+                <option value="support">Support</option>
               </select>
 
               {/* Company Filter */}
@@ -19410,71 +19703,74 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
 
 export default UserManagement;
 /* FILE: src/pages/client/ClientOrders.tsx */
-// ============================================================================
-// FILE: src/pages/client/ClientOrders.tsx - UPDATED WITH MARK REPEAT
-// ============================================================================
+// src/pages/client/Orders/ClientOrdersList.tsx
 
-import { useState, useEffect } from 'react';
-import { RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
-import { useClientOrders, useRepeatOrder, useMarkRepeatOrder } from '../../features/clientOrders/hooks';
+import { RefreshCw, Search } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import ClientOrderMetricsCards from '../../components/client/ClientOrderMetricsCards';
 import ClientOrderFilters from '../../components/client/ClientOrderFilters';
+import ClientActiveFilterChips from '../../components/client/ClientActiveFilterChips';
 import ClientOrdersTable from '../../components/client/ClientOrdersTable';
-import RepeatOrderModal from '../../components/client/RepeatOrderModal';
+import { useClientOrders } from '../../features/clientOrders/hooks';
 import { clientMenuItems } from '../../utils/menuItems';
 
-const ClientOrders = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+const ClientOrdersList: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [projects, setProjects] = useState<any[]>([]);
-  const [repeatOrderModalOpen, setRepeatOrderModalOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [availableFilters, setAvailableFilters] = useState<any>(null);
 
   const [filters, setFilters] = useState({
     search: searchParams.get('search') || '',
     project_id: searchParams.get('project_id') || '',
-    workflow: searchParams.get('workflow') || '',
+    order_status: searchParams.get('order_status') || '',
+    payment_status: searchParams.get('payment_status') || '',
     delivery_date: searchParams.get('delivery_date') || '',
+    delivery_method: searchParams.get('delivery_method') || '',
     repeat_order: searchParams.get('repeat_order') || '',
+    sort: searchParams.get('sort') || 'created_at',
+    dir: searchParams.get('dir') || 'desc',
     page: parseInt(searchParams.get('page') || '1'),
     per_page: 10,
-    sort: 'created_at',
-    dir: 'desc',
   });
 
-  const { data, isLoading, isFetching, refetch } = useClientOrders(filters);
-  console.log(isFirstLoad, 'sadsadsa')
-  const repeatOrderMutation = useRepeatOrder();
-  const markRepeatMutation = useMarkRepeatOrder();
+  const { data, isLoading, isFetching, refetch } = useClientOrders({
+    ...filters,
+    details: isFirstLoad,
+  });
 
   useEffect(() => {
-    if (isFirstLoad && data?.projects) {
-      setProjects(data.projects);
+    if (isFirstLoad && data) {
+      if (data.projects) setProjects(data.projects);
+      if (data.order_statuses || data.payment_statuses || data.delivery_methods) {
+        setAvailableFilters({
+          order_statuses: data.order_statuses,
+          payment_statuses: data.payment_statuses,
+          delivery_methods: data.delivery_methods,
+        });
+      }
       setIsFirstLoad(false);
     }
   }, [data, isFirstLoad]);
 
   useEffect(() => {
     const params: Record<string, string> = {};
-    if (filters.search) params.search = filters.search;
-    if (filters.project_id) params.project_id = filters.project_id;
-    if (filters.workflow) params.workflow = filters.workflow;
-    if (filters.delivery_date) params.delivery_date = filters.delivery_date;
-    if (filters.repeat_order) params.repeat_order = filters.repeat_order;
-    if (filters.page > 1) params.page = filters.page.toString();
-
-    setSearchParams(params);
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== '' && key !== 'per_page') {
+        params[key] = String(value);
+      }
+    });
+    setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
-      page: 1,
+      page: key !== 'page' ? 1 : prev.page,
     }));
   };
 
@@ -19482,118 +19778,97 @@ const ClientOrders = () => {
     setFilters({
       search: '',
       project_id: '',
-      workflow: '',
+      order_status: '',
+      payment_status: '',
       delivery_date: '',
+      delivery_method: '',
       repeat_order: '',
-      page: 1,
-      per_page: 10,
       sort: 'created_at',
       dir: 'desc',
+      page: 1,
+      per_page: 10,
     });
   };
 
-  const handlePageChange = (newPage: number) => {
-    setFilters((prev) => ({
-      ...prev,
-      page: newPage,
-    }));
+  const handlePageChange = (page: number) => {
+    setFilters((prev) => ({ ...prev, page }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleRefresh = () => {
-    refetch();
-    toast.success('Orders refreshed');
-  };
-
-  const handleRepeatOrder = (order: any) => {
-    setSelectedOrder(order);
-    setRepeatOrderModalOpen(true);
-  };
-
-  const handleMarkRepeat = async (orderId: number) => {
-    try {
-      await markRepeatMutation.mutateAsync(orderId);
-      toast.success('Order marked as repeat order!');
-      refetch();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to mark order as repeat');
-    }
-  };
-
-  const handleRepeatOrderSubmit = async (items: any[]) => {
-    if (!selectedOrder) return;
-
-    try {
-      await repeatOrderMutation.mutateAsync({
-        orderId: selectedOrder.id,
-        payload: { items },
-      });
-      toast.success('Order repeated successfully!');
-      setRepeatOrderModalOpen(false);
-      setSelectedOrder(null);
-      refetch();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to repeat order');
-    }
+  const handleViewOrder = (orderId: number) => {
+    navigate(`/client/orders/${orderId}`);
   };
 
   return (
     <DashboardLayout menuItems={clientMenuItems}>
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-            <p className="text-gray-600 mt-1">View and manage your orders</p>
+            <h1 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              My Orders
+            </h1>
+            <p className="text-gray-600 mt-1">Track and manage your orders</p>
           </div>
           <button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 font-medium shadow-sm hover:shadow-md"
           >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw size={18} className={isFetching ? 'animate-spin' : ''} />
             Refresh
           </button>
         </div>
 
-        <ClientOrderMetricsCards 
-          metrics={data?.metrics || null} 
-          loading={isLoading} 
-        />
+        {/* Metrics Cards */}
+        <ClientOrderMetricsCards metrics={data?.metrics || null} loading={isLoading} />
 
+        {/* Search Bar */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+              placeholder="Search by PO number..."
+              className="w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium"
+            />
+          </div>
+        </div>
+
+        {/* Filters */}
         <ClientOrderFilters
           filters={filters}
           onFilterChange={handleFilterChange}
           onClearFilters={handleClearFilters}
           projects={projects}
+          availableFilters={availableFilters}
         />
 
+        {/* Active Filter Chips */}
+        <ClientActiveFilterChips
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          projects={projects}
+        />
+
+        {/* Orders Table */}
         <ClientOrdersTable
           orders={data?.data || []}
-          loading={isLoading}
+          loading={isLoading || isFetching}
           pagination={data?.pagination || null}
           onPageChange={handlePageChange}
-          onRepeatOrder={handleRepeatOrder}
-          onMarkRepeat={handleMarkRepeat}
-          navigate={navigate}
-        />
-
-        <RepeatOrderModal
-          isOpen={repeatOrderModalOpen}
-          onClose={() => {
-            setRepeatOrderModalOpen(false);
-            setSelectedOrder(null);
-          }}
-          order={selectedOrder}
-          onSubmit={handleRepeatOrderSubmit}
-          isSubmitting={repeatOrderMutation.isPending}
+          onViewOrder={handleViewOrder}
         />
       </div>
     </DashboardLayout>
   );
 };
 
-export default ClientOrders;
+export default ClientOrdersList;
 /* FILE: src/pages/client/ClientOrderView.tsx */
-// FILE PATH: src/pages/client/ClientOrderView.tsx
+// src/pages/client/Orders/ClientOrderView.tsx
 
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -19654,25 +19929,28 @@ const ClientOrderView = () => {
     return `$${num.toFixed(2)}`;
   };
 
-  const getStatusColor = (workflow: string) => {
+  const getOrderStatusColor = (orderStatus: string) => {
     const statusColors: Record<string, string> = {
-      'Supplier Missing': 'bg-red-100 text-red-800 border-red-200',
-      'Supplier Assigned': 'bg-blue-100 text-blue-800 border-blue-200',
-      'Payment Requested': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      'Delivered': 'bg-green-100 text-green-800 border-green-200',
-      'On Hold': 'bg-gray-100 text-gray-800 border-gray-200',
+      'Draft': 'bg-gray-100 text-gray-800 border-gray-300',
+      'Confirmed': 'bg-blue-100 text-blue-800 border-blue-300',
+      'Scheduled': 'bg-indigo-100 text-indigo-800 border-indigo-300',
+      'In Transit': 'bg-purple-100 text-purple-800 border-purple-300',
+      'Delivered': 'bg-green-100 text-green-800 border-green-300',
+      'Completed': 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      'Cancelled': 'bg-red-100 text-red-800 border-red-300',
     };
-    return statusColors[workflow] || 'bg-gray-100 text-gray-800 border-gray-200';
+    return statusColors[orderStatus] || 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   const getPaymentStatusColor = (paymentStatus: string) => {
     const colors: Record<string, string> = {
-      'Pending': 'bg-gray-100 text-gray-700 border-gray-300',
-      'Paid': 'bg-green-100 text-green-700 border-green-300',
-      'Partially Paid': 'bg-yellow-100 text-yellow-700 border-yellow-300',
-      'Failed': 'bg-red-100 text-red-700 border-red-300',
+      'Unpaid': 'bg-red-100 text-red-800 border-red-300',
+      'Pending': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      'Paid': 'bg-green-100 text-green-800 border-green-300',
+      'Partially Paid': 'bg-orange-100 text-orange-800 border-orange-300',
+      'Failed': 'bg-red-100 text-red-800 border-red-300',
     };
-    return colors[paymentStatus] || 'bg-gray-100 text-gray-700 border-gray-300';
+    return colors[paymentStatus] || 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   const handleRefresh = () => {
@@ -19741,14 +20019,13 @@ const ClientOrderView = () => {
 
   const { order, items } = data.data;
   const showPayment =
-    order.workflow === 'Payment Requested' &&
-    (order.payment_status === 'Pending' || order.payment_status === 'Partially Paid');
+    order.workflow === 'Payment Requested';
 
   return (
     <DashboardLayout menuItems={clientMenuItems}>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/client/orders')}
@@ -19757,18 +20034,26 @@ const ClientOrderView = () => {
               <ArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
             <div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-bold text-gray-900">Order #{order.po_number}</h1>
+                <span
+                  className={`px-3 py-1 text-sm font-semibold rounded-full border-2 ${getOrderStatusColor(
+                    order.order_status
+                  )}`}
+                >
+                  {order.order_status}
+                </span>
                 {order.repeat_order && (
-                  <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-semibold rounded-full border border-purple-300">
+                  <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-semibold rounded-full border-2 border-purple-300 flex items-center gap-1">
+                    <RefreshCw size={14} />
                     Repeat Order
                   </span>
                 )}
               </div>
               {order.order_info && (
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-2">
                   <Info className="w-4 h-4 text-blue-600" />
-                  <p className="text-sm text-blue-600">{order.order_info}</p>
+                  <p className="text-sm text-blue-600 font-medium">{order.order_info}</p>
                 </div>
               )}
             </div>
@@ -19776,14 +20061,14 @@ const ClientOrderView = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={handleRefresh}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
             >
               <RefreshCw className="w-4 h-4" />
               Refresh
             </button>
             <button
               onClick={handleRepeatOrder}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md hover:shadow-lg"
             >
               <RotateCcw className="w-4 h-4" />
               Repeat Order
@@ -19803,26 +20088,26 @@ const ClientOrderView = () => {
         {/* Status & Basic Info Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Order Status Card */}
-          <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+          <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <ClipboardList className="w-5 h-5" />
+              <ClipboardList className="w-5 h-5 text-blue-600" />
               Order Status
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <span className="text-sm text-gray-600 block mb-1">Current Status</span>
+                <span className="text-sm text-gray-600 block mb-2">Current Status</span>
                 <span
-                  className={`inline-flex px-3 py-1.5 rounded-full text-sm font-semibold border-2 ${getStatusColor(
-                    order.workflow
+                  className={`inline-flex px-4 py-2 rounded-full text-sm font-bold border-2 ${getOrderStatusColor(
+                    order.order_status
                   )}`}
                 >
-                  {order.workflow}
+                  {order.order_status}
                 </span>
               </div>
               <div>
-                <span className="text-sm text-gray-600 block mb-1">Payment Status</span>
+                <span className="text-sm text-gray-600 block mb-2">Payment Status</span>
                 <span
-                  className={`inline-flex px-3 py-1.5 rounded-full text-sm font-semibold border-2 ${getPaymentStatusColor(
+                  className={`inline-flex px-4 py-2 rounded-full text-sm font-bold border-2 ${getPaymentStatusColor(
                     order.payment_status
                   )}`}
                 >
@@ -19830,31 +20115,39 @@ const ClientOrderView = () => {
                 </span>
               </div>
               <div>
-                <span className="text-sm text-gray-600 block mb-1">Order Date</span>
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-sm text-gray-600 block mb-2">Order Date</span>
+                <span className="text-sm font-semibold text-gray-900">
                   {formatDate(order.created_at)}
                 </span>
               </div>
+              {order.updated_at && order.updated_at !== order.created_at && (
+                <div>
+                  <span className="text-sm text-gray-600 block mb-2">Last Updated</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {formatDate(order.updated_at)}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Project Details Card */}
-          <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+          <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
+              <Building2 className="w-5 h-5 text-blue-600" />
               Project Details
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <span className="text-sm text-gray-600 block mb-1">Project Name</span>
-                <span className="text-sm font-medium text-gray-900">{order.project?.name || '-'}</span>
+                <span className="text-sm text-gray-600 block mb-2">Project Name</span>
+                <span className="text-sm font-semibold text-gray-900">{order.project?.name || '-'}</span>
               </div>
               {order.project?.site_contact_name && (
                 <div>
-                  <span className="text-sm text-gray-600 block mb-1">Site Contact</span>
+                  <span className="text-sm text-gray-600 block mb-2">Site Contact</span>
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-semibold text-gray-900">
                       {order.project.site_contact_name}
                     </span>
                   </div>
@@ -19862,10 +20155,10 @@ const ClientOrderView = () => {
               )}
               {order.project?.site_contact_phone && (
                 <div>
-                  <span className="text-sm text-gray-600 block mb-1">Phone</span>
+                  <span className="text-sm text-gray-600 block mb-2">Phone</span>
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-semibold text-gray-900">
                       {order.project.site_contact_phone}
                     </span>
                   </div>
@@ -19876,39 +20169,41 @@ const ClientOrderView = () => {
         </div>
 
         {/* Delivery Information */}
-        <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Truck className="w-5 h-5" />
+            <Truck className="w-5 h-5 text-blue-600" />
             Delivery Information
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <span className="text-sm text-gray-600 block mb-1">Delivery Address</span>
+              <span className="text-sm text-gray-600 block mb-2">Delivery Address</span>
               <div className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-                <span className="text-sm font-medium text-gray-900">{order.delivery_address}</span>
+                <MapPin className="w-4 h-4 text-blue-600 mt-0.5" />
+                <span className="text-sm font-semibold text-gray-900">{order.delivery_address}</span>
               </div>
             </div>
             <div>
-              <span className="text-sm text-gray-600 block mb-1">Delivery Date & Time</span>
+              <span className="text-sm text-gray-600 block mb-2">Delivery Date & Time</span>
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-medium text-gray-900">
+                <Calendar className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-semibold text-gray-900">
                   {formatDateTime(order.delivery_date, order.delivery_time)}
                 </span>
               </div>
             </div>
             {order.delivery_method && (
               <div>
-                <span className="text-sm text-gray-600 block mb-1">Delivery Method</span>
-                <span className="text-sm font-medium text-gray-900">{order.delivery_method}</span>
+                <span className="text-sm text-gray-600 block mb-2">Delivery Method</span>
+                <span className="text-sm font-semibold text-gray-900 px-3 py-1 bg-blue-50 rounded-full border border-blue-200">
+                  {order.delivery_method}
+                </span>
               </div>
             )}
           </div>
           {order.project?.site_instructions && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <span className="text-sm text-gray-600 block mb-2">Site Instructions</span>
-              <p className="text-sm text-gray-900 whitespace-pre-wrap">
+              <p className="text-sm text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">
                 {order.project.site_instructions}
               </p>
             </div>
@@ -19916,15 +20211,15 @@ const ClientOrderView = () => {
           {order.reason && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <span className="text-sm text-gray-600 block mb-2">Special Notes</span>
-              <p className="text-sm text-gray-900 whitespace-pre-wrap">{order.reason}</p>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">{order.reason}</p>
             </div>
           )}
         </div>
 
         {/* Order Items */}
-        <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Package className="w-5 h-5" />
+            <Package className="w-5 h-5 text-blue-600" />
             Order Items ({items?.length || 0})
           </h2>
           <div className="space-y-4">
@@ -19939,23 +20234,26 @@ const ClientOrderView = () => {
                 return (
                   <div
                     key={index}
-                    className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors"
+                    className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors bg-gray-50"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 mb-1">
+                        <h3 className="font-bold text-gray-900 mb-2">
                           {item.product?.product_name || 'Product'}
                         </h3>
+                        {item.product?.specifications && (
+                          <p className="text-xs text-gray-600 mb-2">{item.product.specifications}</p>
+                        )}
                         {item.supplier && (
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             {item.supplier_confirms === 1 && (
-                              <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full border border-green-300">
-                                Confirmed
+                              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border-2 border-green-300">
+                                ✓ Confirmed
                               </span>
                             )}
                             {item.supplier_confirms === 0 && (
-                              <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-full border border-yellow-300">
-                                Pending
+                              <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full border-2 border-yellow-300">
+                                ⏱ Pending Confirmation
                               </span>
                             )}
                           </div>
@@ -19963,36 +20261,37 @@ const ClientOrderView = () => {
                         {!item.supplier && (
                           <div className="flex items-center gap-2 text-sm text-red-600">
                             <AlertCircle className="w-4 h-4" />
-                            <span>--</span>
+                            <span className="font-medium">Awaiting for confirmation</span>
                           </div>
                         )}
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm text-gray-600 mb-1">Quantity</div>
-                        <div className="text-lg font-bold text-gray-900">{item.quantity}</div>
+                      <div className="text-right bg-white rounded-lg p-3 border-2 border-gray-200">
+                        <div className="text-xs text-gray-600 mb-1">Quantity</div>
+                        <div className="text-xl font-bold text-gray-900">{item.quantity}</div>
+                        <div className="text-xs text-gray-500 mt-1">{item.product?.unit_of_measure || 'units'}</div>
                       </div>
                     </div>
 
-                    <div className="border-t border-gray-200 pt-3 space-y-2">
+                    <div className="border-t border-gray-300 pt-3 space-y-2 bg-white rounded-lg p-3">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">
+                        <span className="text-gray-600 font-medium">
                           {item.is_quoted === 1 ? 'Quoted Price:' : 'Unit Price:'}
                         </span>
-                        <span className="font-medium text-gray-900">
+                        <span className="font-bold text-gray-900">
                           {formatCurrency(displayPrice)}
                           {item.is_quoted === 1 && (
-                            <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded border border-blue-300">
+                            <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded border-2 border-blue-300">
                               Custom Quote
                             </span>
                           )}
                         </span>
                       </div>
-                      <div className="flex justify-between text-sm font-semibold">
+                      <div className="flex justify-between text-base font-bold border-t pt-2">
                         <span className="text-gray-700">Item Total:</span>
-                        <span className="text-gray-900">{formatCurrency(itemTotal)}</span>
+                        <span className="text-blue-600">{formatCurrency(itemTotal)}</span>
                       </div>
                       {item.supplier_discount && parseFloat(item.supplier_discount) > 0 && (
-                        <div className="flex justify-between text-sm text-green-600">
+                        <div className="flex justify-between text-sm text-green-600 font-semibold">
                           <span>Discount Applied:</span>
                           <span>-{formatCurrency(item.supplier_discount)}</span>
                         </div>
@@ -20000,7 +20299,7 @@ const ClientOrderView = () => {
                       {item.delivery_type && (
                         <div className="flex justify-between text-sm text-gray-600">
                           <span>Delivery Type:</span>
-                          <span className="font-medium">{item.delivery_type}</span>
+                          <span className="font-semibold">{item.delivery_type}</span>
                         </div>
                       )}
                     </div>
@@ -20014,49 +20313,49 @@ const ClientOrderView = () => {
         </div>
 
         {/* Order Summary */}
-        {(order.workflow === 'Payment Requested' || order.workflow === 'Delivered') && (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 p-6">
+        {order.total_price && (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-300 p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
+              <DollarSign className="w-5 h-5 text-blue-600" />
               Order Summary
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-3 bg-white rounded-lg p-4">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Items Cost:</span>
-                <span className="font-medium text-gray-900">
+                <span className="font-semibold text-gray-900">
                   {formatCurrency(order.customer_item_cost || 0)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Delivery Cost:</span>
-                <span className="font-medium text-gray-900">
+                <span className="font-semibold text-gray-900">
                   {formatCurrency(order.customer_delivery_cost || 0)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">GST (10%):</span>
-                <span className="font-medium text-gray-900">
+                <span className="font-semibold text-gray-900">
                   {formatCurrency(order.gst_tax || 0)}
                 </span>
               </div>
-              {order.discount && (
-                <div className="flex justify-between text-sm text-green-600">
+              {order.discount && parseFloat(order.discount.toString()) > 0 && (
+                <div className="flex justify-between text-sm text-green-600 font-semibold">
                   <span>Discount:</span>
-                  <span className="font-medium">-{formatCurrency(order.discount)}</span>
+                  <span>-{formatCurrency(order.discount)}</span>
                 </div>
               )}
-              {order.other_charges && (
+              {order.other_charges && parseFloat(order.other_charges.toString()) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Other Charges:</span>
-                  <span className="font-medium text-gray-900">
+                  <span className="font-semibold text-gray-900">
                     {formatCurrency(order.other_charges)}
                   </span>
                 </div>
               )}
               <div className="border-t-2 border-blue-300 pt-3 mt-3">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-lg font-bold text-gray-900">Total Amount:</span>
-                  <span className="text-2xl font-bold text-blue-600">
+                  <span className="text-3xl font-bold text-blue-600">
                     {formatCurrency(order.total_price || 0)}
                   </span>
                 </div>
@@ -20517,6 +20816,15 @@ const OrderCreate = () => {
               onSubmit={handleStep2Submit}
               onBack={handleBackToStep1}
               isSubmitting={false}
+              onCreateProject={undefined}
+              
+              // ADD THESE THREE LINES:
+              onUpdateQuantity={handleUpdateQuantity}
+              onRemoveItem={handleRemoveItem}
+              onUpdateCustomBlend={(productId, blend) => {
+                const updated = cartUtils.updateCustomBlend(productId, blend);
+                setCartItems(updated);
+              }}
             />
           )}
 
@@ -21958,6 +22266,8 @@ const Login = () => {
           admin: '/admin/dashboard',
           client: '/client/dashboard',
           supplier: '/supplier/dashboard',
+          accountant: '/admin/dashboard',
+          support:'/admin/dashboard'
         };
         navigate(map[user?.role ?? 'client'] || '/login', { replace: true });
       }
@@ -24460,7 +24770,7 @@ const AppRouter = () => {
         <Route
           path="/admin/dashboard"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <AdminDashboard />
             </ProtectedRoute>
           }
@@ -24470,7 +24780,7 @@ const AppRouter = () => {
         <Route
           path="/admin/supplier-zones"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <AdminSupplierDeliveryZones />
             </ProtectedRoute>
           }
@@ -24480,7 +24790,7 @@ const AppRouter = () => {
         <Route
           path="/admin/users"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <UserManagement />
             </ProtectedRoute>
           }
@@ -24490,7 +24800,7 @@ const AppRouter = () => {
         <Route
           path="/admin/users/create"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <UserCreate />
             </ProtectedRoute>
           }
@@ -24500,7 +24810,7 @@ const AppRouter = () => {
         <Route
           path="/admin/users/:id/edit"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <UserEdit />
             </ProtectedRoute>
           }
@@ -24510,7 +24820,7 @@ const AppRouter = () => {
         <Route
           path="/admin/users/:id"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <UserDetail />
             </ProtectedRoute>
           }
@@ -24520,7 +24830,7 @@ const AppRouter = () => {
         <Route
           path="/admin/master-products"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <MasterProductsList />
             </ProtectedRoute>
           }
@@ -24528,7 +24838,7 @@ const AppRouter = () => {
         <Route
           path="/admin/master-products/add"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <AddMasterProduct />
             </ProtectedRoute>
           }
@@ -24536,7 +24846,7 @@ const AppRouter = () => {
         <Route
           path="/admin/master-products/edit/:id"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <EditMasterProduct />
             </ProtectedRoute>
           }
@@ -24544,7 +24854,7 @@ const AppRouter = () => {
         <Route
           path="/admin/master-products/view/:id"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <ViewMasterProduct />
             </ProtectedRoute>
           }
@@ -24553,7 +24863,7 @@ const AppRouter = () => {
         <Route
           path="/admin/profile"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <ProfileSettings />
             </ProtectedRoute>
           }
@@ -24562,7 +24872,7 @@ const AppRouter = () => {
         <Route
           path="/admin/orders"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <AdminOrdersList />
             </ProtectedRoute>
           }
@@ -24570,7 +24880,7 @@ const AppRouter = () => {
         <Route
           path="/admin/orders/:id"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <AdminOrderView />
             </ProtectedRoute>
           }
@@ -24592,7 +24902,7 @@ import type { ReactNode } from 'react';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  allowedRoles?: ('admin' | 'client' | 'supplier')[];
+  allowedRoles?: ('admin' | 'client' | 'supplier' | 'accountant' | 'support')[];
 }
 
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
@@ -24624,7 +24934,7 @@ interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'client' | 'supplier';
+  role: 'admin' | 'client' | 'supplier' | 'support' | 'accountant';
   profile_image?: string;
   company_id?: number;
   contact_name?: string;
@@ -24726,9 +25036,10 @@ export const useAuthStore = create<AuthState>()(
       },
       
       // Role checks
-      isAdmin: () => get().user?.role === 'admin',
+      isAdmin: () => get().user?.role === 'admin' || get().user?.role === 'support' || get().user?.role === 'accountant',
       isClient: () => get().user?.role === 'client',
       isSupplier: () => get().user?.role === 'supplier',
+
     }),
     {
       name: 'auth-storage',
@@ -25280,140 +25591,123 @@ export interface AdminUpdateOrderItemResponse {
 
 
 /* FILE: src/types/clientOrder.types.ts */
-// FILE PATH: src/types/clientOrder.types.ts
-// Updated Client Order Types with proper pricing fields
+// src/types/clientOrder.types.ts
 
-export interface ClientOrderItem {
-  id: number;
-  order_id: number;
-  product_id: number;
-  quantity: number;
-  supplier_id: number | null;
-  supplier_unit_cost: number | null;
-  supplier_discount: number | null;
-  delivery_cost: number | null;
-  delivery_type: string | null;
-  supplier_confirms: number; // 0 or 1
-  is_quoted: number; // 0 or 1
-  quoted_price: number | null;
-  
-  // Relationships
-  product?: {
-    id: number;
-    product_name: string;
-    category?: string;
-  };
-  supplier?: {
-    id: number;
-    name: string;
-    profile_image?: string;
-  };
-  
-  // Eligible suppliers (when supplier not assigned)
-  eligible_suppliers?: Array<{
-    id: number;
-    name: string;
-    profile_image?: string;
-  }>;
-}
+import type { WorkflowStatus } from "./adminOrder.types";
+
+export type OrderStatus = 'Draft' | 'Confirmed' | 'Scheduled' | 'In Transit' | 'Delivered' | 'Completed' | 'Cancelled';
+export type PaymentStatus = 'Pending' | 'Partially Paid' | 'Paid' | 'Partial Refunded' | 'Refunded' | 'Requested';
 
 export interface ClientOrder {
   id: number;
   po_number: string;
-  client_id: number;
-  project_id: number;
-  
-  // Delivery Info
+
+  project: {
+    id: number;
+    name: string;
+    added_by: number;
+    site_contact_name?: string | null;
+    site_contact_phone?: string | null;
+    site_instructions?: string | null;
+    delivery_address?: string | null;
+    delivery_lat?: number | null;
+    delivery_long?: number | null;
+    created_at: string;
+    updated_at: string;
+  };
+
+  // Delivery
   delivery_address: string;
-  delivery_lat: number | null;
-  delivery_long: number | null;
   delivery_date: string;
   delivery_time: string;
-  delivery_window?: string | null;
-  delivery_method?: string | null;
-  
+  delivery_method: string;
+
   // Status
-  workflow: 'Supplier Missing' | 'Supplier Assigned' | 'Payment Requested' | 'Delivered' | 'On Hold';
-  payment_status: 'Pending' | 'Paid' | 'Partially Paid' | 'Failed';
-  order_status: string;
-  
-  // Pricing - NEW STRUCTURE
-  customer_item_cost: number;
-  customer_delivery_cost: number;
+  order_status: OrderStatus;
+  workflow: WorkflowStatus;
+  payment_status: PaymentStatus;
+
+  // Counts / totals
+  items_count: number;
+  total_price: number;
   gst_tax: number;
   discount: number;
-  other_charges: number;
-  total_price: number;
-  
-  // Legacy fields (may be present but not used)
-  subtotal?: number;
-  fuel_levy?: number;
-  
-  // Additional Info
+
   repeat_order: boolean;
   order_info?: string | null;
-  reason?: string | null;
-  special_notes?: string | null;
-  
-  // Timestamps
+
   created_at: string;
   updated_at: string;
-  
-  // Relationships
-  project?: {
-    id: number;
-    name: string;
-    site_contact_name?: string;
-    site_contact_phone?: string;
-    site_instructions?: string;
-  };
-}
+  reason?: string;
 
-export interface ClientOrderDetail {
-  order: ClientOrder;
-  items: ClientOrderItem[];
-}
-
-export interface ClientOrderListItem {
-  id: number;
-  po_number: string;
-  project_id: number;
-  client_id: number;
-  workflow: string;
-  payment_status: string;
-  delivery_address: string;
-  delivery_date: string;
-  delivery_time: string;
-  delivery_method?: string;
-  repeat_order: boolean;
-  order_info?: string | null;
-  created_at: string;
-  updated_at: string;
-  
-  // Pricing
+  // Pricing breakdown (NEW)
   customer_item_cost?: number;
   customer_delivery_cost?: number;
-  total_price?: number;
-  
-  // Legacy
-  subtotal?: number;
-  fuel_levy?: number;
+  supplier_item_cost?: number;
+  supplier_delivery_cost?: number;
   other_charges?: number;
-  gst_tax?: number;
-  
-  // Relationships
-  project?: {
-    id: number;
-    name: string;
-  };
 }
+
 
 export interface ClientOrderMetrics {
   total_orders_count: number;
-  supplier_missing_count: number;
-  supplier_assigned_count: number;
-  awaiting_payment_count: number;
+  draft_count: number;
+  confirmed_count: number;
+  scheduled_count: number;
+  in_transit_count: number;
   delivered_count: number;
+  completed_count: number;
+  cancelled_count: number;
+}
+
+export interface ProjectFilter {
+  id: number;
+  name: string;
+}
+
+export interface ClientOrderFilters {
+  projects: ProjectFilter[];
+  order_statuses: OrderStatus[];
+  payment_statuses: PaymentStatus[];
+  delivery_methods: string[];
+}
+
+export interface ClientOrdersListResponse {
+  data: ClientOrder[];
+  pagination: {
+    per_page: number;
+    current_page: number;
+    total_pages: number;
+    total_items: number;
+    has_more_pages: boolean;
+  };
+  metrics: ClientOrderMetrics;
+  projects?: ProjectFilter[];
+  order_statuses?: OrderStatus[];
+  payment_statuses?: PaymentStatus[];
+  delivery_methods?: string[];
+}
+
+export interface ClientOrdersQueryParams {
+  per_page?: number;
+  search?: string;
+  project_id?: string;
+  order_status?: string;
+  payment_status?: string;
+  delivery_date?: string;
+  delivery_method?: string;
+  repeat_order?: string;
+  sort?: string;
+  dir?: string;
+  details?: boolean;
+  page?: number;
+}
+
+export interface RepeatOrderPayload {
+  items: Array<{
+    product_id: number;
+    quantity: number;
+  }>;
 }
 
 export interface ClientOrdersResponse {
@@ -25430,6 +25724,54 @@ export interface ClientOrdersResponse {
     id: number;
     name: string;
   }>;
+  order_statuses?: OrderStatus[];
+  payment_statuses?: PaymentStatus[];
+  delivery_methods?: string[];
+}
+
+
+export interface ClientOrderListItem {
+  id: number;
+  po_number: string;
+  project_id: number;
+  client_id: number;
+  workflow: string;
+
+  // Status
+  order_status: OrderStatus;
+  payment_status: PaymentStatus;
+
+  delivery_address: string;
+  delivery_date: string;
+  delivery_time: string;
+  delivery_method?: string;
+
+  repeat_order: boolean;
+  order_info?: string | null;
+
+  created_at: string;
+  updated_at: string;
+
+  // Counts / totals for list view
+  items_count: number;
+  discount: number;
+  total_price?: number;
+  gst_tax?: number;
+
+  // Pricing breakdown (optional)
+  customer_item_cost?: number;
+  customer_delivery_cost?: number;
+
+  // Legacy
+  subtotal?: number;
+  fuel_levy?: number;
+  other_charges?: number;
+
+  // Relationships
+  project?: {
+    id: number;
+    name: string;
+  };
 }
 
 export interface ClientOrderDetailResponse {
@@ -25437,11 +25779,13 @@ export interface ClientOrderDetailResponse {
   data: ClientOrderDetail;
 }
 
-export interface RepeatOrderPayload {
-  items: Array<{
-    product_id: number;
-    quantity: number;
-  }>;
+
+export interface ClientOrderDetail {
+  order: ClientOrder;
+  items: ClientOrderItem[];
+}
+
+export interface ClientOrderItem {
 }
 /* FILE: src/types/order.types.ts */
 /* FILE: src/types/order.types.ts */
@@ -25534,7 +25878,6 @@ export interface OrderFormData {
   delivery_long: number;
   delivery_date: string;
   delivery_time?: string;
-  delivery_method: 'Other' | 'Tipper' | 'Agitator' | 'Pump' | 'Ute';
   load_size?: string;
   special_equipment?: string;
   special_notes?: string;
@@ -26143,14 +26486,12 @@ export const orderFormSchema = z.object({
       return selectedDate >= today;
     }, 'Delivery date cannot be in the past'),
   
-  // Optional delivery time
-  delivery_time: z.string().optional(),
+  // Required delivery time
+  delivery_time: z.string().min(1, 'Delivery time is required'),
   
-  // Required delivery method (using enum)
-  delivery_method: DeliveryMethodEnum,
   
-  // Optional load size
-  load_size: z.string().max(50).optional(),
+  // Required load size
+  load_size: z.string().min(1, 'Load size is required').max(50, 'Load size is too long'),
   
   // Optional special equipment
   special_equipment: z.string().max(255).optional(),

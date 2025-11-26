@@ -24,7 +24,7 @@ const userEditSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
-  role: z.enum(['admin', 'client', 'supplier']),
+  role: z.enum(['admin', 'client', 'supplier','support','accountant']),
   contact_name: z.string().optional(),
   contact_number: z.string().optional(),
   company_name: z.string().optional(),
@@ -340,6 +340,8 @@ const UserEdit = () => {
                     <option value="admin">Admin</option>
                     <option value="client">Client</option>
                     <option value="supplier">Supplier</option>
+                    <option value="accountant">Accountant</option>
+                    <option value="support">Support</option>
                   </select>
                 </div>
 
@@ -361,6 +363,7 @@ const UserEdit = () => {
             </div>
 
             {/* Contact Information */}
+            {(watchedRole === 'client' || watchedRole === 'supplier')  && (
             <div className="space-y-5">
               <h3 className="text-lg font-semibold text-secondary-900 border-b pb-3">
                 Contact Information
@@ -401,7 +404,7 @@ const UserEdit = () => {
                 />
               </div>
             </div>
-
+            )}
             {/* Client-Specific Fields */}
             {watchedRole === 'client' && (
               <div className="space-y-5 border-t pt-6">

@@ -191,7 +191,7 @@ const AppRouter = () => {
         <Route
           path="/admin/dashboard"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <AdminDashboard />
             </ProtectedRoute>
           }
@@ -201,7 +201,7 @@ const AppRouter = () => {
         <Route
           path="/admin/supplier-zones"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <AdminSupplierDeliveryZones />
             </ProtectedRoute>
           }
@@ -211,7 +211,7 @@ const AppRouter = () => {
         <Route
           path="/admin/users"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <UserManagement />
             </ProtectedRoute>
           }
@@ -221,7 +221,7 @@ const AppRouter = () => {
         <Route
           path="/admin/users/create"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <UserCreate />
             </ProtectedRoute>
           }
@@ -231,7 +231,7 @@ const AppRouter = () => {
         <Route
           path="/admin/users/:id/edit"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <UserEdit />
             </ProtectedRoute>
           }
@@ -241,7 +241,7 @@ const AppRouter = () => {
         <Route
           path="/admin/users/:id"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <UserDetail />
             </ProtectedRoute>
           }
@@ -251,7 +251,7 @@ const AppRouter = () => {
         <Route
           path="/admin/master-products"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <MasterProductsList />
             </ProtectedRoute>
           }
@@ -259,7 +259,7 @@ const AppRouter = () => {
         <Route
           path="/admin/master-products/add"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <AddMasterProduct />
             </ProtectedRoute>
           }
@@ -267,7 +267,7 @@ const AppRouter = () => {
         <Route
           path="/admin/master-products/edit/:id"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <EditMasterProduct />
             </ProtectedRoute>
           }
@@ -275,7 +275,7 @@ const AppRouter = () => {
         <Route
           path="/admin/master-products/view/:id"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <ViewMasterProduct />
             </ProtectedRoute>
           }
@@ -284,7 +284,7 @@ const AppRouter = () => {
         <Route
           path="/admin/profile"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <ProfileSettings />
             </ProtectedRoute>
           }
@@ -293,7 +293,7 @@ const AppRouter = () => {
         <Route
           path="/admin/orders"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <AdminOrdersList />
             </ProtectedRoute>
           }
@@ -301,7 +301,7 @@ const AppRouter = () => {
         <Route
           path="/admin/orders/:id"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <AdminOrderView />
             </ProtectedRoute>
           }

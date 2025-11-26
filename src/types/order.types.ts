@@ -88,7 +88,6 @@ export interface OrderFormData {
   delivery_long: number;
   delivery_date: string;
   delivery_time?: string;
-  delivery_method: 'Other' | 'Tipper' | 'Agitator' | 'Pump' | 'Ute';
   load_size?: string;
   special_equipment?: string;
   special_notes?: string;

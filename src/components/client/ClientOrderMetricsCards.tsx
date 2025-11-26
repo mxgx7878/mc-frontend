@@ -1,80 +1,88 @@
-// ============================================================================
-// FILE: src/components/client/ClientOrderMetricsCards.tsx - FIXED WITH COLORS
-// ============================================================================
+// src/components/client/ClientOrderMetricsCards.tsx
 
-import { ShoppingCart, AlertTriangle, CheckCircle, Clock, TruckIcon } from 'lucide-react';
+import React from 'react';
+import { ShoppingCart, FileText, Truck, CheckCircle } from 'lucide-react';
+import type { ClientOrderMetrics } from '../../types/clientOrder.types';
 
-const ClientOrderMetricsCards = ({ metrics, loading }: any) => {
-  const metricsConfig = [
+interface MetricsCardsProps {
+  metrics: ClientOrderMetrics | null;
+  loading: boolean;
+}
+
+const ClientOrderMetricsCards: React.FC<MetricsCardsProps> = ({ metrics, loading }) => {
+  const cards = [
     {
       label: 'Total Orders',
       value: metrics?.total_orders_count || 0,
       icon: ShoppingCart,
-      color: 'bg-gradient-to-br from-blue-500 to-blue-600',
-      textColor: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
+      gradient: 'from-blue-500 to-blue-600',
+      lightBg: 'bg-blue-50',
+      iconColor: 'text-blue-600',
+      shadowColor: 'hover:shadow-blue-200',
     },
     {
-      label: 'Supplier Missing',
-      value: metrics?.supplier_missing_count || 0,
-      icon: AlertTriangle,
-      color: 'bg-gradient-to-br from-red-500 to-red-600',
-      textColor: 'text-red-600',
-      bgColor: 'bg-red-50',
-      borderColor: 'border-red-200',
+      label: 'Draft',
+      value: metrics?.draft_count || 0,
+      icon: FileText,
+      gradient: 'from-gray-500 to-gray-600',
+      lightBg: 'bg-gray-50',
+      iconColor: 'text-gray-600',
+      shadowColor: 'hover:shadow-gray-200',
     },
     {
-      label: 'Supplier Assigned',
-      value: metrics?.supplier_assigned_count || 0,
-      icon: TruckIcon,
-      color: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
-      textColor: 'text-indigo-600',
-      bgColor: 'bg-indigo-50',
-      borderColor: 'border-indigo-200',
+      label: 'Active',
+      value: (metrics?.confirmed_count || 0) + (metrics?.scheduled_count || 0) + (metrics?.in_transit_count || 0),
+      icon: Truck,
+      gradient: 'from-indigo-500 to-purple-600',
+      lightBg: 'bg-indigo-50',
+      iconColor: 'text-indigo-600',
+      shadowColor: 'hover:shadow-indigo-200',
     },
     {
-      label: 'Awaiting Payment',
-      value: metrics?.awaiting_payment_count || 0,
-      icon: Clock,
-      color: 'bg-gradient-to-br from-yellow-500 to-yellow-600',
-      textColor: 'text-yellow-600',
-      bgColor: 'bg-yellow-50',
-      borderColor: 'border-yellow-200',
-    },
-    {
-      label: 'Delivered',
-      value: metrics?.delivered_count || 0,
+      label: 'Completed',
+      value: (metrics?.delivered_count || 0) + (metrics?.completed_count || 0),
       icon: CheckCircle,
-      color: 'bg-gradient-to-br from-green-500 to-green-600',
-      textColor: 'text-green-600',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-200',
+      gradient: 'from-green-500 to-emerald-600',
+      lightBg: 'bg-green-50',
+      iconColor: 'text-green-600',
+      shadowColor: 'hover:shadow-green-200',
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="h-4 bg-gray-200 rounded w-24 mb-3"></div>
+                <div className="h-8 bg-gray-200 rounded w-16"></div>
+              </div>
+              <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-      {metricsConfig.map((metric) => {
-        const Icon = metric.icon;
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {cards.map((card, index) => {
+        const Icon = card.icon;
         return (
-          <div 
-            key={metric.label} 
-            className={`${metric.bgColor} rounded-xl border-2 ${metric.borderColor} p-6 transition-all hover:shadow-lg hover:scale-105`}
+          <div
+            key={index}
+            className={`bg-gradient-to-br ${card.gradient} rounded-xl shadow-lg ${card.shadowColor} transition-all duration-300 p-6 text-white group hover:scale-105`}
           >
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">{metric.label}</p>
-                {loading ? (
-                  <div className="h-8 w-16 bg-gray-200 animate-pulse rounded"></div>
-                ) : (
-                  <p className={`text-3xl font-bold ${metric.textColor}`}>
-                    {metric.value}
-                  </p>
-                )}
+              <div className="flex-1">
+                <p className="text-white/90 text-sm font-medium mb-1">{card.label}</p>
+                <p className="text-4xl font-bold">{card.value}</p>
               </div>
-              <div className={`${metric.color} p-3 rounded-xl shadow-lg`}>
-                <Icon className="w-6 h-6 text-white" />
+              <div className="bg-white/20 rounded-full p-3 group-hover:bg-white/30 transition-colors">
+                <Icon size={28} />
               </div>
             </div>
           </div>

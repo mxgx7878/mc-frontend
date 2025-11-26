@@ -31,12 +31,16 @@ const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
     admin: 'bg-error-100 text-error-700 border-error-200',
     client: 'bg-primary-100 text-primary-700 border-primary-200',
     supplier: 'bg-success-100 text-success-700 border-success-200',
+    support: 'bg-warning-100 text-warning-700 border-warning-200',
+    accountant: 'bg-purple-100 text-purple-700 border-purple-200',
   };
 
   const icons = {
     admin: '👑',
     client: '👤',
     supplier: '🏢',
+    support: '🎧',
+    accountant: '💼',
   };
 
   return (
@@ -228,6 +232,8 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
                 <option value="admin">Admin</option>
                 <option value="client">Client</option>
                 <option value="supplier">Supplier</option>
+                <option value="accountant">Accountant</option>
+                <option value="support">Support</option>
               </select>
 
               {/* Company Filter */}
