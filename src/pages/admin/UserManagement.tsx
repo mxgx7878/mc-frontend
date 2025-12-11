@@ -1,4 +1,8 @@
 // src/pages/admin/UserManagement.tsx
+// ============================================
+// USER MANAGEMENT WITH PERMISSION-BASED ACTIONS
+// ============================================
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
@@ -16,18 +20,19 @@ import {
   Mail,
   Phone,
   MapPin,
+  Lock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/common/Buttons';
 import { usersAPI, companiesAPI } from '../../api/handlers/users.api';
-import { adminMenuItems } from '../../utils/menuItems';
-
+import { getMenuItemsByRole } from '../../utils/menuItems';
+import { usePermissions } from '../../hooks/usePermissions';
 
 // Role Badge Component
-const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
-  const styles = {
+const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' | 'support' | 'accountant' }) => {
+  const styles: Record<string, string> = {
     admin: 'bg-error-100 text-error-700 border-error-200',
     client: 'bg-primary-100 text-primary-700 border-primary-200',
     supplier: 'bg-success-100 text-success-700 border-success-200',
@@ -35,7 +40,7 @@ const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
     accountant: 'bg-purple-100 text-purple-700 border-purple-200',
   };
 
-  const icons = {
+  const icons: Record<string, string> = {
     admin: '👑',
     client: '👤',
     supplier: '🏢',
@@ -44,8 +49,8 @@ const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
   };
 
   return (
-    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${styles[role]}`}>
-      <span>{icons[role]}</span>
+    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${styles[role] || styles.client}`}>
+      <span>{icons[role] || '👤'}</span>
       {role.charAt(0).toUpperCase() + role.slice(1)}
     </span>
   );
@@ -54,6 +59,17 @@ const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
 const UserManagement = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // ==================== PERMISSIONS ====================
+  const { 
+    role, 
+    isReadOnly, 
+    canCreateUsers,
+    canEditUsers,
+    canDeleteUsers,
+  } = usePermissions();
+  
+  const menuItems = getMenuItemsByRole(role);
 
   // State
   const [activeTab, setActiveTab] = useState<'active' | 'deleted'>('active');
@@ -75,7 +91,6 @@ const UserManagement = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-
   // Fetch Companies
   const { data: companies = [] } = useQuery({
     queryKey: ['companies'],
@@ -89,12 +104,12 @@ const UserManagement = () => {
     contact_name: debouncedSearch || undefined,
   };
 
-  // fetch users
-const { data: usersData, isLoading, error } = useQuery<PaginatedUsers>({
-  queryKey: ['users', queryParams],
-  queryFn: () => usersAPI.getUsers(queryParams),
-  placeholderData: keepPreviousData,
-});
+  // Fetch users
+  const { data: usersData, isLoading, error } = useQuery<PaginatedUsers>({
+    queryKey: ['users', queryParams],
+    queryFn: () => usersAPI.getUsers(queryParams),
+    placeholderData: keepPreviousData,
+  });
 
   // Delete/Restore Mutation
   const deleteRestoreMutation = useMutation({
@@ -118,13 +133,12 @@ const { data: usersData, isLoading, error } = useQuery<PaginatedUsers>({
     setFilters(prev => ({ ...prev, page: 1 }));
   };
 
-  // In UserManagement.tsx (line ~180)
-const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
-  const action = isDeleted ? 'restore' : 'delete';
-  if (window.confirm(`Are you sure you want to ${action} this user?`)) {
-    deleteRestoreMutation.mutate(userId);
-  }
-};
+  const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
+    const action = isDeleted ? 'restore' : 'delete';
+    if (window.confirm(`Are you sure you want to ${action} this user?`)) {
+      deleteRestoreMutation.mutate(userId);
+    }
+  };
 
   const clearFilters = () => {
     setFilters({
@@ -146,7 +160,7 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
   };
 
   return (
-    <DashboardLayout menuItems={adminMenuItems}>
+    <DashboardLayout menuItems={menuItems}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -154,15 +168,38 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
             <h1 className="text-3xl font-bold text-secondary-900">User Management</h1>
             <p className="text-secondary-600 mt-1">Manage system users and permissions</p>
           </div>
-          <Button
-            onClick={() => navigate('/admin/users/create')}
-            variant="primary"
-            fullWidth={false}
-          >
-            <UserPlus size={20} />
-            Add User
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Read-Only Badge for Accountant */}
+            {isReadOnly && (
+              <span className="px-4 py-2 bg-yellow-100 text-yellow-800 text-sm font-bold rounded-lg border-2 border-yellow-300 flex items-center gap-2">
+                <Eye size={16} />
+                Read Only Mode
+              </span>
+            )}
+            
+            {/* Add User Button - Only for Admin */}
+            {canCreateUsers && (
+              <Button
+                onClick={() => navigate('/admin/users/create')}
+                variant="primary"
+                fullWidth={false}
+              >
+                <UserPlus size={20} />
+                Add User
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* Permission Notice Banner */}
+        {!canEditUsers && !isReadOnly && (
+          <div className="px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+            <Lock size={16} className="text-blue-600" />
+            <span className="text-sm text-blue-800">
+              You have view-only access to user management. Contact an admin for changes.
+            </span>
+          </div>
+        )}
 
         {/* Card Container */}
         <div className="bg-white rounded-2xl shadow-card overflow-hidden">
@@ -391,6 +428,7 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
                       {/* Actions */}
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
+                          {/* View - Always visible */}
                           <button
                             onClick={() => navigate(`/admin/users/${user.id}`)}
                             className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
@@ -398,25 +436,33 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
                           >
                             <Eye size={18} />
                           </button>
-                          <button
-                            onClick={() => navigate(`/admin/users/${user.id}/edit`)}
-                            className="p-2 text-secondary-600 hover:bg-secondary-100 rounded-lg transition-colors"
-                            title="Edit User"
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteRestore(user.id, user.isDeleted)}
-                            disabled={deleteRestoreMutation.isPending}
-                            className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
-                              user.isDeleted
-                                ? 'text-success-600 hover:bg-success-50'
-                                : 'text-error-600 hover:bg-error-50'
-                            }`}
-                            title={user.isDeleted ? 'Restore User' : 'Delete User'}
-                          >
-                            {user.isDeleted ? <RotateCcw size={18} /> : <Trash2 size={18} />}
-                          </button>
+                          
+                          {/* Edit - Only if canEditUsers */}
+                          {canEditUsers && (
+                            <button
+                              onClick={() => navigate(`/admin/users/${user.id}/edit`)}
+                              className="p-2 text-secondary-600 hover:bg-secondary-100 rounded-lg transition-colors"
+                              title="Edit User"
+                            >
+                              <Edit2 size={18} />
+                            </button>
+                          )}
+                          
+                          {/* Delete/Restore - Only if canDeleteUsers */}
+                          {canDeleteUsers && (
+                            <button
+                              onClick={() => handleDeleteRestore(user.id, user.isDeleted)}
+                              disabled={deleteRestoreMutation.isPending}
+                              className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                                user.isDeleted
+                                  ? 'text-success-600 hover:bg-success-50'
+                                  : 'text-error-600 hover:bg-error-50'
+                              }`}
+                              title={user.isDeleted ? 'Restore User' : 'Delete User'}
+                            >
+                              {user.isDeleted ? <RotateCcw size={18} /> : <Trash2 size={18} />}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

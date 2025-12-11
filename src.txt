@@ -1,4 +1,4 @@
-// SRC BUNDLE 2025-11-25T07:10:05.327Z
+// SRC BUNDLE 2025-12-11T03:34:25.320Z
 
 /* FILE: src/api/axios.config.ts */
 // src/api/axios.config.ts
@@ -2935,10 +2935,14 @@ export default DashboardFiltersBar;
 
 /* FILE: src/components/admin/Dashboard/KPICards.tsx */
 // FILE PATH: src/components/admin/Dashboard/KPICards.tsx
+// ============================================
+// KPI CARDS WITH PERMISSION-BASED VISIBILITY
+// ============================================
 
 /**
  * KPI Cards Component
  * Displays key performance indicators with comparisons
+ * Revenue/Profit cards hidden for Support role
  */
 
 import React from 'react';
@@ -2949,7 +2953,8 @@ import {
   ShoppingCart, 
   CheckCircle,
   Users,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from 'lucide-react';
 import type { DashboardKPIs } from '../../../api/handlers/adminDashboard.api';
 
@@ -2957,6 +2962,8 @@ interface KPICardsProps {
   kpis: DashboardKPIs | null;
   loading: boolean;
   currency?: string;
+  /** If false, hides revenue/profit cards (for Support role) */
+  showFinancialData?: boolean;
 }
 
 interface KPICardData {
@@ -2967,13 +2974,22 @@ interface KPICardData {
   icon: React.ReactNode;
   color: string;
   subValue?: string;
+  /** If true, this card requires financial permissions to view */
+  isFinancial?: boolean;
 }
 
-const KPICards: React.FC<KPICardsProps> = ({ kpis, loading, currency = 'AUD' }) => {
+const KPICards: React.FC<KPICardsProps> = ({ 
+  kpis, 
+  loading, 
+  currency = 'AUD',
+  showFinancialData = true 
+}) => {
   if (loading || !kpis) {
+    // Adjust skeleton count based on permissions
+    const skeletonCount = showFinancialData ? 8 : 5;
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[...Array(8)].map((_, i) => (
+        {[...Array(skeletonCount)].map((_, i) => (
           <div key={i} className="bg-white rounded-xl shadow-card p-6">
             <div className="h-24 bg-gray-200 rounded animate-pulse" />
           </div>
@@ -2991,7 +3007,7 @@ const KPICards: React.FC<KPICardsProps> = ({ kpis, loading, currency = 'AUD' }) 
     }).format(value);
   };
 
-  const cards: KPICardData[] = [
+  const allCards: KPICardData[] = [
     {
       id: 'revenue',
       title: 'Total Revenue',
@@ -3000,6 +3016,7 @@ const KPICards: React.FC<KPICardsProps> = ({ kpis, loading, currency = 'AUD' }) 
       icon: <DollarSign className="w-6 h-6" />,
       color: 'bg-green-500',
       subValue: `${formatCurrency(kpis.revenue_prev)} last period`,
+      isFinancial: true, // Hidden for Support
     },
     {
       id: 'orders',
@@ -3009,6 +3026,7 @@ const KPICards: React.FC<KPICardsProps> = ({ kpis, loading, currency = 'AUD' }) 
       icon: <ShoppingCart className="w-6 h-6" />,
       color: 'bg-blue-500',
       subValue: `${kpis.orders_total_prev} last period`,
+      isFinancial: false, // Always visible
     },
     {
       id: 'avg_order',
@@ -3017,6 +3035,7 @@ const KPICards: React.FC<KPICardsProps> = ({ kpis, loading, currency = 'AUD' }) 
       change: 0,
       icon: <DollarSign className="w-6 h-6" />,
       color: 'bg-purple-500',
+      isFinancial: true, // Hidden for Support
     },
     {
       id: 'completed',
@@ -3026,6 +3045,7 @@ const KPICards: React.FC<KPICardsProps> = ({ kpis, loading, currency = 'AUD' }) 
       icon: <CheckCircle className="w-6 h-6" />,
       color: 'bg-green-500',
       subValue: `${kpis.completed_orders_prev} last period`,
+      isFinancial: false, // Always visible
     },
     {
       id: 'active_clients',
@@ -3035,6 +3055,7 @@ const KPICards: React.FC<KPICardsProps> = ({ kpis, loading, currency = 'AUD' }) 
       icon: <Users className="w-6 h-6" />,
       color: 'bg-indigo-500',
       subValue: `${kpis.total_clients} total`,
+      isFinancial: false, // Always visible
     },
     {
       id: 'active_suppliers',
@@ -3044,6 +3065,7 @@ const KPICards: React.FC<KPICardsProps> = ({ kpis, loading, currency = 'AUD' }) 
       icon: <Users className="w-6 h-6" />,
       color: 'bg-cyan-500',
       subValue: `${kpis.total_suppliers} total`,
+      isFinancial: false, // Always visible
     },
     {
       id: 'awaiting_payment',
@@ -3052,6 +3074,7 @@ const KPICards: React.FC<KPICardsProps> = ({ kpis, loading, currency = 'AUD' }) 
       change: 0,
       icon: <AlertCircle className="w-6 h-6" />,
       color: 'bg-orange-500',
+      isFinancial: false, // Always visible
     },
     {
       id: 'supplier_missing',
@@ -3060,67 +3083,89 @@ const KPICards: React.FC<KPICardsProps> = ({ kpis, loading, currency = 'AUD' }) 
       change: 0,
       icon: <AlertCircle className="w-6 h-6" />,
       color: 'bg-red-500',
+      isFinancial: false, // Always visible
     },
   ];
 
+  // Filter cards based on permissions
+  const cards = showFinancialData 
+    ? allCards 
+    : allCards.filter(card => !card.isFinancial);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {cards.map((card) => (
-        <div
-          key={card.id}
-          className="bg-white rounded-xl shadow-card p-6 hover:shadow-lg transition-shadow"
-        >
-          {/* Icon & Title */}
-          <div className="flex items-center justify-between mb-4">
-            <div className={`${card.color} text-white p-3 rounded-lg`}>
-              {card.icon}
-            </div>
-            {card.change !== 0 && (
-              <div
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                  card.change > 0
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-700'
-                }`}
-              >
-                {card.change > 0 ? (
-                  <TrendingUp className="w-3 h-3" />
-                ) : (
-                  <TrendingDown className="w-3 h-3" />
-                )}
-                {Math.abs(card.change)}%
+    <div className="space-y-4">
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {cards.map((card) => (
+          <div
+            key={card.id}
+            className="bg-white rounded-xl shadow-card p-6 hover:shadow-lg transition-shadow"
+          >
+            {/* Icon & Title */}
+            <div className="flex items-center justify-between mb-4">
+              <div className={`${card.color} text-white p-3 rounded-lg`}>
+                {card.icon}
               </div>
+              {card.change !== 0 && (
+                <div
+                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                    card.change > 0
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-red-100 text-red-700'
+                  }`}
+                >
+                  {card.change > 0 ? (
+                    <TrendingUp className="w-3 h-3" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3" />
+                  )}
+                  {Math.abs(card.change)}%
+                </div>
+              )}
+            </div>
+
+            {/* Value */}
+            <h3 className="text-2xl font-bold text-gray-900 mb-1">{card.value}</h3>
+            
+            {/* Title */}
+            <p className="text-sm text-gray-600 mb-2">{card.title}</p>
+
+            {/* Sub Value */}
+            {card.subValue && (
+              <p className="text-xs text-gray-500">{card.subValue}</p>
             )}
           </div>
+        ))}
+      </div>
 
-          {/* Value */}
-          <h3 className="text-2xl font-bold text-gray-900 mb-1">{card.value}</h3>
-          
-          {/* Title */}
-          <p className="text-sm text-gray-600 mb-2">{card.title}</p>
-
-          {/* Sub Value */}
-          {card.subValue && (
-            <p className="text-xs text-gray-500">{card.subValue}</p>
-          )}
+      {/* Hidden Cards Notice - Only show if some cards are hidden */}
+      {!showFinancialData && (
+        <div className="flex items-center justify-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <Lock size={14} className="text-gray-500" />
+          <span className="text-xs text-gray-600">
+            Revenue and profit metrics are hidden based on your role
+          </span>
         </div>
-      ))}
+      )}
     </div>
   );
 };
 
 export default KPICards;
-
 /* FILE: src/components/admin/Dashboard/TablesSection.tsx */
 // FILE PATH: src/components/admin/Dashboard/TablesSection.tsx
+// ============================================
+// TABLES SECTION WITH PERMISSION-BASED VISIBILITY
+// ============================================
 
 /**
  * Tables Section Component
  * Displays Top Clients, Top Suppliers, and Recent Activity tables
+ * Spend/Revenue amounts hidden for Support role
  */
 
 import React from 'react';
-import { TrendingUp, Clock, Package } from 'lucide-react';
+import { TrendingUp, Clock, Package, Lock } from 'lucide-react';
 import type { TopClient, TopSupplier, RecentActivity } from '../../../api/handlers/adminDashboard.api';
 
 interface TablesSectionProps {
@@ -3129,6 +3174,8 @@ interface TablesSectionProps {
   recentActivity: RecentActivity[];
   loading: boolean;
   currency?: string;
+  /** If false, hides spend/revenue amounts (for Support role) */
+  showFinancialData?: boolean;
 }
 
 const TablesSection: React.FC<TablesSectionProps> = ({
@@ -3137,6 +3184,7 @@ const TablesSection: React.FC<TablesSectionProps> = ({
   recentActivity,
   loading,
   currency = 'AUD',
+  showFinancialData = true,
 }) => {
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('en-AU', {
@@ -3180,6 +3228,12 @@ const TablesSection: React.FC<TablesSectionProps> = ({
             <TrendingUp className="w-5 h-5 text-blue-600" />
             Top Clients
           </h3>
+          {!showFinancialData && (
+            <span className="text-xs text-gray-500 flex items-center gap-1">
+              <Lock size={12} />
+              Amounts hidden
+            </span>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -3201,9 +3255,18 @@ const TablesSection: React.FC<TablesSectionProps> = ({
                   </div>
                   <p className="text-xs text-gray-600 mt-1">{client.order_count} orders</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-blue-600">{formatCurrency(client.total_spend)}</p>
-                </div>
+                {/* Only show spend if authorized */}
+                {showFinancialData ? (
+                  <div className="text-right">
+                    <p className="font-bold text-blue-600">{formatCurrency(client.total_spend)}</p>
+                  </div>
+                ) : (
+                  <div className="text-right">
+                    <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded">
+                      Hidden
+                    </span>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -3217,6 +3280,12 @@ const TablesSection: React.FC<TablesSectionProps> = ({
             <Package className="w-5 h-5 text-green-600" />
             Top Suppliers
           </h3>
+          {!showFinancialData && (
+            <span className="text-xs text-gray-500 flex items-center gap-1">
+              <Lock size={12} />
+              Revenue hidden
+            </span>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -3238,9 +3307,18 @@ const TablesSection: React.FC<TablesSectionProps> = ({
                   </div>
                   <p className="text-xs text-gray-600 mt-1">{supplier.order_count} orders</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-green-600">{formatCurrency(supplier.revenue)}</p>
-                </div>
+                {/* Only show revenue if authorized */}
+                {showFinancialData ? (
+                  <div className="text-right">
+                    <p className="font-bold text-green-600">{formatCurrency(supplier.revenue)}</p>
+                  </div>
+                ) : (
+                  <div className="text-right">
+                    <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded">
+                      Hidden
+                    </span>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -3284,10 +3362,17 @@ const TablesSection: React.FC<TablesSectionProps> = ({
                 </div>
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-gray-500">{activity.time_ago}</p>
+                  {/* Only show amount if authorized AND amount > 0 */}
                   {activity.amount > 0 && (
-                    <p className="text-xs font-semibold text-gray-700">
-                      {formatCurrency(activity.amount)}
-                    </p>
+                    showFinancialData ? (
+                      <p className="text-xs font-semibold text-gray-700">
+                        {formatCurrency(activity.amount)}
+                      </p>
+                    ) : (
+                      <span className="text-xs text-gray-400">
+                        Amount hidden
+                      </span>
+                    )
                   )}
                 </div>
               </div>
@@ -3300,7 +3385,6 @@ const TablesSection: React.FC<TablesSectionProps> = ({
 };
 
 export default TablesSection;
-
 /* FILE: src/components/admin/Orders/ActiveFilterChips.tsx */
 // FILE PATH: src/components/admin/Orders/ActiveFilterChips.tsx
 
@@ -4685,22 +4769,27 @@ export default OrderCostingCard;
 // FILE PATH: src/components/admin/Orders/OrderCostingTab.tsx
 
 /**
- * Order Costing Tab Component - IMPROVED
+ * Order Costing Tab Component - WITH PERMISSION-BASED VISIBILITY
  * Shows detailed cost breakdown with hover tooltips for formulas
- * Professional color scheme and clean layout
+ * HIDES supplier cost and profit sections based on user permissions
  */
 
 import React from 'react';
-import { Calculator, TrendingUp, DollarSign, Package, Truck } from 'lucide-react';
+import { Calculator, TrendingUp, DollarSign, Package, Truck, Eye, EyeOff, Lock } from 'lucide-react';
 import type { AdminOrderDetail } from '../../../types/adminOrder.types';
 import { formatCurrency } from '../../../features/adminOrders/utils';
 import FormulaTooltip from '../../common/FormulaTooltip';
+import { usePermissions } from '../../../hooks/usePermissions';
+import PermissionGate, { CostPriceGate, ProfitMarginGate } from '../../common/PermissionGate';
 
 interface OrderCostingTabProps {
   order: AdminOrderDetail;
 }
 
 const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
+  // Get permissions
+  const { canViewCostPrice, isReadOnly } = usePermissions();
+
   // Constants from pricing logic
   const ADMIN_MARGIN = 0.50; // 50%
   const GST_RATE = 0.10; // 10%
@@ -4724,7 +4813,7 @@ const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
 
   // Profit calculations
   const profitAmount = order.profit_amount || 0;
-  const profitMarginPercent = order.profit_margin_percent*100 || 0;
+  const profitMarginPercent = order.profit_margin_percent * 100 || 0;
 
   // Count quoted items
   const quotedItemsCount = order.items.filter((item) => item.is_quoted === 1).length;
@@ -4733,84 +4822,124 @@ const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white shadow-lg">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-white/10 rounded-lg">
-            <Calculator size={28} />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/10 rounded-lg">
+              <Calculator size={28} />
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold">Cost Breakdown & Calculations</h3>
+              <p className="text-blue-100 text-sm mt-1">
+                Detailed pricing analysis based on Material Connect pricing logic
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-2xl font-bold">Cost Breakdown & Calculations</h3>
-            <p className="text-blue-100 text-sm mt-1">
-              Detailed pricing analysis based on Material Connect pricing logic
-            </p>
+          
+          {/* Permission Indicator */}
+          <div className="flex items-center gap-2">
+            {isReadOnly && (
+              <span className="px-3 py-1.5 bg-white/20 rounded-lg text-sm font-medium flex items-center gap-2">
+                <Eye size={16} />
+                Read Only
+              </span>
+            )}
+            {!canViewCostPrice && (
+              <span className="px-3 py-1.5 bg-yellow-500/20 rounded-lg text-sm font-medium flex items-center gap-2">
+                <EyeOff size={16} />
+                Cost Hidden
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Supplier Cost Section */}
-      <div className="bg-white border-2 border-blue-200 rounded-xl p-6 shadow-sm">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 bg-blue-600 rounded-lg shadow-sm">
-            <DollarSign className="text-white" size={24} />
-          </div>
-          <div>
-            <h4 className="text-xl font-bold text-blue-900">Supplier Cost</h4>
-            <p className="text-sm text-blue-600">What we pay to suppliers</p>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {/* Items Cost */}
-          <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex items-center gap-2">
-              <Package size={18} className="text-blue-600" />
-              <span className="text-gray-700 font-medium">Items Cost</span>
-              <FormulaTooltip formula="Sum of (Unit Cost × Quantity) for all items" />
-            </div>
-            <span className="font-bold text-gray-900 text-lg">
-              {formatCurrency(supplierItemTotal)}
-            </span>
-          </div>
-
-          {/* Delivery Cost */}
-          <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex items-center gap-2">
-              <Truck size={18} className="text-blue-600" />
-              <span className="text-gray-700 font-medium">Delivery Cost</span>
-              <FormulaTooltip formula="Sum of supplier delivery fees for all items" />
-            </div>
-            <span className="font-bold text-gray-900 text-lg">
-              {formatCurrency(supplierDeliveryTotal)}
-            </span>
-          </div>
-
-          {/* Supplier Discounts */}
-          {supplierDiscountTotal > 0 && (
-            <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="flex items-center gap-2">
-                <span className="text-green-700 font-medium">Supplier Discounts</span>
-                <FormulaTooltip formula="Total discounts provided by suppliers" />
+      {/* ============================================ */}
+      {/* SUPPLIER COST SECTION - Permission Protected */}
+      {/* ============================================ */}
+      <CostPriceGate
+        fallback={
+          <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="flex items-center gap-3 text-gray-500">
+              <div className="p-3 bg-gray-200 rounded-lg">
+                <Lock size={24} />
               </div>
-              <span className="font-bold text-green-700 text-lg">
-                -{formatCurrency(supplierDiscountTotal)}
+              <div>
+                <h4 className="text-lg font-bold text-gray-600">Supplier Cost</h4>
+                <p className="text-sm text-gray-500">
+                  You don't have permission to view supplier cost information
+                </p>
+              </div>
+            </div>
+          </div>
+        }
+      >
+        <div className="bg-white border-2 border-blue-200 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 bg-blue-600 rounded-lg shadow-sm">
+              <DollarSign className="text-white" size={24} />
+            </div>
+            <div>
+              <h4 className="text-xl font-bold text-blue-900">Supplier Cost</h4>
+              <p className="text-sm text-blue-600">What we pay to suppliers</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {/* Items Cost */}
+            <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2">
+                <Package size={18} className="text-blue-600" />
+                <span className="text-gray-700 font-medium">Items Cost</span>
+                <FormulaTooltip formula="Sum of (Unit Cost × Quantity) for all items" />
+              </div>
+              <span className="font-bold text-gray-900 text-lg">
+                {formatCurrency(supplierItemTotal)}
               </span>
             </div>
-          )}
 
-          {/* Total Supplier Cost */}
-          <div className="flex justify-between items-center p-5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg border-2 border-blue-800 shadow-md mt-4">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-lg">Total Supplier Cost</span>
-              <FormulaTooltip 
-                formula="Item Cost + Delivery Cost - Supplier Discounts"
-                className="text-white"
-              />
+            {/* Delivery Cost */}
+            <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2">
+                <Truck size={18} className="text-blue-600" />
+                <span className="text-gray-700 font-medium">Delivery Cost</span>
+                <FormulaTooltip formula="Sum of supplier delivery fees for all items" />
+              </div>
+              <span className="font-bold text-gray-900 text-lg">
+                {formatCurrency(supplierDeliveryTotal)}
+              </span>
             </div>
-            <span className="font-bold text-2xl">{formatCurrency(supplierGrandTotal)}</span>
+
+            {/* Supplier Discounts */}
+            {supplierDiscountTotal > 0 && (
+              <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-green-700 font-medium">Supplier Discounts</span>
+                  <FormulaTooltip formula="Total discounts provided by suppliers" />
+                </div>
+                <span className="font-bold text-green-700 text-lg">
+                  -{formatCurrency(supplierDiscountTotal)}
+                </span>
+              </div>
+            )}
+
+            {/* Total Supplier Cost */}
+            <div className="flex justify-between items-center p-5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg border-2 border-blue-800 shadow-md mt-4">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-lg">Total Supplier Cost</span>
+                <FormulaTooltip
+                  formula="Item Cost + Delivery Cost - Supplier Discounts"
+                  className="text-white"
+                />
+              </div>
+              <span className="font-bold text-2xl">{formatCurrency(supplierGrandTotal)}</span>
+            </div>
           </div>
         </div>
-      </div>
+      </CostPriceGate>
 
-      {/* Customer Price Section */}
+      {/* ============================================ */}
+      {/* CUSTOMER PRICE SECTION - Always Visible */}
+      {/* ============================================ */}
       <div className="bg-white border-2 border-green-200 rounded-xl p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-3 bg-green-600 rounded-lg shadow-sm">
@@ -4822,24 +4951,26 @@ const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
           </div>
         </div>
 
-        {/* System Constants Info */}
-        <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="px-3 py-1.5 bg-green-600 text-white rounded-lg font-bold text-sm">
-                Admin Margin: {ADMIN_MARGIN * 100}%
+        {/* System Constants Info - Only show if can view cost price */}
+        <PermissionGate permission="pricing.view_cost_price">
+          <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="px-3 py-1.5 bg-green-600 text-white rounded-lg font-bold text-sm">
+                  Admin Margin: {ADMIN_MARGIN * 100}%
+                </div>
+                <div className="px-3 py-1.5 bg-green-600 text-white rounded-lg font-bold text-sm">
+                  GST Rate: {GST_RATE * 100}%
+                </div>
               </div>
-              <div className="px-3 py-1.5 bg-green-600 text-white rounded-lg font-bold text-sm">
-                GST Rate: {GST_RATE * 100}%
-              </div>
+              {quotedItemsCount > 0 && (
+                <div className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg font-bold text-sm border border-purple-300">
+                  {quotedItemsCount} item{quotedItemsCount > 1 ? 's' : ''} with quoted prices
+                </div>
+              )}
             </div>
-            {quotedItemsCount > 0 && (
-              <div className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg font-bold text-sm border border-purple-300">
-                {quotedItemsCount} item{quotedItemsCount > 1 ? 's' : ''} with quoted prices
-              </div>
-            )}
           </div>
-        </div>
+        </PermissionGate>
 
         <div className="space-y-3">
           {/* Customer Item Cost */}
@@ -4847,9 +4978,11 @@ const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
             <div className="flex items-center gap-2">
               <Package size={18} className="text-green-600" />
               <span className="text-gray-700 font-medium">Item Cost</span>
-              <FormulaTooltip 
-                formula={`Base Material × (1 + ${ADMIN_MARGIN * 100}%)\nOR Quoted Price if set (overrides calculation)`}
-              />
+              <PermissionGate permission="pricing.view_cost_price">
+                <FormulaTooltip
+                  formula={`Base Material × (1 + ${ADMIN_MARGIN * 100}%)\nOR Quoted Price if set (overrides calculation)`}
+                />
+              </PermissionGate>
             </div>
             <span className="font-bold text-gray-900 text-lg">
               {formatCurrency(customerItemTotal)}
@@ -4861,7 +4994,9 @@ const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
             <div className="flex items-center gap-2">
               <Truck size={18} className="text-green-600" />
               <span className="text-gray-700 font-medium">Delivery Cost</span>
-              <FormulaTooltip formula="Supplier Delivery × (1 + Admin Margin)" />
+              <PermissionGate permission="pricing.view_cost_price">
+                <FormulaTooltip formula="Supplier Delivery × (1 + Admin Margin)" />
+              </PermissionGate>
             </div>
             <span className="font-bold text-gray-900 text-lg">
               {formatCurrency(customerDeliveryTotal)}
@@ -4909,7 +5044,7 @@ const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
           <div className="flex justify-between items-center p-5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg border-2 border-green-800 shadow-md mt-4">
             <div className="flex items-center gap-2">
               <span className="font-bold text-lg">Total Customer Price</span>
-              <FormulaTooltip 
+              <FormulaTooltip
                 formula="Item Cost + Delivery + GST - Discount + Other Charges"
                 className="text-white"
               />
@@ -4919,75 +5054,94 @@ const OrderCostingTab: React.FC<OrderCostingTabProps> = ({ order }) => {
         </div>
       </div>
 
-      {/* Profit Analysis Section */}
-      <div className="bg-white border-2 border-purple-200 rounded-xl p-6 shadow-sm">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg shadow-sm">
-            <TrendingUp className="text-white" size={24} />
+      {/* ============================================ */}
+      {/* PROFIT ANALYSIS SECTION - Permission Protected */}
+      {/* ============================================ */}
+      <ProfitMarginGate
+        fallback={
+          <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="flex items-center gap-3 text-gray-500">
+              <div className="p-3 bg-gray-200 rounded-lg">
+                <Lock size={24} />
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-gray-600">Profit Analysis</h4>
+                <p className="text-sm text-gray-500">
+                  You don't have permission to view profit analysis
+                </p>
+              </div>
+            </div>
           </div>
-          <div>
-            <h4 className="text-xl font-bold text-purple-900">Profit Analysis</h4>
-            <p className="text-sm text-purple-600">Revenue and margins</p>
+        }
+      >
+        <div className="bg-white border-2 border-purple-200 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg shadow-sm">
+              <TrendingUp className="text-white" size={24} />
+            </div>
+            <div>
+              <h4 className="text-xl font-bold text-purple-900">Profit Analysis</h4>
+              <p className="text-sm text-purple-600">Revenue and margins</p>
+            </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Profit Amount */}
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6 border-2 border-purple-200">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-sm font-medium text-purple-700">Profit Amount</span>
-              <FormulaTooltip formula="Total Customer - Total Supplier - GST" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Profit Amount */}
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6 border-2 border-purple-200">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-sm font-medium text-purple-700">Profit Amount</span>
+                <FormulaTooltip formula="Total Customer - Total Supplier - GST" />
+              </div>
+              <div
+                className={`text-4xl font-bold mb-2 ${
+                  profitAmount >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {formatCurrency(profitAmount)}
+              </div>
+              <p className="text-xs text-gray-600">
+                Customer price minus supplier cost and GST
+              </p>
             </div>
-            <div
-              className={`text-4xl font-bold mb-2 ${
-                profitAmount >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}
-            >
-              {formatCurrency(profitAmount)}
+
+            {/* Profit Margin */}
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6 border-2 border-purple-200">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-sm font-medium text-purple-700">Profit Margin</span>
+                <FormulaTooltip formula="(Profit Amount / Supplier Total) × 100%" />
+              </div>
+              <div
+                className={`text-4xl font-bold mb-2 ${
+                  profitMarginPercent >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
+                {profitMarginPercent.toFixed(2)}%
+              </div>
+              <p className="text-xs text-gray-600">
+                Profit as percentage of supplier cost
+              </p>
             </div>
-            <p className="text-xs text-gray-600">
-              Customer price minus supplier cost and GST
+          </div>
+
+          {/* Additional Info */}
+          <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+            <p className="text-sm text-purple-900 font-medium mb-2">
+              💡 Profit Calculation Notes:
             </p>
-          </div>
-
-          {/* Profit Margin */}
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6 border-2 border-purple-200">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-sm font-medium text-purple-700">Profit Margin</span>
-              <FormulaTooltip formula="(Profit Amount / Supplier Total) × 100%" />
-            </div>
-            <div
-              className={`text-4xl font-bold mb-2 ${
-                profitMarginPercent >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}
-            >
-              {profitMarginPercent.toFixed(2)}%
-            </div>
-            <p className="text-xs text-gray-600">
-              Profit as percentage of supplier cost
-            </p>
+            <ul className="text-xs text-gray-700 space-y-1">
+              <li>• Quoted prices override standard margin calculations for individual items</li>
+              <li>• Admin discount reduces profit margin dollar-for-dollar</li>
+              <li>• GST is excluded from profit calculation (passed through to government)</li>
+              <li>• Supplier discounts increase profit margin</li>
+            </ul>
           </div>
         </div>
-
-        {/* Additional Info */}
-        <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-          <p className="text-sm text-purple-900 font-medium mb-2">
-            💡 Profit Calculation Notes:
-          </p>
-          <ul className="text-xs text-gray-700 space-y-1">
-            <li>• Quoted prices override standard margin calculations for individual items</li>
-            <li>• Admin discount reduces profit margin dollar-for-dollar</li>
-            <li>• GST is excluded from profit calculation (passed through to government)</li>
-            <li>• Supplier discounts increase profit margin</li>
-          </ul>
-        </div>
-      </div>
+      </ProfitMarginGate>
     </div>
   );
 };
 
 export default OrderCostingTab;
-
 /* FILE: src/components/admin/Orders/OrderFiltersPanel.tsx */
 // FILE PATH: src/components/admin/Orders/OrderFiltersPanel.tsx
 
@@ -5620,11 +5774,13 @@ const OrderItemsSection: React.FC<OrderItemsSectionProps> = ({ items, workflow }
 
 export default OrderItemsSection;
 /* FILE: src/components/admin/Orders/OrderItemsTab.tsx */
-// FILE PATH: src/components/admin/Orders/OrderItemsTab.tsx - UPDATED VERSION
+// FILE PATH: src/components/admin/Orders/OrderItemsTab.tsx
 
 /**
- * Order Items Tab Component - WITH ADMIN EDIT
- * Displays items with supplier assignment, quoted price, payment status, AND admin edit
+ * Order Items Tab Component - WITH PERMISSION-BASED VISIBILITY
+ * Displays items with supplier assignment, quoted price, payment status
+ * HIDES cost columns based on user permissions
+ * HIDES edit actions for read-only users (Accountant)
  */
 
 import React, { useState } from 'react';
@@ -5640,15 +5796,19 @@ import {
   CreditCard,
   User,
   Edit,
+  Lock,
+  Eye,
 } from 'lucide-react';
 import type { AdminOrderItem, WorkflowStatus } from '../../../types/adminOrder.types';
 import { formatCurrency } from '../../../features/adminOrders/utils';
-import { 
-  useAssignSupplier, 
-  useSetQuotedPrice, 
-  useMarkItemAsPaid 
+import {
+  useAssignSupplier,
+  useSetQuotedPrice,
+  useMarkItemAsPaid,
 } from '../../../features/adminOrders/hooks';
 import AdminOrderItemEditModal from './AdminOrderItemEditModal';
+import { usePermissions } from '../../../hooks/usePermissions';
+import PermissionGate from '../../common/PermissionGate';
 
 interface OrderItemsTabProps {
   items: AdminOrderItem[];
@@ -5662,12 +5822,29 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
   const [editingItem, setEditingItem] = useState<AdminOrderItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+  // Get permissions
+  const {
+    canViewCostPrice,
+
+    canEnterQuotedRates,
+    canEditOrders,
+    canAssignSupplier,
+  
+    isReadOnly,
+
+  } = usePermissions();
+
   const assignSupplierMutation = useAssignSupplier();
   const setQuotedPriceMutation = useSetQuotedPrice();
   const markAsPaidMutation = useMarkItemAsPaid();
 
   // Check if admin can edit item pricing
   const canEditItemPricing = (item: AdminOrderItem) => {
+    // If user is read-only, they can't edit anything
+    if (isReadOnly) return false;
+    // Check if user has edit permission
+    if (!canEditOrders) return false;
+
     const hasSupplier = item.supplier_id || item.supplier;
     const allowedWorkflows: WorkflowStatus[] = ['Supplier Assigned', 'Payment Requested'];
     return hasSupplier && allowedWorkflows.includes(workflow);
@@ -5675,6 +5852,7 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
 
   // Handle admin edit
   const handleOpenEditModal = (item: AdminOrderItem) => {
+    if (isReadOnly) return;
     setEditingItem(item);
     setIsEditModalOpen(true);
   };
@@ -5686,6 +5864,7 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
 
   // Handle supplier selection
   const handleSupplierSelect = (itemId: number, supplierId: number, offerId: number) => {
+    if (isReadOnly || !canAssignSupplier) return;
     assignSupplierMutation.mutate({
       order_id: orderId,
       item_id: itemId,
@@ -5696,11 +5875,13 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
 
   // Handle quoted price editing
   const handleStartEditQuotedPrice = (item: AdminOrderItem) => {
+    if (isReadOnly || !canEnterQuotedRates) return;
     setEditingQuotedPrice(item.id);
     setQuotedPriceValue(item.quoted_price?.toString() || '');
   };
 
   const handleSaveQuotedPrice = (itemId: number) => {
+    if (isReadOnly) return;
     const price = quotedPriceValue === '' ? null : parseFloat(quotedPriceValue);
     if (price !== null && (isNaN(price) || price < 0)) {
       return;
@@ -5723,6 +5904,7 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
 
   // Handle payment status toggle
   const handleTogglePaidStatus = (itemId: number, currentStatus: number) => {
+    if (isReadOnly) return;
     markAsPaidMutation.mutate({
       orderId,
       itemId,
@@ -5732,7 +5914,10 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
 
   // Render item for "Supplier Missing" workflow
   const renderSupplierMissingItem = (item: AdminOrderItem) => (
-    <div key={item.id} className="bg-white border-2 border-yellow-300 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+    <div
+      key={item.id}
+      className="bg-white border-2 border-yellow-300 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow"
+    >
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
@@ -5741,7 +5926,9 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             <h4 className="font-bold text-gray-900 text-lg">{item.product_name}</h4>
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-600">
-            <span className="font-medium">Quantity: <span className="text-gray-900 font-bold">{item.quantity}</span></span>
+            <span className="font-medium">
+              Quantity: <span className="text-gray-900 font-bold">{item.quantity}</span>
+            </span>
           </div>
         </div>
         <span className="px-3 py-1.5 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full border-2 border-yellow-300 flex items-center gap-1.5">
@@ -5750,44 +5937,61 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
         </span>
       </div>
 
-      {/* Supplier Selection */}
-      <div className="bg-yellow-50 rounded-lg p-4 border-2 border-yellow-200">
-        <label className="block text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-          <User size={16} className="text-yellow-600" />
-          Assign Supplier
-        </label>
-        <select
-          onChange={(e) => {
-            const selected = item.eligible_suppliers?.find(
-              (s) => s.supplier_id === parseInt(e.target.value)
-            );
-            if (selected) {
-              handleSupplierSelect(item.id, selected.supplier_id, selected.offer_id);
-            }
-          }}
-          disabled={assignSupplierMutation.isPending}
-          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-white"
-        >
-          <option value="">Select a supplier...</option>
-          {item.eligible_suppliers?.map((supplier) => (
-            <option key={supplier.supplier_id} value={supplier.supplier_id}>
-              {supplier.name} - {formatCurrency(supplier.unit_cost as number)}
-            </option>
-          ))}
-        </select>
-        {!item.eligible_suppliers?.length && (
-          <p className="text-yellow-700 text-sm mt-2 flex items-center gap-1.5">
-            <AlertCircle size={14} />
-            No eligible suppliers found for this product
-          </p>
-        )}
-      </div>
+      {/* Supplier Selection - Only if can assign supplier */}
+      <PermissionGate
+        permission="orders.assign_supplier"
+        fallback={
+          <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+            <div className="flex items-center gap-2 text-gray-500">
+              <Lock size={16} />
+              <span className="text-sm">Supplier assignment requires additional permissions</span>
+            </div>
+          </div>
+        }
+      >
+        <div className="bg-yellow-50 rounded-lg p-4 border-2 border-yellow-200">
+          <label className="block text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <User size={16} className="text-yellow-600" />
+            Assign Supplier
+          </label>
+          <select
+            onChange={(e) => {
+              const selected = item.eligible_suppliers?.find(
+                (s) => s.supplier_id === parseInt(e.target.value)
+              );
+              if (selected) {
+                handleSupplierSelect(item.id, selected.supplier_id, selected.offer_id);
+              }
+            }}
+            disabled={assignSupplierMutation.isPending || isReadOnly}
+            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+          >
+            <option value="">Select a supplier...</option>
+            {item.eligible_suppliers?.map((supplier) => (
+              <option key={supplier.supplier_id} value={supplier.supplier_id}>
+                {supplier.name}
+                {/* Only show cost if user can view cost price */}
+                {canViewCostPrice && ` - ${formatCurrency(supplier.unit_cost as number)}`}
+              </option>
+            ))}
+          </select>
+          {!item.eligible_suppliers?.length && (
+            <p className="text-yellow-700 text-sm mt-2 flex items-center gap-1.5">
+              <AlertCircle size={14} />
+              No eligible suppliers found for this product
+            </p>
+          )}
+        </div>
+      </PermissionGate>
     </div>
   );
 
   // Render item with supplier assigned (not yet confirmed or paid)
   const renderSupplierAssignedItem = (item: AdminOrderItem) => (
-    <div key={item.id} className="bg-white border-2 border-indigo-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+    <div
+      key={item.id}
+      className="bg-white border-2 border-indigo-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow"
+    >
       {/* Header with Admin Edit Button */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
@@ -5796,8 +6000,12 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             <h4 className="font-bold text-gray-900 text-lg">{item.product_name}</h4>
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-600">
-            <span className="font-medium">Quantity: <span className="text-gray-900 font-bold">{item.quantity}</span></span>
-            <span className="font-medium">Supplier: <span className="text-indigo-700 font-bold">{item.supplier?.name || 'Unknown'}</span></span>
+            <span className="font-medium">
+              Quantity: <span className="text-gray-900 font-bold">{item.quantity}</span>
+            </span>
+            <span className="font-medium">
+              Supplier: <span className="text-indigo-700 font-bold">{item.supplier?.name || 'Unknown'}</span>
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -5812,8 +6020,17 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
               Pending Confirmation
             </span>
           )}
-          {/* Admin Edit Button */}
-          {canEditItemPricing(item) && (
+          
+          {/* Read-Only Badge */}
+          {isReadOnly && (
+            <span className="px-3 py-1.5 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full border-2 border-yellow-300 flex items-center gap-1.5">
+              <Eye size={14} />
+              View Only
+            </span>
+          )}
+          
+          {/* Admin Edit Button - Only if can edit */}
+          {canEditItemPricing(item) && !isReadOnly && (
             <button
               onClick={() => handleOpenEditModal(item)}
               className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-bold rounded-full hover:from-orange-600 hover:to-amber-600 transition-all shadow-md hover:shadow-lg flex items-center gap-1.5"
@@ -5826,85 +6043,103 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
         </div>
       </div>
 
-      {/* Pricing Details */}
-      <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Unit Cost:</span>
-          <span className="font-bold text-gray-900">{formatCurrency(item.supplier_unit_cost as number)}</span>
-        </div>
-        {item.supplier_discount && item.supplier_discount > 0 && (
-          <div className="flex justify-between text-sm text-green-600">
-            <span>Discount:</span>
-            <span className="font-medium">-{formatCurrency(item.supplier_discount)}</span>
-          </div>
-        )}
-        {item.delivery_type && (
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Delivery Type:</span>
-            <span className="font-medium text-gray-900">{item.delivery_type}</span>
-          </div>
-        )}
-        {item.delivery_cost && item.delivery_cost > 0 && (
-          <div className="flex justify-between text-sm text-blue-600">
-            <span>Delivery Cost:</span>
-            <span className="font-medium">+{formatCurrency(item.delivery_cost)}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Quoted Price Section */}
-      <div className="mt-4 bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <DollarSign size={16} className="text-purple-600" />
-            <span className="text-sm font-bold text-gray-900">Quoted Price Override</span>
-          </div>
-          {editingQuotedPrice === item.id ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={quotedPriceValue}
-                onChange={(e) => setQuotedPriceValue(e.target.value)}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                className="w-32 px-3 py-1.5 text-sm border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                autoFocus
-              />
-              <button
-                onClick={() => handleSaveQuotedPrice(item.id)}
-                disabled={setQuotedPriceMutation.isPending}
-                className="p-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                title="Save"
-              >
-                <Check size={16} />
-              </button>
-              <button
-                onClick={handleCancelEditQuotedPrice}
-                className="p-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                title="Cancel"
-              >
-                <X size={16} />
-              </button>
+      {/* Pricing Details - Only show if user can view cost price */}
+      <PermissionGate
+        permission="pricing.view_cost_price"
+        fallback={
+          <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+            <div className="flex items-center gap-2 text-gray-500">
+              <Lock size={16} />
+              <span className="text-sm font-medium">Pricing details hidden</span>
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-purple-700">
-                {item.is_quoted === 1 && item.quoted_price !== null
-                  ? formatCurrency(item.quoted_price as number)
-                  : 'Not Set'}
-              </span>
-              <button
-                onClick={() => handleStartEditQuotedPrice(item)}
-                className="p-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                title="Edit Quoted Price"
-              >
-                <Edit3 size={16} />
-              </button>
+          </div>
+        }
+      >
+        <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Unit Cost:</span>
+            <span className="font-bold text-gray-900">
+              {formatCurrency(item.supplier_unit_cost as number)}
+            </span>
+          </div>
+          {item.supplier_discount && item.supplier_discount > 0 && (
+            <div className="flex justify-between text-sm text-green-600">
+              <span>Discount:</span>
+              <span className="font-medium">-{formatCurrency(item.supplier_discount)}</span>
+            </div>
+          )}
+          {item.delivery_type && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Delivery Type:</span>
+              <span className="font-medium text-gray-900">{item.delivery_type}</span>
+            </div>
+          )}
+          {item.delivery_cost && item.delivery_cost > 0 && (
+            <div className="flex justify-between text-sm text-blue-600">
+              <span>Delivery Cost:</span>
+              <span className="font-medium">+{formatCurrency(item.delivery_cost)}</span>
             </div>
           )}
         </div>
-      </div>
+      </PermissionGate>
+
+      {/* Quoted Price Section - Only if can enter quoted rates */}
+      <PermissionGate permission="pricing.enter_quoted_rates">
+        <div className="mt-4 bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <DollarSign size={16} className="text-purple-600" />
+              <span className="text-sm font-bold text-gray-900">Quoted Price Override</span>
+            </div>
+            {editingQuotedPrice === item.id ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={quotedPriceValue}
+                  onChange={(e) => setQuotedPriceValue(e.target.value)}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  className="w-32 px-3 py-1.5 text-sm border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  autoFocus
+                />
+                <button
+                  onClick={() => handleSaveQuotedPrice(item.id)}
+                  disabled={setQuotedPriceMutation.isPending}
+                  className="p-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  title="Save"
+                >
+                  <Check size={16} />
+                </button>
+                <button
+                  onClick={handleCancelEditQuotedPrice}
+                  className="p-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  title="Cancel"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-purple-700">
+                  {item.is_quoted === 1 && item.quoted_price !== null
+                    ? formatCurrency(item.quoted_price as number)
+                    : 'Not Set'}
+                </span>
+                {!isReadOnly && (
+                  <button
+                    onClick={() => handleStartEditQuotedPrice(item)}
+                    className="p-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    title="Edit Quoted Price"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </PermissionGate>
 
       {/* Payment Status Section */}
       <div className="mt-4 bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
@@ -5913,17 +6148,44 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             <CreditCard size={16} className="text-blue-600" />
             <span className="text-sm font-bold text-gray-900">Payment Status</span>
           </div>
-          <button
-            onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
-            disabled={markAsPaidMutation.isPending}
-            className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${
-              item.is_paid === 1
-                ? 'bg-green-100 text-green-800 border-2 border-green-300 hover:bg-green-200'
-                : 'bg-gray-100 text-gray-800 border-2 border-gray-300 hover:bg-gray-200'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {item.is_paid === 1 ? '✓ Paid' : 'Mark as Paid'}
-          </button>
+          {isReadOnly ? (
+            <span
+              className={`px-3 py-1.5 text-xs font-bold rounded-full ${
+                item.is_paid === 1
+                  ? 'bg-green-100 text-green-800 border-2 border-green-300'
+                  : 'bg-gray-100 text-gray-800 border-2 border-gray-300'
+              }`}
+            >
+              {item.is_paid === 1 ? '✓ Paid' : 'Unpaid'}
+            </span>
+          ) : (
+            <PermissionGate
+              permission="payments.mark_paid"
+              fallback={
+                <span
+                  className={`px-3 py-1.5 text-xs font-bold rounded-full ${
+                    item.is_paid === 1
+                      ? 'bg-green-100 text-green-800 border-2 border-green-300'
+                      : 'bg-gray-100 text-gray-800 border-2 border-gray-300'
+                  }`}
+                >
+                  {item.is_paid === 1 ? '✓ Paid' : 'Unpaid'}
+                </span>
+              }
+            >
+              <button
+                onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
+                disabled={markAsPaidMutation.isPending}
+                className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${
+                  item.is_paid === 1
+                    ? 'bg-green-100 text-green-800 border-2 border-green-300 hover:bg-green-200'
+                    : 'bg-gray-100 text-gray-800 border-2 border-gray-300 hover:bg-gray-200'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {item.is_paid === 1 ? '✓ Paid' : 'Mark as Paid'}
+              </button>
+            </PermissionGate>
+          )}
         </div>
       </div>
     </div>
@@ -5931,7 +6193,10 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
 
   // Render item with pricing visible (Payment Requested or Delivered)
   const renderPricedItem = (item: AdminOrderItem) => (
-    <div key={item.id} className="bg-white border-2 border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+    <div
+      key={item.id}
+      className="bg-white border-2 border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow"
+    >
       {/* Header with Admin Edit Button */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
@@ -5940,8 +6205,12 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             <h4 className="font-bold text-gray-900 text-lg">{item.product_name}</h4>
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-600">
-            <span className="font-medium">Quantity: <span className="text-gray-900 font-bold">{item.quantity}</span></span>
-            <span className="font-medium">Supplier: <span className="text-green-700 font-bold">{item.supplier?.name || 'Unknown'}</span></span>
+            <span className="font-medium">
+              Quantity: <span className="text-gray-900 font-bold">{item.quantity}</span>
+            </span>
+            <span className="font-medium">
+              Supplier: <span className="text-green-700 font-bold">{item.supplier?.name || 'Unknown'}</span>
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -5949,8 +6218,17 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             <CheckCircle size={14} />
             {workflow === 'Delivered' ? 'Delivered' : 'Ready'}
           </span>
-          {/* Admin Edit Button - only for Payment Requested */}
-          {workflow === 'Payment Requested' && canEditItemPricing(item) && (
+          
+          {/* Read-Only Badge */}
+          {isReadOnly && (
+            <span className="px-3 py-1.5 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full border-2 border-yellow-300 flex items-center gap-1.5">
+              <Eye size={14} />
+              View Only
+            </span>
+          )}
+          
+          {/* Admin Edit Button - only for Payment Requested and if can edit */}
+          {workflow === 'Payment Requested' && canEditItemPricing(item) && !isReadOnly && (
             <button
               onClick={() => handleOpenEditModal(item)}
               className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-bold rounded-full hover:from-orange-600 hover:to-amber-600 transition-all shadow-md hover:shadow-lg flex items-center gap-1.5"
@@ -5965,32 +6243,44 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
 
       {/* Full Pricing Breakdown */}
       <div className="space-y-4">
-        {/* Supplier Costs */}
-        <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
-          <h5 className="text-xs font-bold text-gray-600 uppercase mb-3">Supplier Costs</h5>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Unit Cost × {item.quantity}:</span>
-              <span className="font-bold text-gray-900">
-                {formatCurrency((item.supplier_unit_cost || 0) * item.quantity)}
-              </span>
-            </div>
-            {item.supplier_discount && item.supplier_discount > 0 && (
-              <div className="flex justify-between text-green-600">
-                <span>Discount:</span>
-                <span className="font-medium">-{formatCurrency(item.supplier_discount)}</span>
+        {/* Supplier Costs - Only show if can view cost price */}
+        <PermissionGate
+          permission="pricing.view_cost_price"
+          fallback={
+            <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+              <div className="flex items-center gap-2 text-gray-500">
+                <Lock size={16} />
+                <span className="text-sm font-medium">Supplier costs hidden</span>
               </div>
-            )}
-            {item.delivery_type && (
+            </div>
+          }
+        >
+          <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+            <h5 className="text-xs font-bold text-gray-600 uppercase mb-3">Supplier Costs</h5>
+            <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Delivery ({item.delivery_type}):</span>
-                <span className="font-medium text-gray-900">
-                  {item.delivery_cost ? formatCurrency(item.delivery_cost) : 'Included'}
+                <span className="text-gray-600">Unit Cost × {item.quantity}:</span>
+                <span className="font-bold text-gray-900">
+                  {formatCurrency((item.supplier_unit_cost || 0) * item.quantity)}
                 </span>
               </div>
-            )}
+              {item.supplier_discount && item.supplier_discount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Discount:</span>
+                  <span className="font-medium">-{formatCurrency(item.supplier_discount)}</span>
+                </div>
+              )}
+              {item.delivery_type && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Delivery ({item.delivery_type}):</span>
+                  <span className="font-medium text-gray-900">
+                    {item.delivery_cost ? formatCurrency(item.delivery_cost) : 'Included'}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </PermissionGate>
 
         {/* Payment Status */}
         <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
@@ -5999,17 +6289,44 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
               <CreditCard size={16} className="text-blue-600" />
               <span className="text-sm font-bold text-gray-900">Payment Status</span>
             </div>
-            <button
-              onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
-              disabled={markAsPaidMutation.isPending}
-              className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${
-                item.is_paid === 1
-                  ? 'bg-green-100 text-green-800 border-2 border-green-300 hover:bg-green-200'
-                  : 'bg-gray-100 text-gray-800 border-2 border-gray-300 hover:bg-gray-200'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {item.is_paid === 1 ? '✓ Paid' : 'Mark as Paid'}
-            </button>
+            {isReadOnly ? (
+              <span
+                className={`px-3 py-1.5 text-xs font-bold rounded-full ${
+                  item.is_paid === 1
+                    ? 'bg-green-100 text-green-800 border-2 border-green-300'
+                    : 'bg-gray-100 text-gray-800 border-2 border-gray-300'
+                }`}
+              >
+                {item.is_paid === 1 ? '✓ Paid' : 'Unpaid'}
+              </span>
+            ) : (
+              <PermissionGate
+                permission="payments.mark_paid"
+                fallback={
+                  <span
+                    className={`px-3 py-1.5 text-xs font-bold rounded-full ${
+                      item.is_paid === 1
+                        ? 'bg-green-100 text-green-800 border-2 border-green-300'
+                        : 'bg-gray-100 text-gray-800 border-2 border-gray-300'
+                    }`}
+                  >
+                    {item.is_paid === 1 ? '✓ Paid' : 'Unpaid'}
+                  </span>
+                }
+              >
+                <button
+                  onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
+                  disabled={markAsPaidMutation.isPending}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${
+                    item.is_paid === 1
+                      ? 'bg-green-100 text-green-800 border-2 border-green-300 hover:bg-green-200'
+                      : 'bg-gray-100 text-gray-800 border-2 border-gray-300 hover:bg-gray-200'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {item.is_paid === 1 ? '✓ Paid' : 'Mark as Paid'}
+                </button>
+              </PermissionGate>
+            )}
           </div>
         </div>
       </div>
@@ -6027,8 +6344,23 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
               {items.length} item{items.length !== 1 ? 's' : ''} in this order
             </p>
           </div>
-          <div className="px-4 py-2 bg-white/20 rounded-lg border-2 border-white/30">
-            <span className="text-2xl font-bold">{items.length}</span>
+          <div className="flex items-center gap-3">
+            {/* Permission Indicators */}
+            {!canViewCostPrice && (
+              <span className="px-3 py-1.5 bg-white/20 rounded-lg text-sm font-medium flex items-center gap-2">
+                <Lock size={14} />
+                Costs Hidden
+              </span>
+            )}
+            {isReadOnly && (
+              <span className="px-3 py-1.5 bg-yellow-500/30 rounded-lg text-sm font-medium flex items-center gap-2">
+                <Eye size={14} />
+                Read Only
+              </span>
+            )}
+            <div className="px-4 py-2 bg-white/20 rounded-lg border-2 border-white/30">
+              <span className="text-2xl font-bold">{items.length}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -6037,7 +6369,7 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
       <div className="space-y-4">
         {items.map((item) => {
           const hasSupplier = item.supplier_id || item.supplier;
-          
+
           if (!hasSupplier) {
             return renderSupplierMissingItem(item);
           } else if (workflow === 'Payment Requested' || workflow === 'Delivered') {
@@ -6048,15 +6380,17 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
         })}
       </div>
 
-      {/* Admin Edit Modal */}
-      <AdminOrderItemEditModal
-        item={editingItem}
-        isOpen={isEditModalOpen}
-        onClose={handleCloseEditModal}
-        onSuccess={() => {
-          // Refetch is handled by the mutation hook
-        }}
-      />
+      {/* Admin Edit Modal - Only render if not read-only */}
+      {!isReadOnly && (
+        <AdminOrderItemEditModal
+          item={editingItem}
+          isOpen={isEditModalOpen}
+          onClose={handleCloseEditModal}
+          onSuccess={() => {
+            // Refetch is handled by the mutation hook
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -6713,13 +7047,14 @@ export default OrderOverviewTab;
 // FILE PATH: src/components/admin/Orders/OrdersTable.tsx
 
 /**
- * Orders Table Component
- * Comprehensive table with all pricing and workflow information
+ * Orders Table Component - WITH PERMISSION-BASED COLUMNS
+ * Comprehensive table with pricing information
+ * HIDES supplier cost, profit, and margin columns for Support role
  */
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { Eye, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Lock } from 'lucide-react';
 import type { AdminOrder } from '../../../types/adminOrder.types';
 import {
   getWorkflowBadgeClass,
@@ -6727,6 +7062,7 @@ import {
   formatCurrency,
   formatDate,
 } from '../../../features/adminOrders/utils';
+import { usePermissions } from '../../../hooks/usePermissions';
 
 interface OrdersTableProps {
   orders: AdminOrder[];
@@ -6748,6 +7084,9 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
   onPageChange,
 }) => {
   const navigate = useNavigate();
+  
+  // Get permissions
+  const { canViewCostPrice, canViewProfitMargin } = usePermissions();
 
   if (loading) {
     return (
@@ -6775,6 +7114,16 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+      {/* Permission Notice Banner */}
+      {(!canViewCostPrice || !canViewProfitMargin) && (
+        <div className="px-4 py-3 bg-yellow-50 border-b border-yellow-200 flex items-center gap-2">
+          <Lock size={16} className="text-yellow-600" />
+          <span className="text-sm text-yellow-800">
+            Some pricing columns are hidden based on your role permissions
+          </span>
+        </div>
+      )}
+
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -6795,18 +7144,33 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
               <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                 Items
               </th>
-              <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-blue-50">
-                Supplier Cost
-              </th>
+              
+              {/* Supplier Cost Column - Only visible if can view cost price */}
+              {canViewCostPrice && (
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-blue-50">
+                  Supplier Cost
+                </th>
+              )}
+              
+              {/* Customer Price - Always visible */}
               <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-green-50">
                 Customer Price
               </th>
-              <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
-                Profit
-              </th>
-              <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
-                Margin %
-              </th>
+              
+              {/* Profit Column - Only visible if can view profit margin */}
+              {canViewProfitMargin && (
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
+                  Profit
+                </th>
+              )}
+              
+              {/* Margin % Column - Only visible if can view profit margin */}
+              {canViewProfitMargin && (
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
+                  Margin %
+                </th>
+              )}
+              
               <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                 Actions
               </th>
@@ -6906,20 +7270,22 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Supplier Cost */}
-                  <td className="px-4 py-4 text-right bg-blue-50/50">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-base font-bold text-gray-900">
-                        {formatCurrency(order.supplier_total)}
-                      </span>
-                      <div className="text-xs text-gray-600 space-y-0.5">
-                        <div>Items: {formatCurrency(order.supplier_item_cost)}</div>
-                        <div>Delivery: {formatCurrency(order.supplier_delivery_cost)}</div>
+                  {/* Supplier Cost - Only visible if can view cost price */}
+                  {canViewCostPrice && (
+                    <td className="px-4 py-4 text-right bg-blue-50/50">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-base font-bold text-gray-900">
+                          {formatCurrency(order.supplier_total)}
+                        </span>
+                        <div className="text-xs text-gray-600 space-y-0.5">
+                          <div>Items: {formatCurrency(order.supplier_item_cost)}</div>
+                          <div>Delivery: {formatCurrency(order.supplier_delivery_cost)}</div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
+                    </td>
+                  )}
 
-                  {/* Customer Price */}
+                  {/* Customer Price - Always visible */}
                   <td className="px-4 py-4 text-right bg-green-50/50">
                     <div className="flex flex-col gap-1">
                       <span className="text-base font-bold text-gray-900">
@@ -6938,28 +7304,32 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Profit */}
-                  <td className="px-4 py-4 text-right bg-purple-50/50">
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-1">
-                        {profitIsPositive ? (
-                          <TrendingUp size={16} className="text-green-600" />
-                        ) : (
-                          <TrendingDown size={16} className="text-red-600" />
-                        )}
-                        <span className={`text-base font-bold ${marginColor}`}>
-                          {formatCurrency(order.profit_amount)}
-                        </span>
+                  {/* Profit - Only visible if can view profit margin */}
+                  {canViewProfitMargin && (
+                    <td className="px-4 py-4 text-right bg-purple-50/50">
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1">
+                          {profitIsPositive ? (
+                            <TrendingUp size={16} className="text-green-600" />
+                          ) : (
+                            <TrendingDown size={16} className="text-red-600" />
+                          )}
+                          <span className={`text-base font-bold ${marginColor}`}>
+                            {formatCurrency(order.profit_amount)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </td>
+                    </td>
+                  )}
 
-                  {/* Margin % */}
-                  <td className="px-4 py-4 text-right bg-purple-50/50">
-                    <span className={`text-base font-bold ${marginColor}`}>
-                      {(order.profit_margin_percent * 100).toFixed(2)}%
-                    </span>
-                  </td>
+                  {/* Margin % - Only visible if can view profit margin */}
+                  {canViewProfitMargin && (
+                    <td className="px-4 py-4 text-right bg-purple-50/50">
+                      <span className={`text-base font-bold ${marginColor}`}>
+                        {(order.profit_margin_percent * 100).toFixed(2)}%
+                      </span>
+                    </td>
+                  )}
 
                   {/* Actions */}
                   <td className="px-4 py-4 text-center">
@@ -9471,6 +9841,350 @@ const Pagination: React.FC<PaginationProps> = ({
 };
 
 export default Pagination;
+/* FILE: src/components/common/PermissionGate.tsx */
+// src/components/common/PermissionGate.tsx
+// ============================================
+// PERMISSION GATE COMPONENT
+// Use this to conditionally render UI based on permissions
+// ============================================
+
+import type { JSX, ReactNode } from 'react';
+import { usePermissions } from '../../hooks/usePermissions';
+import type { Permission, Role } from '../../config/permissions';
+
+// ==================== MAIN PERMISSION GATE ====================
+
+interface PermissionGateProps {
+  /** Single permission to check */
+  permission?: Permission;
+  /** Multiple permissions to check */
+  permissions?: Permission[];
+  /** If true, requires ALL permissions. Default: any one permission is enough */
+  requireAll?: boolean;
+  /** Specific roles to allow (bypasses permission check) */
+  allowedRoles?: Role[];
+  /** Content to show if permission denied */
+  fallback?: ReactNode;
+  /** Children to render if permission granted */
+  children: ReactNode;
+}
+
+/**
+ * PermissionGate - Conditionally renders children based on user permissions
+ *
+ * @example
+ * // Single permission
+ * <PermissionGate permission="pricing.view_cost_price">
+ *   <CostPriceColumn />
+ * </PermissionGate>
+ *
+ * @example
+ * // Multiple permissions (any)
+ * <PermissionGate permissions={['orders.edit', 'orders.create']}>
+ *   <OrderActions />
+ * </PermissionGate>
+ *
+ * @example
+ * // Multiple permissions (all required)
+ * <PermissionGate permissions={['orders.edit', 'pricing.edit_supplier_rates']} requireAll>
+ *   <AdvancedPricingEditor />
+ * </PermissionGate>
+ *
+ * @example
+ * // With fallback
+ * <PermissionGate permission="orders.edit" fallback={<ViewOnlyBadge />}>
+ *   <EditButton />
+ * </PermissionGate>
+ *
+ * @example
+ * // Role-based (bypasses permissions)
+ * <PermissionGate allowedRoles={['admin']}>
+ *   <DangerZone />
+ * </PermissionGate>
+ */
+const PermissionGate = ({
+  permission,
+  permissions = [],
+  requireAll = false,
+  allowedRoles,
+  fallback = null,
+  children,
+}: PermissionGateProps): JSX.Element => {
+  const { role, hasPermission, hasAnyPermission, hasAllPermissions } = usePermissions();
+
+  // If allowedRoles is specified, check role directly
+  if (allowedRoles && allowedRoles.length > 0) {
+    if (role && allowedRoles.includes(role)) {
+      return <>{children}</>;
+    }
+    return <>{fallback}</>;
+  }
+
+  // Single permission check
+  if (permission) {
+    return hasPermission(permission) ? <>{children}</> : <>{fallback}</>;
+  }
+
+  // Multiple permissions check
+  if (permissions.length > 0) {
+    const hasAccess = requireAll
+      ? hasAllPermissions(permissions)
+      : hasAnyPermission(permissions);
+    return hasAccess ? <>{children}</> : <>{fallback}</>;
+  }
+
+  // No permission specified, render children
+  return <>{children}</>;
+};
+
+export default PermissionGate;
+
+
+// ==================== SPECIALIZED GATE COMPONENTS ====================
+
+/**
+ * AdminOnlyGate - Only renders for admin users
+ */
+export const AdminOnlyGate = ({
+  children,
+  fallback = null,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}): JSX.Element => {
+  return (
+    <PermissionGate allowedRoles={['admin']} fallback={fallback}>
+      {children}
+    </PermissionGate>
+  );
+};
+
+/**
+ * ReadOnlyGate - Shows content for read-only users (accountant)
+ * Useful for showing "Read Only" badges or alternative UI
+ */
+export const ReadOnlyGate = ({
+  children,
+  fallback = null,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}): JSX.Element => {
+  return (
+    <PermissionGate allowedRoles={['accountant']} fallback={fallback}>
+      {children}
+    </PermissionGate>
+  );
+};
+
+/**
+ * EditableGate - Shows edit controls for users who can edit
+ * Excludes accountant role
+ */
+export const EditableGate = ({
+  permission,
+  children,
+  fallback = null,
+}: {
+  permission: Permission;
+  children: ReactNode;
+  fallback?: ReactNode;
+}): JSX.Element => {
+  const { role, hasPermission } = usePermissions();
+
+  // Accountant is always read-only
+  if (role === 'accountant') {
+    return <>{fallback}</>;
+  }
+
+  return hasPermission(permission) ? <>{children}</> : <>{fallback}</>;
+};
+
+
+// ==================== PRICING GATES ====================
+
+/**
+ * CostPriceGate - Shows cost price for authorized users
+ * Admin, Accountant, Supplier can see cost price
+ * Support and Client cannot
+ */
+export const CostPriceGate = ({
+  children,
+  fallback = null,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}): JSX.Element => {
+  return (
+    <PermissionGate permission="pricing.view_cost_price" fallback={fallback}>
+      {children}
+    </PermissionGate>
+  );
+};
+
+/**
+ * ProfitMarginGate - Shows profit margin for authorized users
+ * Admin, Accountant, Supplier can see profit margin
+ * Support and Client cannot
+ */
+export const ProfitMarginGate = ({
+  children,
+  fallback = null,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}): JSX.Element => {
+  return (
+    <PermissionGate permission="pricing.view_profit_margin" fallback={fallback}>
+      {children}
+    </PermissionGate>
+  );
+};
+
+
+// ==================== ORDER GATES ====================
+
+/**
+ * OrderEditGate - Shows order edit controls
+ */
+export const OrderEditGate = ({
+  children,
+  fallback = null,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}): JSX.Element => {
+  return (
+    <PermissionGate permission="orders.edit" fallback={fallback}>
+      {children}
+    </PermissionGate>
+  );
+};
+
+/**
+ * OrderCreateGate - Shows order create controls
+ */
+export const OrderCreateGate = ({
+  children,
+  fallback = null,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}): JSX.Element => {
+  return (
+    <PermissionGate permission="orders.create" fallback={fallback}>
+      {children}
+    </PermissionGate>
+  );
+};
+
+/**
+ * MarkDeliveredGate - Shows mark delivered button
+ */
+export const MarkDeliveredGate = ({
+  children,
+  fallback = null,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}): JSX.Element => {
+  return (
+    <PermissionGate permission="orders.mark_delivered" fallback={fallback}>
+      {children}
+    </PermissionGate>
+  );
+};
+
+
+// ==================== USER MANAGEMENT GATES ====================
+
+/**
+ * UserEditGate - Shows user edit controls
+ */
+export const UserEditGate = ({
+  children,
+  fallback = null,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}): JSX.Element => {
+  return (
+    <PermissionGate permission="users.edit" fallback={fallback}>
+      {children}
+    </PermissionGate>
+  );
+};
+
+/**
+ * UserDeleteGate - Shows user delete controls
+ */
+export const UserDeleteGate = ({
+  children,
+  fallback = null,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}): JSX.Element => {
+  return (
+    <PermissionGate permission="users.delete" fallback={fallback}>
+      {children}
+    </PermissionGate>
+  );
+};
+
+
+// ==================== INLINE PERMISSION CHECK COMPONENT ====================
+
+interface ShowIfProps {
+  /** Permission to check */
+  can: Permission;
+  /** Content to render if permitted */
+  children: ReactNode;
+  /** Optional content if not permitted */
+  else?: ReactNode;
+}
+
+/**
+ * ShowIf - Inline permission check with cleaner syntax
+ *
+ * @example
+ * <ShowIf can="pricing.view_cost_price">
+ *   ${costPrice}
+ * </ShowIf>
+ *
+ * @example
+ * <ShowIf can="orders.edit" else={<span>View Only</span>}>
+ *   <EditButton />
+ * </ShowIf>
+ */
+export const ShowIf = ({ can, children, else: elseContent = null }: ShowIfProps): JSX.Element => {
+  const { hasPermission } = usePermissions();
+  return hasPermission(can) ? <>{children}</> : <>{elseContent}</>;
+};
+
+
+// ==================== HIDE IF COMPONENT ====================
+
+interface HideIfProps {
+  /** Permission to check - hides if user HAS this permission */
+  can: Permission;
+  /** Content to render if NOT permitted */
+  children: ReactNode;
+}
+
+/**
+ * HideIf - Hides content if user HAS the permission
+ * Useful for showing alternative content for lower-privilege users
+ *
+ * @example
+ * <HideIf can="pricing.view_cost_price">
+ *   <span>Cost price hidden</span>
+ * </HideIf>
+ */
+export const HideIf = ({ can, children }: HideIfProps): JSX.Element => {
+  const { hasPermission } = usePermissions();
+  return !hasPermission(can) ? <>{children}</> : <></>;
+};
 /* FILE: src/components/common/StatusBadge.tsx */
 // FILE PATH: src/components/common/StatusBadge.tsx
 
@@ -14593,6 +15307,378 @@ export const TooltipContent: React.FC<TooltipContentProps> = ({
 //     },
 //   },
 // }
+/* FILE: src/config/permissions.ts */
+// src/config/permissions.ts
+// ============================================
+// PERMISSION MANAGEMENT SYSTEM
+// Single source of truth for all role-based permissions
+// ============================================
+
+// Available roles in the system
+export type Role = 'admin' | 'support' | 'accountant' | 'supplier' | 'client';
+
+// All available permissions in the system
+export type Permission =
+  // ==================== PROJECTS ====================
+  | 'projects.view_all'        // View all projects (admin area)
+  | 'projects.view_own'        // View own projects only
+  | 'projects.edit'            // Edit project details
+  | 'projects.create'          // Create new projects
+  | 'projects.delete'          // Delete/archive projects
+
+  // ==================== ORDERS ====================
+  | 'orders.view_all'          // View all orders (admin area)
+  | 'orders.view_own'          // View own orders only
+  | 'orders.create'            // Create new orders
+  | 'orders.edit'              // Edit order details
+  | 'orders.mark_delivered'    // Mark order as delivered
+  | 'orders.assign_supplier'   // Assign supplier to order items
+  | 'orders.cancel'            // Cancel orders
+  | 'orders.update_status'     // Update order workflow status
+
+  // ==================== PRICING ====================
+  | 'pricing.view_cost_price'      // View supplier cost price
+  | 'pricing.view_profit_margin'   // View profit margin
+  | 'pricing.edit_supplier_rates'  // Edit supplier rates/offers
+  | 'pricing.enter_quoted_rates'   // Enter quoted rates & client surcharges
+  | 'pricing.view_client_price'    // View client-facing price
+
+  // ==================== USERS ====================
+  | 'users.view'               // View user list
+  | 'users.view_details'       // View user details
+  | 'users.create'             // Create new users
+  | 'users.edit'               // Edit user details
+  | 'users.delete'             // Delete/deactivate users
+  | 'users.manage_roles'       // Assign/change user roles
+
+  // ==================== PRODUCTS ====================
+  | 'products.view'            // View products catalog
+  | 'products.create'          // Create master products
+  | 'products.edit'            // Edit product details
+  | 'products.delete'          // Delete products
+  | 'products.approve'         // Approve/reject products & offers
+
+  // ==================== SUPPLIERS ====================
+  | 'suppliers.view'           // View suppliers list
+  | 'suppliers.view_zones'     // View delivery zones
+  | 'suppliers.edit_zones'     // Edit delivery zones
+  | 'suppliers.approve'        // Approve supplier accounts
+  | 'suppliers.view_offers'    // View supplier offers
+
+  // ==================== CLIENTS ====================
+  | 'clients.view'             // View clients list
+  | 'clients.view_details'     // View client details
+  | 'clients.edit'             // Edit client details
+  | 'clients.manage_pricing'   // Manage client-specific pricing
+
+  // ==================== REPORTS ====================
+  | 'reports.view'             // View reports section
+  | 'reports.view_revenue'     // View revenue reports
+  | 'reports.view_supplier_performance' // View supplier performance
+  | 'reports.view_client_spend'         // View client spending reports
+  | 'reports.export'           // Export report data
+
+  // ==================== PAYMENTS ====================
+  | 'payments.view'            // View payments
+  | 'payments.process'         // Process payments
+  | 'payments.refund'          // Process refunds
+  | 'payments.mark_paid'       // Mark supplier as paid
+
+  // ==================== SYSTEM ====================
+  | 'system.view_dashboard'    // View admin dashboard
+  | 'system.manage_categories' // Manage product categories
+  | 'system.view_logs'         // View system logs
+  | 'system.manage_settings';  // Manage system settings
+
+
+// ============================================
+// ROLE PERMISSIONS MATRIX
+// Maps each role to their allowed permissions
+// ============================================
+
+export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+  // ==================== ADMIN ====================
+  // Full access to everything
+  admin: [
+    // Projects - Full Access
+    'projects.view_all',
+    'projects.view_own',
+    'projects.edit',
+    'projects.create',
+    'projects.delete',
+
+    // Orders - Full Access
+    'orders.view_all',
+    'orders.view_own',
+    'orders.create',
+    'orders.edit',
+    'orders.mark_delivered',
+    'orders.assign_supplier',
+    'orders.cancel',
+    'orders.update_status',
+
+    // Pricing - Full Access
+    'pricing.view_cost_price',
+    'pricing.view_profit_margin',
+    'pricing.edit_supplier_rates',
+    'pricing.enter_quoted_rates',
+    'pricing.view_client_price',
+
+    // Users - Full Access
+    'users.view',
+    'users.view_details',
+    'users.create',
+    'users.edit',
+    'users.delete',
+    'users.manage_roles',
+
+    // Products - Full Access
+    'products.view',
+    'products.create',
+    'products.edit',
+    'products.delete',
+    'products.approve',
+
+    // Suppliers - Full Access
+    'suppliers.view',
+    'suppliers.view_zones',
+    'suppliers.edit_zones',
+    'suppliers.approve',
+    'suppliers.view_offers',
+
+    // Clients - Full Access
+    'clients.view',
+    'clients.view_details',
+    'clients.edit',
+    'clients.manage_pricing',
+
+    // Reports - Full Access
+    'reports.view',
+    'reports.view_revenue',
+    'reports.view_supplier_performance',
+    'reports.view_client_spend',
+    'reports.export',
+
+    // Payments - Full Access
+    'payments.view',
+    'payments.process',
+    'payments.refund',
+    'payments.mark_paid',
+
+    // System - Full Access
+    'system.view_dashboard',
+    'system.manage_categories',
+    'system.view_logs',
+    'system.manage_settings',
+  ],
+
+  // ==================== SUPPORT (OPS SUPPORT) ====================
+  // Operational support - can manage orders and basic operations
+  // NO access to: cost price, profit margin, supplier rate editing
+  support: [
+    // Projects - View All + Edit
+    'projects.view_all',
+    'projects.view_own',
+    'projects.edit',
+
+    // Orders - Full operational access
+    'orders.view_all',
+    'orders.view_own',
+    'orders.create',
+    'orders.edit',
+    'orders.mark_delivered',
+    'orders.assign_supplier',
+    'orders.update_status',
+
+    // Pricing - Can enter quoted rates, but NOT view cost/margin
+    'pricing.enter_quoted_rates',
+    'pricing.view_client_price',
+
+    // Users - View and basic management
+    'users.view',
+    'users.view_details',
+    'users.create',
+    'users.edit',
+
+    // Products - View only
+    'products.view',
+
+    // Suppliers - View only
+    'suppliers.view',
+    'suppliers.view_zones',
+    'suppliers.view_offers',
+
+    // Clients - View and edit
+    'clients.view',
+    'clients.view_details',
+    'clients.edit',
+
+    // System
+    'system.view_dashboard',
+  ],
+
+  // ==================== ACCOUNTANT ====================
+  // Financial oversight - Read-only for most, but can see all financial data
+  // NO access to: editing, creating, operational actions
+  accountant: [
+    // Projects - Read Only
+    'projects.view_all',
+    'projects.view_own',
+    // NO edit, create, delete
+
+    // Orders - View Only
+    'orders.view_all',
+    'orders.view_own',
+    // NO create, edit, mark_delivered, assign
+
+    // Pricing - Full visibility (READ ONLY)
+    'pricing.view_cost_price',
+    'pricing.view_profit_margin',
+    'pricing.view_client_price',
+    // NO editing capabilities
+
+    // Users - View Only
+    'users.view',
+    'users.view_details',
+    // NO create, edit, delete
+
+    // Products - View Only
+    'products.view',
+
+    // Suppliers - View Only
+    'suppliers.view',
+    'suppliers.view_zones',
+    'suppliers.view_offers',
+
+    // Clients - View Only
+    'clients.view',
+    'clients.view_details',
+
+    // Reports - Full Access (primary role function)
+    'reports.view',
+    'reports.view_revenue',
+    'reports.view_supplier_performance',
+    'reports.view_client_spend',
+    'reports.export',
+
+    // Payments - View and mark paid
+    'payments.view',
+    'payments.mark_paid',
+
+    // System
+    'system.view_dashboard',
+  ],
+
+  // ==================== SUPPLIER ====================
+  // Own data only + delivery management
+  supplier: [
+    // Projects - None (suppliers don't see projects)
+    
+    // Orders - Own orders only
+    'orders.view_own',
+    'orders.mark_delivered', // Own orders only
+
+    // Pricing - Can see their own cost price
+    'pricing.view_cost_price',
+    'pricing.view_profit_margin',
+
+    // Products - Manage own offers
+    'products.view',
+    'products.create', // Request new products
+
+    // Suppliers - Own data
+    'suppliers.view_zones',
+    'suppliers.edit_zones',
+    'suppliers.view_offers',
+  ],
+
+  // ==================== CLIENT ====================
+  // Own data only
+  client: [
+    // Projects - Own only
+    'projects.view_own',
+    'projects.create',
+    'projects.edit', // Own only
+
+    // Orders - Own only
+    'orders.view_own',
+    'orders.create',
+
+    // Pricing - Client price only
+    'pricing.view_client_price',
+
+    // Products - View catalog
+    'products.view',
+  ],
+};
+
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Check if a role has a specific permission
+ */
+export const roleHasPermission = (role: Role, permission: Permission): boolean => {
+  return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
+};
+
+/**
+ * Get all permissions for a role
+ */
+export const getRolePermissions = (role: Role): Permission[] => {
+  return ROLE_PERMISSIONS[role] ?? [];
+};
+
+/**
+ * Check if role can access admin area
+ */
+export const canAccessAdminArea = (role: Role): boolean => {
+  return ['admin', 'support', 'accountant'].includes(role);
+};
+
+/**
+ * Get display name for a role
+ */
+export const getRoleDisplayName = (role: Role): string => {
+  const names: Record<Role, string> = {
+    admin: 'Administrator',
+    support: 'Ops Support',
+    accountant: 'Accounts',
+    supplier: 'Supplier',
+    client: 'Client',
+  };
+  return names[role] ?? role;
+};
+
+/**
+ * Get role badge color classes
+ */
+export const getRoleBadgeStyles = (role: Role): string => {
+  const styles: Record<Role, string> = {
+    admin: 'bg-error-100 text-error-700 border-error-200',
+    support: 'bg-warning-100 text-warning-700 border-warning-200',
+    accountant: 'bg-purple-100 text-purple-700 border-purple-200',
+    supplier: 'bg-success-100 text-success-700 border-success-200',
+    client: 'bg-primary-100 text-primary-700 border-primary-200',
+  };
+  return styles[role] ?? 'bg-secondary-100 text-secondary-700 border-secondary-200';
+};
+
+/**
+ * Get role icon
+ */
+export const getRoleIcon = (role: Role): string => {
+  const icons: Record<Role, string> = {
+    admin: '👑',
+    support: '🎧',
+    accountant: '💼',
+    supplier: '🏢',
+    client: '👤',
+  };
+  return icons[role] ?? '👤';
+};
 /* FILE: src/features/adminOrders/hooks.ts */
 // FILE PATH: src/features/adminOrders/hooks.ts
 
@@ -15421,6 +16507,229 @@ export const useGoogleMaps = (apiKey: string): UseGoogleMapsResult => {
 
   return { isLoaded, loadError };
 };
+/* FILE: src/hooks/usePermissions.ts */
+// src/hooks/usePermissions.ts
+// ============================================
+// PERMISSION HOOK
+// Use this hook to check permissions anywhere in the app
+// ============================================
+
+import { useMemo } from 'react';
+import { useAuthStore } from '../store/authStore';
+import {
+  ROLE_PERMISSIONS,
+  canAccessAdminArea,
+  getRoleDisplayName,
+  getRoleBadgeStyles,
+  getRoleIcon,
+} from '../config/permissions';
+import type { Permission,Role } from '../config/permissions';
+
+interface UsePermissionsReturn {
+  // Current user role
+  role: Role | null;
+  roleDisplayName: string;
+  roleBadgeStyles: string;
+  roleIcon: string;
+
+  // Permission checking functions
+  hasPermission: (permission: Permission) => boolean;
+  hasAnyPermission: (permissions: Permission[]) => boolean;
+  hasAllPermissions: (permissions: Permission[]) => boolean;
+
+  // Quick access checks
+  canAccessAdmin: boolean;
+  isReadOnly: boolean; // For accountant role
+
+  // ==================== PROJECT PERMISSIONS ====================
+  canViewAllProjects: boolean;
+  canViewOwnProjects: boolean;
+  canEditProjects: boolean;
+  canCreateProjects: boolean;
+  canDeleteProjects: boolean;
+
+  // ==================== ORDER PERMISSIONS ====================
+  canViewAllOrders: boolean;
+  canViewOwnOrders: boolean;
+  canCreateOrders: boolean;
+  canEditOrders: boolean;
+  canMarkDelivered: boolean;
+  canAssignSupplier: boolean;
+  canCancelOrders: boolean;
+  canUpdateOrderStatus: boolean;
+
+  // ==================== PRICING PERMISSIONS ====================
+  canViewCostPrice: boolean;
+  canViewProfitMargin: boolean;
+  canEditSupplierRates: boolean;
+  canEnterQuotedRates: boolean;
+  canViewClientPrice: boolean;
+
+  // ==================== USER PERMISSIONS ====================
+  canViewUsers: boolean;
+  canViewUserDetails: boolean;
+  canCreateUsers: boolean;
+  canEditUsers: boolean;
+  canDeleteUsers: boolean;
+  canManageRoles: boolean;
+
+  // ==================== PRODUCT PERMISSIONS ====================
+  canViewProducts: boolean;
+  canCreateProducts: boolean;
+  canEditProducts: boolean;
+  canDeleteProducts: boolean;
+  canApproveProducts: boolean;
+
+  // ==================== SUPPLIER PERMISSIONS ====================
+  canViewSuppliers: boolean;
+  canViewSupplierZones: boolean;
+  canEditSupplierZones: boolean;
+  canApproveSuppliers: boolean;
+  canViewSupplierOffers: boolean;
+
+  // ==================== CLIENT PERMISSIONS ====================
+  canViewClients: boolean;
+  canViewClientDetails: boolean;
+  canEditClients: boolean;
+  canManageClientPricing: boolean;
+
+  // ==================== REPORT PERMISSIONS ====================
+  canViewReports: boolean;
+  canViewRevenueReports: boolean;
+  canViewSupplierPerformance: boolean;
+  canViewClientSpend: boolean;
+  canExportReports: boolean;
+
+  // ==================== PAYMENT PERMISSIONS ====================
+  canViewPayments: boolean;
+  canProcessPayments: boolean;
+  canRefundPayments: boolean;
+  canMarkSupplierPaid: boolean;
+
+  // ==================== SYSTEM PERMISSIONS ====================
+  canViewDashboard: boolean;
+  canManageCategories: boolean;
+  canViewLogs: boolean;
+  canManageSettings: boolean;
+}
+
+export const usePermissions = (): UsePermissionsReturn => {
+  const user = useAuthStore((state) => state.user);
+  const role = (user?.role as Role) ?? null;
+
+  // Memoize permission checks to avoid recalculating on every render
+  return useMemo(() => {
+    // Core permission check function
+    const hasPermission = (permission: Permission): boolean => {
+      if (!role) return false;
+      return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
+    };
+
+    // Check if user has ANY of the provided permissions
+    const hasAnyPermission = (permissions: Permission[]): boolean => {
+      return permissions.some((p) => hasPermission(p));
+    };
+
+    // Check if user has ALL of the provided permissions
+    const hasAllPermissions = (permissions: Permission[]): boolean => {
+      return permissions.every((p) => hasPermission(p));
+    };
+
+    // Quick access values
+    const canAccessAdmin = role ? canAccessAdminArea(role) : false;
+    const isReadOnly = role === 'accountant';
+
+    return {
+      // Role info
+      role,
+      roleDisplayName: role ? getRoleDisplayName(role) : '',
+      roleBadgeStyles: role ? getRoleBadgeStyles(role) : '',
+      roleIcon: role ? getRoleIcon(role) : '',
+
+      // Permission checking functions
+      hasPermission,
+      hasAnyPermission,
+      hasAllPermissions,
+
+      // Quick access
+      canAccessAdmin,
+      isReadOnly,
+
+      // ==================== PROJECT PERMISSIONS ====================
+      canViewAllProjects: hasPermission('projects.view_all'),
+      canViewOwnProjects: hasPermission('projects.view_own'),
+      canEditProjects: hasPermission('projects.edit'),
+      canCreateProjects: hasPermission('projects.create'),
+      canDeleteProjects: hasPermission('projects.delete'),
+
+      // ==================== ORDER PERMISSIONS ====================
+      canViewAllOrders: hasPermission('orders.view_all'),
+      canViewOwnOrders: hasPermission('orders.view_own'),
+      canCreateOrders: hasPermission('orders.create'),
+      canEditOrders: hasPermission('orders.edit'),
+      canMarkDelivered: hasPermission('orders.mark_delivered'),
+      canAssignSupplier: hasPermission('orders.assign_supplier'),
+      canCancelOrders: hasPermission('orders.cancel'),
+      canUpdateOrderStatus: hasPermission('orders.update_status'),
+
+      // ==================== PRICING PERMISSIONS ====================
+      canViewCostPrice: hasPermission('pricing.view_cost_price'),
+      canViewProfitMargin: hasPermission('pricing.view_profit_margin'),
+      canEditSupplierRates: hasPermission('pricing.edit_supplier_rates'),
+      canEnterQuotedRates: hasPermission('pricing.enter_quoted_rates'),
+      canViewClientPrice: hasPermission('pricing.view_client_price'),
+
+      // ==================== USER PERMISSIONS ====================
+      canViewUsers: hasPermission('users.view'),
+      canViewUserDetails: hasPermission('users.view_details'),
+      canCreateUsers: hasPermission('users.create'),
+      canEditUsers: hasPermission('users.edit'),
+      canDeleteUsers: hasPermission('users.delete'),
+      canManageRoles: hasPermission('users.manage_roles'),
+
+      // ==================== PRODUCT PERMISSIONS ====================
+      canViewProducts: hasPermission('products.view'),
+      canCreateProducts: hasPermission('products.create'),
+      canEditProducts: hasPermission('products.edit'),
+      canDeleteProducts: hasPermission('products.delete'),
+      canApproveProducts: hasPermission('products.approve'),
+
+      // ==================== SUPPLIER PERMISSIONS ====================
+      canViewSuppliers: hasPermission('suppliers.view'),
+      canViewSupplierZones: hasPermission('suppliers.view_zones'),
+      canEditSupplierZones: hasPermission('suppliers.edit_zones'),
+      canApproveSuppliers: hasPermission('suppliers.approve'),
+      canViewSupplierOffers: hasPermission('suppliers.view_offers'),
+
+      // ==================== CLIENT PERMISSIONS ====================
+      canViewClients: hasPermission('clients.view'),
+      canViewClientDetails: hasPermission('clients.view_details'),
+      canEditClients: hasPermission('clients.edit'),
+      canManageClientPricing: hasPermission('clients.manage_pricing'),
+
+      // ==================== REPORT PERMISSIONS ====================
+      canViewReports: hasPermission('reports.view'),
+      canViewRevenueReports: hasPermission('reports.view_revenue'),
+      canViewSupplierPerformance: hasPermission('reports.view_supplier_performance'),
+      canViewClientSpend: hasPermission('reports.view_client_spend'),
+      canExportReports: hasPermission('reports.export'),
+
+      // ==================== PAYMENT PERMISSIONS ====================
+      canViewPayments: hasPermission('payments.view'),
+      canProcessPayments: hasPermission('payments.process'),
+      canRefundPayments: hasPermission('payments.refund'),
+      canMarkSupplierPaid: hasPermission('payments.mark_paid'),
+
+      // ==================== SYSTEM PERMISSIONS ====================
+      canViewDashboard: hasPermission('system.view_dashboard'),
+      canManageCategories: hasPermission('system.manage_categories'),
+      canViewLogs: hasPermission('system.view_logs'),
+      canManageSettings: hasPermission('system.manage_settings'),
+    };
+  }, [role]);
+};
+
+export default usePermissions;
 /* FILE: src/index.css */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @tailwind base;
@@ -15715,17 +17024,22 @@ const AdminSupplierDeliveryZones = () => {
 export default AdminSupplierDeliveryZones;
 /* FILE: src/pages/admin/Dashboard.tsx */
 // FILE PATH: src/pages/admin/Dashboard.tsx
+// ============================================
+// ADMIN DASHBOARD WITH PERMISSION-BASED VISIBILITY
+// ============================================
 
 /**
  * Admin Dashboard Page
  * Main dashboard showing KPIs, charts, tables, and alerts
+ * Revenue/Profit widgets hidden for Support role
  */
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, Eye, Lock } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import { adminMenuItems } from '../../utils/menuItems';
+import { getMenuItemsByRole } from '../../utils/menuItems';
+import { usePermissions } from '../../hooks/usePermissions';
 import { 
   adminDashboardAPI, 
   type DashboardFilters 
@@ -15737,6 +17051,19 @@ import TablesSection from '../../components/admin/Dashboard/TablesSection';
 import AlertsSection from '../../components/admin/Dashboard/AlertsSection';
 
 const AdminDashboard = () => {
+  // ==================== PERMISSIONS ====================
+  const { 
+    role, 
+    isReadOnly,
+    canViewCostPrice,
+    canViewProfitMargin,
+  } = usePermissions();
+  
+  const menuItems = getMenuItemsByRole(role);
+  
+  // Determine if financial data should be shown
+  const showFinancialData = canViewCostPrice || canViewProfitMargin;
+
   // Initialize filters with default date range (current month)
   const [filters, setFilters] = useState<DashboardFilters>(() => {
     const today = new Date();
@@ -15780,7 +17107,7 @@ const AdminDashboard = () => {
   const activeAlerts = data?.alerts?.filter((_, idx) => !dismissedAlerts.includes(idx)) || [];
 
   return (
-    <DashboardLayout menuItems={adminMenuItems}>
+    <DashboardLayout menuItems={menuItems}>
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex items-center justify-between">
@@ -15792,18 +17119,38 @@ const AdminDashboard = () => {
             <p className="text-gray-600 mt-1">System overview and analytics</p>
           </div>
 
-          {/* Data Freshness Indicator */}
-          {data?.metadata && (
-            <div className="text-right">
-              <p className="text-sm text-gray-600">
-                Last updated: {new Date(data.metadata.generated_at).toLocaleString()}
-              </p>
-              <p className="text-xs text-gray-500">
-                Analyzing {data.metadata.total_records_analyzed} records over {Math.round(data.metadata.period_days)} days
-              </p>
-            </div>
-          )}
+          <div className="flex items-center gap-4">
+            {/* Read-Only Badge for Accountant */}
+            {isReadOnly && (
+              <span className="px-4 py-2 bg-yellow-100 text-yellow-800 text-sm font-bold rounded-lg border-2 border-yellow-300 flex items-center gap-2">
+                <Eye size={16} />
+                Read Only Mode
+              </span>
+            )}
+            
+            {/* Data Freshness Indicator */}
+            {data?.metadata && (
+              <div className="text-right">
+                <p className="text-sm text-gray-600">
+                  Last updated: {new Date(data.metadata.generated_at).toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Analyzing {data.metadata.total_records_analyzed} records over {Math.round(data.metadata.period_days)} days
+                </p>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Permission Notice Banner for Support */}
+        {!showFinancialData && (
+          <div className="px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-2">
+            <Lock size={16} className="text-yellow-600" />
+            <span className="text-sm text-yellow-800">
+              Financial metrics (revenue, profit) are hidden based on your role permissions
+            </span>
+          </div>
+        )}
 
         {/* Alerts Section */}
         {activeAlerts.length > 0 && (
@@ -15822,11 +17169,12 @@ const AdminDashboard = () => {
           isRefreshing={isFetching}
         />
 
-        {/* KPI Cards */}
+        {/* KPI Cards - Pass permission flag */}
         <KPICards
           kpis={data?.kpis || null}
           loading={isLoading}
           currency={data?.filters.currency}
+          showFinancialData={showFinancialData}
         />
 
         {/* Charts Section */}
@@ -15838,7 +17186,7 @@ const AdminDashboard = () => {
           />
         </div>
 
-        {/* Tables Section */}
+        {/* Tables Section - Pass permission flag */}
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Top Performers & Activity</h2>
           <TablesSection
@@ -15847,12 +17195,14 @@ const AdminDashboard = () => {
             recentActivity={data?.tables.recent_activity || []}
             loading={isLoading}
             currency={data?.filters.currency}
+            showFinancialData={showFinancialData}
           />
         </div>
 
-        {/* Additional Insights */}
+        {/* Additional Insights - Only show financial insights to authorized users */}
         {data?.kpis && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className={`grid grid-cols-1 ${showFinancialData ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-6`}>
+            {/* Performance Metrics - Always visible (non-financial) */}
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
               <h3 className="text-sm font-medium text-blue-900 mb-2">Performance Metrics</h3>
               <div className="space-y-2">
@@ -15867,6 +17217,7 @@ const AdminDashboard = () => {
               </div>
             </div>
 
+            {/* System Health - Always visible (non-financial) */}
             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
               <h3 className="text-sm font-medium text-green-900 mb-2">System Health</h3>
               <div className="space-y-2">
@@ -15881,19 +17232,22 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
-              <h3 className="text-sm font-medium text-purple-900 mb-2">Current Period</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-purple-700">Active Clients</span>
-                  <span className="text-lg font-bold text-purple-900">{data.kpis.active_clients}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-purple-700">Active Suppliers</span>
-                  <span className="text-lg font-bold text-purple-900">{data.kpis.active_suppliers}</span>
+            {/* Current Period - Only for users who can see financial data */}
+            {showFinancialData && (
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
+                <h3 className="text-sm font-medium text-purple-900 mb-2">Current Period</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-purple-700">Active Clients</span>
+                    <span className="text-lg font-bold text-purple-900">{data.kpis.active_clients}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-purple-700">Active Suppliers</span>
+                    <span className="text-lg font-bold text-purple-900">{data.kpis.active_suppliers}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
@@ -15902,7 +17256,6 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
 /* FILE: src/pages/admin/MasterProducts/AddMasterProduct.tsx */
 // FILE PATH: src/pages/admin/MasterProducts/AddMasterProduct.tsx
 
@@ -17607,26 +18960,32 @@ export default ViewMasterProduct;
 // FILE PATH: src/pages/admin/Orders/AdminOrdersList.tsx
 
 /**
- * Admin Orders List Page
+ * Admin Orders List Page - WITH PERMISSION-BASED VISIBILITY
  * Main page with metrics, filters panel, active chips, and comprehensive table
+ * Uses role-based menu items
  */
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { RefreshCw, Filter, Search } from 'lucide-react';
+import { RefreshCw, Filter, Search, Eye } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import OrderMetricsCards from '../../../components/admin/Orders/OrderMetricsCards';
 import OrderFiltersPanel from '../../../components/admin/Orders/OrderFiltersPanel';
 import ActiveFilterChips from '../../../components/admin/Orders/ActiveFilterChips';
 import OrdersTable from '../../../components/admin/Orders/OrdersTable';
 import { useAdminOrders } from '../../../features/adminOrders/hooks';
-import { adminMenuItems } from '../../../utils/menuItems';
+import { getMenuItemsByRole } from '../../../utils/menuItems';
+import { usePermissions } from '../../../hooks/usePermissions';
 
 const AdminOrdersList: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [availableFilters, setAvailableFilters] = useState<any>(null);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+
+  // Get permissions and role-based menu
+  const { role, isReadOnly } = usePermissions();
+  const menuItems = getMenuItemsByRole(role);
 
   // Initialize filters from URL params
   const [filters, setFilters] = useState({
@@ -17712,7 +19071,7 @@ const AdminOrdersList: React.FC = () => {
   };
 
   return (
-    <DashboardLayout menuItems={adminMenuItems}>
+    <DashboardLayout menuItems={menuItems}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -17724,14 +19083,23 @@ const AdminOrdersList: React.FC = () => {
               Comprehensive view of all orders with full cost insights
             </p>
           </div>
-          <button
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 font-medium shadow-sm hover:shadow-md"
-          >
-            <RefreshCw size={18} className={isFetching ? 'animate-spin' : ''} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Read-Only Badge for Accountant */}
+            {isReadOnly && (
+              <span className="px-4 py-2 bg-yellow-100 text-yellow-800 text-sm font-bold rounded-lg border-2 border-yellow-300 flex items-center gap-2">
+                <Eye size={16} />
+                Read Only Mode
+              </span>
+            )}
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 font-medium shadow-sm hover:shadow-md"
+            >
+              <RefreshCw size={18} className={isFetching ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Metrics Cards */}
@@ -17827,8 +19195,9 @@ export default AdminOrdersList;
 // FILE PATH: src/pages/admin/Orders/AdminOrderView.tsx
 
 /**
- * Admin Order View Page
- * Comprehensive order details with tabbed interface
+ * Admin Order View - WITH PERMISSION-BASED VISIBILITY
+ * Hides cost/margin data from Support role
+ * Shows read-only mode for Accountant role
  */
 
 import React, { useState } from 'react';
@@ -17842,6 +19211,7 @@ import {
   Settings,
   Loader2,
   AlertCircle,
+  Eye,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import OrderOverviewTab from '../../../components/admin/Orders/OrderOverviewTab';
@@ -17850,11 +19220,8 @@ import OrderCostingTab from '../../../components/admin/Orders/OrderCostingTab';
 import OrderMapTab from '../../../components/admin/Orders/OrderMapTab';
 import OrderAdminUpdateTab from '../../../components/admin/Orders/OrderAdminUpdateTab';
 import { useAdminOrderDetail } from '../../../features/adminOrders/hooks';
-import { adminMenuItems } from '../../../utils/menuItems';
-import {
-  getWorkflowBadgeClass,
-  getPaymentBadgeClass,
-} from '../../../features/adminOrders/utils';
+import { getMenuItemsByRole } from '../../../utils/menuItems';
+import { usePermissions } from '../../../hooks/usePermissions';
 
 type TabType = 'overview' | 'items' | 'costing' | 'map' | 'admin';
 
@@ -17863,12 +19230,25 @@ const AdminOrderView: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
+  // Get permissions
+  const {
+    role,
+    canViewCostPrice,
+    canViewProfitMargin,
+    canEditOrders,
+    canUpdateOrderStatus,
+    isReadOnly,
+  } = usePermissions();
+
+  // Get role-based menu items
+  const menuItems = getMenuItemsByRole(role);
+
   const { data, isLoading, error } = useAdminOrderDetail(parseInt(id || '0'));
 
   // Loading State
   if (isLoading) {
     return (
-      <DashboardLayout menuItems={adminMenuItems}>
+      <DashboardLayout menuItems={menuItems}>
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <Loader2 className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
@@ -17882,15 +19262,15 @@ const AdminOrderView: React.FC = () => {
   // Error State
   if (error || !data?.data) {
     return (
-      <DashboardLayout menuItems={adminMenuItems}>
-        <div className="bg-white rounded-xl border-2 border-red-200 p-8 text-center">
+      <DashboardLayout menuItems={menuItems}>
+        <div className="bg-white rounded-xl border-2 border-red-200 p-8 text-center shadow-lg">
           <AlertCircle className="mx-auto text-red-600 mb-4" size={48} />
           <p className="text-red-600 font-bold text-lg mb-4">
             {(error as Error)?.message || 'Order not found'}
           </p>
           <button
             onClick={() => navigate('/admin/orders')}
-            className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-2 font-bold"
+            className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-2 font-bold transition-colors"
           >
             <ArrowLeft size={18} />
             Back to Orders
@@ -17902,123 +19282,176 @@ const AdminOrderView: React.FC = () => {
 
   const order = data.data;
 
-  // Tab Configuration
-  const tabs = [
+  // Get workflow badge color
+  const getWorkflowColor = (workflow: string) => {
+    const colorMap: Record<string, string> = {
+      'Requested': 'bg-blue-100 text-blue-700 border-blue-300',
+      'Supplier Missing': 'bg-yellow-100 text-yellow-700 border-yellow-300',
+      'Supplier Assigned': 'bg-indigo-100 text-indigo-700 border-indigo-300',
+      'Payment Requested': 'bg-purple-100 text-purple-700 border-purple-300',
+      'On Hold': 'bg-gray-200 text-gray-700 border-gray-400',
+      'Delivered': 'bg-green-100 text-green-700 border-green-300',
+    };
+    return colorMap[workflow] || 'bg-gray-100 text-gray-700 border-gray-300';
+  };
+
+  // Get payment status badge color
+  const getPaymentColor = (status: string) => {
+    const colorMap: Record<string, string> = {
+      'Pending': 'bg-gray-200 text-gray-700 border-gray-400',
+      'Requested': 'bg-yellow-100 text-yellow-700 border-yellow-300',
+      'Paid': 'bg-green-100 text-green-700 border-green-300',
+      'Partially Paid': 'bg-indigo-100 text-indigo-700 border-indigo-300',
+      'Partial Refunded': 'bg-purple-100 text-purple-700 border-purple-300',
+      'Refunded': 'bg-red-100 text-red-700 border-red-300',
+    };
+    return colorMap[status] || 'bg-gray-100 text-gray-700 border-gray-300';
+  };
+
+  // ============================================
+  // BUILD TABS BASED ON PERMISSIONS
+  // ============================================
+  const tabs: Array<{
+    id: TabType;
+    label: string;
+    icon: React.ElementType;
+    badge?: number;
+    activeClass: string;
+    inactiveClass: string;
+  }> = [
     {
       id: 'overview' as TabType,
       label: 'Overview',
       icon: FileText,
-      color: 'blue',
+      activeClass: 'bg-blue-600 text-white border-blue-700 shadow-md',
+      inactiveClass: 'text-blue-700 hover:bg-blue-50 border-blue-200',
     },
     {
       id: 'items' as TabType,
       label: 'Items',
       icon: Package,
-      color: 'purple',
       badge: order.items.length,
-    },
-    {
-      id: 'costing' as TabType,
-      label: 'Costing & Calculations',
-      icon: Calculator,
-      color: 'green',
-    },
-    {
-      id: 'map' as TabType,
-      label: 'Map',
-      icon: MapPin,
-      color: 'orange',
-    },
-    {
-      id: 'admin' as TabType,
-      label: 'Admin Controls',
-      icon: Settings,
-      color: 'red',
+      activeClass: 'bg-purple-600 text-white border-purple-700 shadow-md',
+      inactiveClass: 'text-purple-700 hover:bg-purple-50 border-purple-200',
     },
   ];
 
-  const tabColorClasses: Record<string, { active: string; inactive: string }> = {
-    blue: {
-      active: 'bg-blue-600 text-white border-blue-700',
-      inactive: 'text-blue-700 hover:bg-blue-50 border-blue-200',
-    },
-    purple: {
-      active: 'bg-purple-600 text-white border-purple-700',
-      inactive: 'text-purple-700 hover:bg-purple-50 border-purple-200',
-    },
-    green: {
-      active: 'bg-green-600 text-white border-green-700',
-      inactive: 'text-green-700 hover:bg-green-50 border-green-200',
-    },
-    orange: {
-      active: 'bg-orange-600 text-white border-orange-700',
-      inactive: 'text-orange-700 hover:bg-orange-50 border-orange-200',
-    },
-    red: {
-      active: 'bg-red-600 text-white border-red-700',
-      inactive: 'text-red-700 hover:bg-red-50 border-red-200',
-    },
-  };
+  // Only show Costing tab if user can view cost price OR profit margin
+  if (canViewCostPrice || canViewProfitMargin) {
+    tabs.push({
+      id: 'costing' as TabType,
+      label: 'Costing',
+      icon: Calculator,
+      activeClass: 'bg-green-600 text-white border-green-700 shadow-md',
+      inactiveClass: 'text-green-700 hover:bg-green-50 border-green-200',
+    });
+  }
+
+  // Map tab is always visible
+  tabs.push({
+    id: 'map' as TabType,
+    label: 'Map',
+    icon: MapPin,
+    activeClass: 'bg-orange-600 text-white border-orange-700 shadow-md',
+    inactiveClass: 'text-orange-700 hover:bg-orange-50 border-orange-200',
+  });
+
+  // Only show Admin Controls if user can edit orders or update status
+  if (canEditOrders || canUpdateOrderStatus) {
+    tabs.push({
+      id: 'admin' as TabType,
+      label: 'Admin Controls',
+      icon: Settings,
+      activeClass: 'bg-indigo-600 text-white border-indigo-700 shadow-md',
+      inactiveClass: 'text-indigo-700 hover:bg-indigo-50 border-indigo-200',
+    });
+  }
 
   return (
-    <DashboardLayout menuItems={adminMenuItems}>
+    <DashboardLayout menuItems={menuItems}>
       <div className="space-y-6">
-        {/* Header */}
+        {/* Back Button + Read-Only Badge */}
         <div className="flex items-center justify-between">
           <button
             onClick={() => navigate('/admin/orders')}
-            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors font-medium"
+            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors font-medium group"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             Back to Orders
           </button>
-          <div className="flex items-center gap-2">
-            <span
-              className={`px-4 py-2 text-sm font-bold rounded-lg border-2 ${getWorkflowBadgeClass(
-                order.workflow
-              )}`}
-            >
+          
+          <div className="flex items-center gap-3">
+            {/* Read-Only Badge for Accountant */}
+            {isReadOnly && (
+              <span className="px-4 py-2 bg-yellow-100 text-yellow-800 text-sm font-bold rounded-lg border-2 border-yellow-300 flex items-center gap-2">
+                <Eye size={16} />
+                Read Only Mode
+              </span>
+            )}
+            
+            {/* Status Badges */}
+            <span className={`px-4 py-2 text-sm font-bold rounded-lg border-2 ${getWorkflowColor(order.workflow)} transition-colors`}>
               {order.workflow}
             </span>
-            <span
-              className={`px-4 py-2 text-sm font-bold rounded-lg border-2 ${getPaymentBadgeClass(
-                order.payment_status
-              )}`}
-            >
+            <span className={`px-4 py-2 text-sm font-bold rounded-lg border-2 ${getPaymentColor(order.payment_status)} transition-colors`}>
               {order.payment_status}
             </span>
           </div>
         </div>
 
         {/* Order Header Card */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-xl p-8 text-white shadow-xl">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Order #{order.po_number}</h1>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+                  <Package size={32} />
+                </div>
+                <h1 className="text-4xl font-bold">Order #{order.po_number}</h1>
+              </div>
               <div className="flex items-center gap-4 text-blue-100">
-                <span className="font-medium">{order.client}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                  <span className="font-medium">{order.client}</span>
+                </div>
                 <span>•</span>
-                <span className="font-medium">{order.project}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                  <span className="font-medium">{order.project}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Quick Stats */}
+            <div className="flex gap-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <p className="text-xs text-blue-100 mb-1">Total Items</p>
+                <p className="text-2xl font-bold">{order.items.length}</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <p className="text-xs text-blue-100 mb-1">Total Value</p>
+                <p className="text-2xl font-bold">
+                  ${(order.total_price || order.customer_cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-xl border-2 border-gray-200 p-2 shadow-sm overflow-x-auto">
-          <div className="flex gap-2 min-w-max">
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-2 shadow-sm">
+          <div className="flex gap-2 overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
-              const colors = tabColorClasses[tab.color];
 
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`
-                    flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-all border-2
-                    ${isActive ? colors.active : colors.inactive}
+                    flex items-center gap-2 px-6 py-3 rounded-lg font-bold transition-all border-2 whitespace-nowrap
+                    ${isActive ? tab.activeClass : tab.inactiveClass}
                   `}
                 >
                   <Icon size={20} />
@@ -18040,12 +19473,18 @@ const AdminOrderView: React.FC = () => {
         </div>
 
         {/* Tab Content */}
-        <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm min-h-[400px]">
           {activeTab === 'overview' && <OrderOverviewTab order={order} />}
           {activeTab === 'items' && (
-            <OrderItemsTab items={order.items} workflow={order.workflow} orderId={order.id} />
+            <OrderItemsTab 
+              items={order.items} 
+              workflow={order.workflow} 
+              orderId={order.id}
+            />
           )}
-          {activeTab === 'costing' && <OrderCostingTab order={order} />}
+          {activeTab === 'costing' && (canViewCostPrice || canViewProfitMargin) && (
+            <OrderCostingTab order={order} />
+          )}
           {activeTab === 'map' && (
             <OrderMapTab
               deliveryLat={order.delivery_lat}
@@ -18053,7 +19492,9 @@ const AdminOrderView: React.FC = () => {
               items={order.items}
             />
           )}
-          {activeTab === 'admin' && <OrderAdminUpdateTab order={order} />}
+          {activeTab === 'admin' && (canEditOrders || canUpdateOrderStatus) && (
+            <OrderAdminUpdateTab order={order} />
+          )}
         </div>
       </div>
     </DashboardLayout>
@@ -19221,6 +20662,10 @@ const UserEdit = () => {
 export default UserEdit;
 /* FILE: src/pages/admin/UserManagement.tsx */
 // src/pages/admin/UserManagement.tsx
+// ============================================
+// USER MANAGEMENT WITH PERMISSION-BASED ACTIONS
+// ============================================
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
@@ -19238,18 +20683,19 @@ import {
   Mail,
   Phone,
   MapPin,
+  Lock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import Button from '../../components/common/Buttons';
 import { usersAPI, companiesAPI } from '../../api/handlers/users.api';
-import { adminMenuItems } from '../../utils/menuItems';
-
+import { getMenuItemsByRole } from '../../utils/menuItems';
+import { usePermissions } from '../../hooks/usePermissions';
 
 // Role Badge Component
-const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
-  const styles = {
+const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' | 'support' | 'accountant' }) => {
+  const styles: Record<string, string> = {
     admin: 'bg-error-100 text-error-700 border-error-200',
     client: 'bg-primary-100 text-primary-700 border-primary-200',
     supplier: 'bg-success-100 text-success-700 border-success-200',
@@ -19257,7 +20703,7 @@ const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
     accountant: 'bg-purple-100 text-purple-700 border-purple-200',
   };
 
-  const icons = {
+  const icons: Record<string, string> = {
     admin: '👑',
     client: '👤',
     supplier: '🏢',
@@ -19266,8 +20712,8 @@ const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
   };
 
   return (
-    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${styles[role]}`}>
-      <span>{icons[role]}</span>
+    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${styles[role] || styles.client}`}>
+      <span>{icons[role] || '👤'}</span>
       {role.charAt(0).toUpperCase() + role.slice(1)}
     </span>
   );
@@ -19276,6 +20722,17 @@ const RoleBadge = ({ role }: { role: 'admin' | 'client' | 'supplier' }) => {
 const UserManagement = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // ==================== PERMISSIONS ====================
+  const { 
+    role, 
+    isReadOnly, 
+    canCreateUsers,
+    canEditUsers,
+    canDeleteUsers,
+  } = usePermissions();
+  
+  const menuItems = getMenuItemsByRole(role);
 
   // State
   const [activeTab, setActiveTab] = useState<'active' | 'deleted'>('active');
@@ -19297,7 +20754,6 @@ const UserManagement = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-
   // Fetch Companies
   const { data: companies = [] } = useQuery({
     queryKey: ['companies'],
@@ -19311,12 +20767,12 @@ const UserManagement = () => {
     contact_name: debouncedSearch || undefined,
   };
 
-  // fetch users
-const { data: usersData, isLoading, error } = useQuery<PaginatedUsers>({
-  queryKey: ['users', queryParams],
-  queryFn: () => usersAPI.getUsers(queryParams),
-  placeholderData: keepPreviousData,
-});
+  // Fetch users
+  const { data: usersData, isLoading, error } = useQuery<PaginatedUsers>({
+    queryKey: ['users', queryParams],
+    queryFn: () => usersAPI.getUsers(queryParams),
+    placeholderData: keepPreviousData,
+  });
 
   // Delete/Restore Mutation
   const deleteRestoreMutation = useMutation({
@@ -19340,13 +20796,12 @@ const { data: usersData, isLoading, error } = useQuery<PaginatedUsers>({
     setFilters(prev => ({ ...prev, page: 1 }));
   };
 
-  // In UserManagement.tsx (line ~180)
-const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
-  const action = isDeleted ? 'restore' : 'delete';
-  if (window.confirm(`Are you sure you want to ${action} this user?`)) {
-    deleteRestoreMutation.mutate(userId);
-  }
-};
+  const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
+    const action = isDeleted ? 'restore' : 'delete';
+    if (window.confirm(`Are you sure you want to ${action} this user?`)) {
+      deleteRestoreMutation.mutate(userId);
+    }
+  };
 
   const clearFilters = () => {
     setFilters({
@@ -19368,7 +20823,7 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
   };
 
   return (
-    <DashboardLayout menuItems={adminMenuItems}>
+    <DashboardLayout menuItems={menuItems}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -19376,15 +20831,38 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
             <h1 className="text-3xl font-bold text-secondary-900">User Management</h1>
             <p className="text-secondary-600 mt-1">Manage system users and permissions</p>
           </div>
-          <Button
-            onClick={() => navigate('/admin/users/create')}
-            variant="primary"
-            fullWidth={false}
-          >
-            <UserPlus size={20} />
-            Add User
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Read-Only Badge for Accountant */}
+            {isReadOnly && (
+              <span className="px-4 py-2 bg-yellow-100 text-yellow-800 text-sm font-bold rounded-lg border-2 border-yellow-300 flex items-center gap-2">
+                <Eye size={16} />
+                Read Only Mode
+              </span>
+            )}
+            
+            {/* Add User Button - Only for Admin */}
+            {canCreateUsers && (
+              <Button
+                onClick={() => navigate('/admin/users/create')}
+                variant="primary"
+                fullWidth={false}
+              >
+                <UserPlus size={20} />
+                Add User
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* Permission Notice Banner */}
+        {!canEditUsers && !isReadOnly && (
+          <div className="px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+            <Lock size={16} className="text-blue-600" />
+            <span className="text-sm text-blue-800">
+              You have view-only access to user management. Contact an admin for changes.
+            </span>
+          </div>
+        )}
 
         {/* Card Container */}
         <div className="bg-white rounded-2xl shadow-card overflow-hidden">
@@ -19613,6 +21091,7 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
                       {/* Actions */}
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
+                          {/* View - Always visible */}
                           <button
                             onClick={() => navigate(`/admin/users/${user.id}`)}
                             className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
@@ -19620,25 +21099,33 @@ const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
                           >
                             <Eye size={18} />
                           </button>
-                          <button
-                            onClick={() => navigate(`/admin/users/${user.id}/edit`)}
-                            className="p-2 text-secondary-600 hover:bg-secondary-100 rounded-lg transition-colors"
-                            title="Edit User"
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteRestore(user.id, user.isDeleted)}
-                            disabled={deleteRestoreMutation.isPending}
-                            className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
-                              user.isDeleted
-                                ? 'text-success-600 hover:bg-success-50'
-                                : 'text-error-600 hover:bg-error-50'
-                            }`}
-                            title={user.isDeleted ? 'Restore User' : 'Delete User'}
-                          >
-                            {user.isDeleted ? <RotateCcw size={18} /> : <Trash2 size={18} />}
-                          </button>
+                          
+                          {/* Edit - Only if canEditUsers */}
+                          {canEditUsers && (
+                            <button
+                              onClick={() => navigate(`/admin/users/${user.id}/edit`)}
+                              className="p-2 text-secondary-600 hover:bg-secondary-100 rounded-lg transition-colors"
+                              title="Edit User"
+                            >
+                              <Edit2 size={18} />
+                            </button>
+                          )}
+                          
+                          {/* Delete/Restore - Only if canDeleteUsers */}
+                          {canDeleteUsers && (
+                            <button
+                              onClick={() => handleDeleteRestore(user.id, user.isDeleted)}
+                              disabled={deleteRestoreMutation.isPending}
+                              className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                                user.isDeleted
+                                  ? 'text-success-600 hover:bg-success-50'
+                                  : 'text-error-600 hover:bg-error-50'
+                              }`}
+                              title={user.isDeleted ? 'Restore User' : 'Delete User'}
+                            >
+                              {user.isDeleted ? <RotateCcw size={18} /> : <Trash2 size={18} />}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -26255,60 +27742,552 @@ export const getPaymentBadgeClass = (status: string): string => {
 };
 
 /* FILE: src/utils/menuItems.tsx */
-// FILE PATH: src/config/menuItems.tsx
+// src/utils/menuItems.tsx
+// ============================================
+// MENU ITEMS WITH PERMISSION-BASED FILTERING
+// ============================================
+// NOTE: This file MUST be .tsx (not .ts) because it contains JSX
+
 import {
   Home,
-  FolderOpen,
-  ShoppingCart,
-  Package,
-  // Settings,
   Users,
+  Package,
+  ShoppingCart,
   MapPin,
-  // BarChart,
+  FolderOpen,
   DollarSign,
   User,
-  PlusCircle
-} from "lucide-react";
-import type { ReactNode } from "react";
+  PlusCircle,
+  CreditCard,
+} from 'lucide-react';
+import type { ReactNode } from 'react';
+import type { Role } from '../config/permissions';
 
-interface MenuItem {
+// ==================== TYPES ====================
+
+export interface MenuItem {
   label: string;
   path: string;
   icon: ReactNode;
 }
 
-// Client menu
+// ==================== CLIENT MENU ====================
+
 export const clientMenuItems: MenuItem[] = [
-  { label: "Dashboard", path: "/client/dashboard", icon: <Home size={20} /> },
-  { label: "Projects", path: "/client/projects", icon: <FolderOpen size={20} /> },
-  { label: "Orders", path: "/client/orders", icon: <ShoppingCart size={20} /> },
-  { label: "New Order", path: "/client/orders/create", icon: <PlusCircle size={20} /> },
-  // { label: "Products", path: "/client/products", icon: <Package size={20} /> },
-  // { label: "Settings", path: "/client/settings", icon: <Settings size={20} /> },
+  { label: 'Dashboard', path: '/client/dashboard', icon: <Home size={20} /> },
+  { label: 'Projects', path: '/client/projects', icon: <FolderOpen size={20} /> },
+  { label: 'Orders', path: '/client/orders', icon: <ShoppingCart size={20} /> },
+  { label: 'New Order', path: '/client/orders/create', icon: <PlusCircle size={20} /> },
 ];
 
-// Admin menu
+// ==================== ADMIN MENU (Full Access) ====================
+
 export const adminMenuItems: MenuItem[] = [
-  { label: "Dashboard", path: "/admin/dashboard", icon: <Home size={20} /> },
-  { label: "Users", path: "/admin/users", icon: <Users size={20} /> },
-  { label: "Products", path: "/admin/master-products", icon: <Package size={20} /> },
-  { label: "Supplier Delivery Zones", path: "/admin/supplier-zones", icon: <MapPin size={20} /> },
-  { label: "Orders", path: "/admin/orders", icon: <ShoppingCart size={20} /> },
-  // { label: "Reports", path: "/admin/reports", icon: <BarChart size={20} /> },
-  // { label: "Settings", path: "/admin/settings", icon: <Settings size={20} /> },
+  { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
+  { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
+  { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
+  { label: 'Supplier Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
+  { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
+  // { label: 'Payments', path: '/admin/payments', icon: <CreditCard size={20} /> },
+  // { label: 'Reports', path: '/admin/reports', icon: <BarChart3 size={20} /> },
+  // { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
 ];
 
-// Supplier menu
+// ==================== SUPPLIER MENU ====================
+
 export const supplierMenuItems: MenuItem[] = [
-  { label: "Dashboard", path: "/supplier/dashboard", icon: <Home size={20} /> },
-  { label: "My Products", path: "/supplier/products", icon: <Package size={20} /> },
-  { label: "Orders", path: "/supplier/orders", icon: <DollarSign size={20} /> },
-  { label: "Delivery Zones", path: "/supplier/zones", icon: <MapPin size={20} /> },
-  { label: "Profile", path: "/supplier/profile", icon: <User size={20} /> },
-  // { label: "Settings", path: "/supplier/settings", icon: <Settings size={20} /> },
+  { label: 'Dashboard', path: '/supplier/dashboard', icon: <Home size={20} /> },
+  { label: 'My Products', path: '/supplier/products', icon: <Package size={20} /> },
+  { label: 'Orders', path: '/supplier/orders', icon: <DollarSign size={20} /> },
+  { label: 'Delivery Zones', path: '/supplier/zones', icon: <MapPin size={20} /> },
+  { label: 'Profile', path: '/supplier/profile', icon: <User size={20} /> },
 ];
 
-export type { MenuItem };
+// ==================== SUPPORT MENU (Ops Support) ====================
+// Can: view all, edit projects, create orders, mark delivered, enter quoted rates
+// Cannot: view cost price, view profit margin, edit supplier rates
+
+export const supportMenuItems: MenuItem[] = [
+  { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
+  { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
+  { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
+  { label: 'Supplier Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
+  { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
+  // No Payments, Reports, or Settings for Support
+];
+
+// ==================== ACCOUNTANT MENU ====================
+// Can: view all (read-only), view cost price, view profit margin, reports
+// Cannot: edit anything, create orders, mark delivered
+
+export const accountantMenuItems: MenuItem[] = [
+  { label: 'Dashboard', path: '/admin/dashboard', icon: <Home size={20} /> },
+  { label: 'Users', path: '/admin/users', icon: <Users size={20} /> },
+  { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
+  { label: 'Xero (Coming Soon)', path: '/admin/dashboard', icon: <CreditCard size={20} /> },
+  // { label: 'Reports', path: '/admin/reports', icon: <BarChart3 size={20} /> },
+  // No Products, Supplier Zones, or Settings for Accountant
+];
+
+// ==================== MENU GETTER BY ROLE ====================
+
+/**
+ * Get menu items based on user role
+ * Returns the appropriate menu items for each role
+ */
+export const getMenuItemsByRole = (role: Role | null | undefined): MenuItem[] => {
+  if (!role) {
+    return []; // Return empty array if no role
+  }
+  
+  switch (role) {
+    case 'admin':
+      return adminMenuItems;
+    case 'support':
+      return supportMenuItems;
+    case 'accountant':
+      return accountantMenuItems;
+    case 'supplier':
+      return supplierMenuItems;
+    case 'client':
+      return clientMenuItems;
+    default:
+      return [];
+  }
+};
+/* FILE: src/utils/menuItemss.ts */
+// // src/utils/menuItems.ts
+// // ============================================
+// // MENU ITEMS WITH PERMISSION-BASED FILTERING
+// // ============================================
+
+// import {
+//   LayoutDashboard,
+//   Users,
+//   Package,
+//   ShoppingCart,
+//   Settings,
+//   MapPin,
+//   Building2,
+//   Truck,
+//   FolderKanban,
+//   CreditCard,
+//   BarChart3,
+//   Tags,
+//   type LucideIcon,
+// } from 'lucide-react';
+// import { Permission, Role, roleHasPermission } from '../config/permissions';
+
+// // ==================== TYPES ====================
+
+// export interface MenuItem {
+//   id: string;
+//   label: string;
+//   icon: LucideIcon;
+//   path: string;
+//   /** Permissions required to see this menu item (any one is enough) */
+//   permissions?: Permission[];
+//   /** If true, requires ALL permissions */
+//   requireAllPermissions?: boolean;
+//   /** Specific roles that can see this (bypasses permissions) */
+//   allowedRoles?: Role[];
+//   /** Badge count (optional) */
+//   badge?: number;
+//   /** Sub-menu items */
+//   children?: MenuItem[];
+// }
+
+// // ==================== ADMIN MENU ITEMS (RAW) ====================
+// // These are all the menu items - filtering happens based on role
+
+// const allAdminMenuItems: MenuItem[] = [
+//   {
+//     id: 'dashboard',
+//     label: 'Dashboard',
+//     icon: LayoutDashboard,
+//     path: '/admin/dashboard',
+//     permissions: ['system.view_dashboard'],
+//   },
+//   {
+//     id: 'users',
+//     label: 'User Management',
+//     icon: Users,
+//     path: '/admin/users',
+//     permissions: ['users.view'],
+//   },
+//   {
+//     id: 'orders',
+//     label: 'Orders',
+//     icon: ShoppingCart,
+//     path: '/admin/orders',
+//     permissions: ['orders.view_all'],
+//   },
+//   {
+//     id: 'master-products',
+//     label: 'Master Products',
+//     icon: Package,
+//     path: '/admin/master-products',
+//     permissions: ['products.view'],
+//   },
+//   {
+//     id: 'categories',
+//     label: 'Categories',
+//     icon: Tags,
+//     path: '/admin/categories',
+//     permissions: ['system.manage_categories'],
+//     allowedRoles: ['admin'], // Only admin can manage categories
+//   },
+//   {
+//     id: 'supplier-zones',
+//     label: 'Supplier Zones',
+//     icon: MapPin,
+//     path: '/admin/supplier-zones',
+//     permissions: ['suppliers.view_zones'],
+//   },
+//   {
+//     id: 'clients',
+//     label: 'Clients',
+//     icon: Building2,
+//     path: '/admin/clients',
+//     permissions: ['clients.view'],
+//   },
+//   {
+//     id: 'suppliers',
+//     label: 'Suppliers',
+//     icon: Truck,
+//     path: '/admin/suppliers',
+//     permissions: ['suppliers.view'],
+//   },
+//   {
+//     id: 'projects',
+//     label: 'Projects',
+//     icon: FolderKanban,
+//     path: '/admin/projects',
+//     permissions: ['projects.view_all'],
+//   },
+//   {
+//     id: 'payments',
+//     label: 'Payments',
+//     icon: CreditCard,
+//     path: '/admin/payments',
+//     permissions: ['payments.view'],
+//   },
+//   {
+//     id: 'reports',
+//     label: 'Reports',
+//     icon: BarChart3,
+//     path: '/admin/reports',
+//     permissions: ['reports.view'],
+//   },
+//   {
+//     id: 'settings',
+//     label: 'Settings',
+//     icon: Settings,
+//     path: '/admin/settings',
+//     permissions: ['system.manage_settings'],
+//     allowedRoles: ['admin'], // Only admin can access settings
+//   },
+// ];
+
+// // ==================== FILTER FUNCTION ====================
+
+// /**
+//  * Filter menu items based on user's role and permissions
+//  */
+// export const filterMenuItemsByRole = (items: MenuItem[], role: Role): MenuItem[] => {
+//   return items.filter((item) => {
+//     // Check allowedRoles first (bypasses permissions)
+//     if (item.allowedRoles && item.allowedRoles.length > 0) {
+//       if (!item.allowedRoles.includes(role)) {
+//         return false;
+//       }
+//       return true;
+//     }
+
+//     // Check permissions
+//     if (item.permissions && item.permissions.length > 0) {
+//       if (item.requireAllPermissions) {
+//         // Require ALL permissions
+//         return item.permissions.every((perm) => roleHasPermission(role, perm));
+//       } else {
+//         // Require ANY permission
+//         return item.permissions.some((perm) => roleHasPermission(role, perm));
+//       }
+//     }
+
+//     // No restrictions, show the item
+//     return true;
+//   });
+// };
+
+// /**
+//  * Get filtered admin menu items for a specific role
+//  */
+// export const getAdminMenuItems = (role: Role): MenuItem[] => {
+//   return filterMenuItemsByRole(allAdminMenuItems, role);
+// };
+
+// // ==================== STATIC EXPORTS (for backwards compatibility) ====================
+
+// // Full admin menu (for actual admin role)
+// export const adminMenuItems: MenuItem[] = [
+//   {
+//     id: 'dashboard',
+//     label: 'Dashboard',
+//     icon: LayoutDashboard,
+//     path: '/admin/dashboard',
+//   },
+//   {
+//     id: 'users',
+//     label: 'User Management',
+//     icon: Users,
+//     path: '/admin/users',
+//   },
+//   {
+//     id: 'orders',
+//     label: 'Orders',
+//     icon: ShoppingCart,
+//     path: '/admin/orders',
+//   },
+//   {
+//     id: 'master-products',
+//     label: 'Master Products',
+//     icon: Package,
+//     path: '/admin/master-products',
+//   },
+//   {
+//     id: 'categories',
+//     label: 'Categories',
+//     icon: Tags,
+//     path: '/admin/categories',
+//   },
+//   {
+//     id: 'supplier-zones',
+//     label: 'Supplier Zones',
+//     icon: MapPin,
+//     path: '/admin/supplier-zones',
+//   },
+//   {
+//     id: 'clients',
+//     label: 'Clients',
+//     icon: Building2,
+//     path: '/admin/clients',
+//   },
+//   {
+//     id: 'suppliers',
+//     label: 'Suppliers',
+//     icon: Truck,
+//     path: '/admin/suppliers',
+//   },
+//   {
+//     id: 'projects',
+//     label: 'Projects',
+//     icon: FolderKanban,
+//     path: '/admin/projects',
+//   },
+//   {
+//     id: 'payments',
+//     label: 'Payments',
+//     icon: CreditCard,
+//     path: '/admin/payments',
+//   },
+//   {
+//     id: 'reports',
+//     label: 'Reports',
+//     icon: BarChart3,
+//     path: '/admin/reports',
+//   },
+//   {
+//     id: 'settings',
+//     label: 'Settings',
+//     icon: Settings,
+//     path: '/admin/settings',
+//   },
+// ];
+
+// // Client menu items
+// export const clientMenuItems: MenuItem[] = [
+//   {
+//     id: 'dashboard',
+//     label: 'Dashboard',
+//     icon: LayoutDashboard,
+//     path: '/client/dashboard',
+//   },
+//   {
+//     id: 'projects',
+//     label: 'My Projects',
+//     icon: FolderKanban,
+//     path: '/client/projects',
+//   },
+//   {
+//     id: 'orders',
+//     label: 'My Orders',
+//     icon: ShoppingCart,
+//     path: '/client/orders',
+//   },
+//   {
+//     id: 'profile',
+//     label: 'Profile',
+//     icon: Users,
+//     path: '/client/profile',
+//   },
+// ];
+
+// // Supplier menu items
+// export const supplierMenuItems: MenuItem[] = [
+//   {
+//     id: 'dashboard',
+//     label: 'Dashboard',
+//     icon: LayoutDashboard,
+//     path: '/supplier/dashboard',
+//   },
+//   {
+//     id: 'products',
+//     label: 'My Products',
+//     icon: Package,
+//     path: '/supplier/products',
+//   },
+//   {
+//     id: 'orders',
+//     label: 'Orders',
+//     icon: ShoppingCart,
+//     path: '/supplier/orders',
+//   },
+//   {
+//     id: 'delivery-zones',
+//     label: 'Delivery Zones',
+//     icon: MapPin,
+//     path: '/supplier/delivery-zones',
+//   },
+//   {
+//     id: 'profile',
+//     label: 'Profile',
+//     icon: Users,
+//     path: '/supplier/profile',
+//   },
+// ];
+
+// // ==================== ROLE-SPECIFIC ADMIN MENUS ====================
+
+// // Support role menu (limited admin access)
+// export const supportMenuItems: MenuItem[] = [
+//   {
+//     id: 'dashboard',
+//     label: 'Dashboard',
+//     icon: LayoutDashboard,
+//     path: '/admin/dashboard',
+//   },
+//   {
+//     id: 'users',
+//     label: 'User Management',
+//     icon: Users,
+//     path: '/admin/users',
+//   },
+//   {
+//     id: 'orders',
+//     label: 'Orders',
+//     icon: ShoppingCart,
+//     path: '/admin/orders',
+//   },
+//   {
+//     id: 'master-products',
+//     label: 'Master Products',
+//     icon: Package,
+//     path: '/admin/master-products',
+//   },
+//   {
+//     id: 'supplier-zones',
+//     label: 'Supplier Zones',
+//     icon: MapPin,
+//     path: '/admin/supplier-zones',
+//   },
+//   {
+//     id: 'clients',
+//     label: 'Clients',
+//     icon: Building2,
+//     path: '/admin/clients',
+//   },
+//   {
+//     id: 'suppliers',
+//     label: 'Suppliers',
+//     icon: Truck,
+//     path: '/admin/suppliers',
+//   },
+//   {
+//     id: 'projects',
+//     label: 'Projects',
+//     icon: FolderKanban,
+//     path: '/admin/projects',
+//   },
+// ];
+
+// // Accountant role menu (read-only focus + reports)
+// export const accountantMenuItems: MenuItem[] = [
+//   {
+//     id: 'dashboard',
+//     label: 'Dashboard',
+//     icon: LayoutDashboard,
+//     path: '/admin/dashboard',
+//   },
+//   {
+//     id: 'orders',
+//     label: 'Orders',
+//     icon: ShoppingCart,
+//     path: '/admin/orders',
+//   },
+//   {
+//     id: 'users',
+//     label: 'Users',
+//     icon: Users,
+//     path: '/admin/users',
+//   },
+//   {
+//     id: 'clients',
+//     label: 'Clients',
+//     icon: Building2,
+//     path: '/admin/clients',
+//   },
+//   {
+//     id: 'suppliers',
+//     label: 'Suppliers',
+//     icon: Truck,
+//     path: '/admin/suppliers',
+//   },
+//   {
+//     id: 'payments',
+//     label: 'Payments',
+//     icon: CreditCard,
+//     path: '/admin/payments',
+//   },
+//   {
+//     id: 'reports',
+//     label: 'Reports',
+//     icon: BarChart3,
+//     path: '/admin/reports',
+//   },
+// ];
+
+// // ==================== MENU GETTER BY ROLE ====================
+
+// /**
+//  * Get menu items based on user role
+//  */
+// export const getMenuItemsByRole = (role: Role): MenuItem[] => {
+//   switch (role) {
+//     case 'admin':
+//       return adminMenuItems;
+//     case 'support':
+//       return supportMenuItems;
+//     case 'accountant':
+//       return accountantMenuItems;
+//     case 'supplier':
+//       return supplierMenuItems;
+//     case 'client':
+//       return clientMenuItems;
+//     default:
+//       return [];
+//   }
+// };
 /* FILE: src/utils/validators.ts */
 /* FILE: src/utils/validators.ts */
 // FILE PATH: src/utils/validators.ts

@@ -1,12 +1,16 @@
 // FILE PATH: src/components/admin/Dashboard/TablesSection.tsx
+// ============================================
+// TABLES SECTION WITH PERMISSION-BASED VISIBILITY
+// ============================================
 
 /**
  * Tables Section Component
  * Displays Top Clients, Top Suppliers, and Recent Activity tables
+ * Spend/Revenue amounts hidden for Support role
  */
 
 import React from 'react';
-import { TrendingUp, Clock, Package } from 'lucide-react';
+import { TrendingUp, Clock, Package, Lock } from 'lucide-react';
 import type { TopClient, TopSupplier, RecentActivity } from '../../../api/handlers/adminDashboard.api';
 
 interface TablesSectionProps {
@@ -15,6 +19,8 @@ interface TablesSectionProps {
   recentActivity: RecentActivity[];
   loading: boolean;
   currency?: string;
+  /** If false, hides spend/revenue amounts (for Support role) */
+  showFinancialData?: boolean;
 }
 
 const TablesSection: React.FC<TablesSectionProps> = ({
@@ -23,6 +29,7 @@ const TablesSection: React.FC<TablesSectionProps> = ({
   recentActivity,
   loading,
   currency = 'AUD',
+  showFinancialData = true,
 }) => {
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('en-AU', {
@@ -66,6 +73,12 @@ const TablesSection: React.FC<TablesSectionProps> = ({
             <TrendingUp className="w-5 h-5 text-blue-600" />
             Top Clients
           </h3>
+          {!showFinancialData && (
+            <span className="text-xs text-gray-500 flex items-center gap-1">
+              <Lock size={12} />
+              Amounts hidden
+            </span>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -87,9 +100,18 @@ const TablesSection: React.FC<TablesSectionProps> = ({
                   </div>
                   <p className="text-xs text-gray-600 mt-1">{client.order_count} orders</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-blue-600">{formatCurrency(client.total_spend)}</p>
-                </div>
+                {/* Only show spend if authorized */}
+                {showFinancialData ? (
+                  <div className="text-right">
+                    <p className="font-bold text-blue-600">{formatCurrency(client.total_spend)}</p>
+                  </div>
+                ) : (
+                  <div className="text-right">
+                    <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded">
+                      Hidden
+                    </span>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -103,6 +125,12 @@ const TablesSection: React.FC<TablesSectionProps> = ({
             <Package className="w-5 h-5 text-green-600" />
             Top Suppliers
           </h3>
+          {!showFinancialData && (
+            <span className="text-xs text-gray-500 flex items-center gap-1">
+              <Lock size={12} />
+              Revenue hidden
+            </span>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -124,9 +152,18 @@ const TablesSection: React.FC<TablesSectionProps> = ({
                   </div>
                   <p className="text-xs text-gray-600 mt-1">{supplier.order_count} orders</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-green-600">{formatCurrency(supplier.revenue)}</p>
-                </div>
+                {/* Only show revenue if authorized */}
+                {showFinancialData ? (
+                  <div className="text-right">
+                    <p className="font-bold text-green-600">{formatCurrency(supplier.revenue)}</p>
+                  </div>
+                ) : (
+                  <div className="text-right">
+                    <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded">
+                      Hidden
+                    </span>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -170,10 +207,17 @@ const TablesSection: React.FC<TablesSectionProps> = ({
                 </div>
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-gray-500">{activity.time_ago}</p>
+                  {/* Only show amount if authorized AND amount > 0 */}
                   {activity.amount > 0 && (
-                    <p className="text-xs font-semibold text-gray-700">
-                      {formatCurrency(activity.amount)}
-                    </p>
+                    showFinancialData ? (
+                      <p className="text-xs font-semibold text-gray-700">
+                        {formatCurrency(activity.amount)}
+                      </p>
+                    ) : (
+                      <span className="text-xs text-gray-400">
+                        Amount hidden
+                      </span>
+                    )
                   )}
                 </div>
               </div>

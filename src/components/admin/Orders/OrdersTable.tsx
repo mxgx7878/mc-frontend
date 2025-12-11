@@ -1,13 +1,14 @@
 // FILE PATH: src/components/admin/Orders/OrdersTable.tsx
 
 /**
- * Orders Table Component
- * Comprehensive table with all pricing and workflow information
+ * Orders Table Component - WITH PERMISSION-BASED COLUMNS
+ * Comprehensive table with pricing information
+ * HIDES supplier cost, profit, and margin columns for Support role
  */
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { Eye, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Lock } from 'lucide-react';
 import type { AdminOrder } from '../../../types/adminOrder.types';
 import {
   getWorkflowBadgeClass,
@@ -15,6 +16,7 @@ import {
   formatCurrency,
   formatDate,
 } from '../../../features/adminOrders/utils';
+import { usePermissions } from '../../../hooks/usePermissions';
 
 interface OrdersTableProps {
   orders: AdminOrder[];
@@ -36,6 +38,9 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
   onPageChange,
 }) => {
   const navigate = useNavigate();
+  
+  // Get permissions
+  const { canViewCostPrice, canViewProfitMargin } = usePermissions();
 
   if (loading) {
     return (
@@ -63,6 +68,16 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+      {/* Permission Notice Banner */}
+      {(!canViewCostPrice || !canViewProfitMargin) && (
+        <div className="px-4 py-3 bg-yellow-50 border-b border-yellow-200 flex items-center gap-2">
+          <Lock size={16} className="text-yellow-600" />
+          <span className="text-sm text-yellow-800">
+            Some pricing columns are hidden based on your role permissions
+          </span>
+        </div>
+      )}
+
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -83,18 +98,33 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
               <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                 Items
               </th>
-              <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-blue-50">
-                Supplier Cost
-              </th>
+              
+              {/* Supplier Cost Column - Only visible if can view cost price */}
+              {canViewCostPrice && (
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-blue-50">
+                  Supplier Cost
+                </th>
+              )}
+              
+              {/* Customer Price - Always visible */}
               <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-green-50">
                 Customer Price
               </th>
-              <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
-                Profit
-              </th>
-              <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
-                Margin %
-              </th>
+              
+              {/* Profit Column - Only visible if can view profit margin */}
+              {canViewProfitMargin && (
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
+                  Profit
+                </th>
+              )}
+              
+              {/* Margin % Column - Only visible if can view profit margin */}
+              {canViewProfitMargin && (
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
+                  Margin %
+                </th>
+              )}
+              
               <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                 Actions
               </th>
@@ -194,20 +224,22 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Supplier Cost */}
-                  <td className="px-4 py-4 text-right bg-blue-50/50">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-base font-bold text-gray-900">
-                        {formatCurrency(order.supplier_total)}
-                      </span>
-                      <div className="text-xs text-gray-600 space-y-0.5">
-                        <div>Items: {formatCurrency(order.supplier_item_cost)}</div>
-                        <div>Delivery: {formatCurrency(order.supplier_delivery_cost)}</div>
+                  {/* Supplier Cost - Only visible if can view cost price */}
+                  {canViewCostPrice && (
+                    <td className="px-4 py-4 text-right bg-blue-50/50">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-base font-bold text-gray-900">
+                          {formatCurrency(order.supplier_total)}
+                        </span>
+                        <div className="text-xs text-gray-600 space-y-0.5">
+                          <div>Items: {formatCurrency(order.supplier_item_cost)}</div>
+                          <div>Delivery: {formatCurrency(order.supplier_delivery_cost)}</div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
+                    </td>
+                  )}
 
-                  {/* Customer Price */}
+                  {/* Customer Price - Always visible */}
                   <td className="px-4 py-4 text-right bg-green-50/50">
                     <div className="flex flex-col gap-1">
                       <span className="text-base font-bold text-gray-900">
@@ -226,28 +258,32 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Profit */}
-                  <td className="px-4 py-4 text-right bg-purple-50/50">
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-1">
-                        {profitIsPositive ? (
-                          <TrendingUp size={16} className="text-green-600" />
-                        ) : (
-                          <TrendingDown size={16} className="text-red-600" />
-                        )}
-                        <span className={`text-base font-bold ${marginColor}`}>
-                          {formatCurrency(order.profit_amount)}
-                        </span>
+                  {/* Profit - Only visible if can view profit margin */}
+                  {canViewProfitMargin && (
+                    <td className="px-4 py-4 text-right bg-purple-50/50">
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1">
+                          {profitIsPositive ? (
+                            <TrendingUp size={16} className="text-green-600" />
+                          ) : (
+                            <TrendingDown size={16} className="text-red-600" />
+                          )}
+                          <span className={`text-base font-bold ${marginColor}`}>
+                            {formatCurrency(order.profit_amount)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </td>
+                    </td>
+                  )}
 
-                  {/* Margin % */}
-                  <td className="px-4 py-4 text-right bg-purple-50/50">
-                    <span className={`text-base font-bold ${marginColor}`}>
-                      {(order.profit_margin_percent * 100).toFixed(2)}%
-                    </span>
-                  </td>
+                  {/* Margin % - Only visible if can view profit margin */}
+                  {canViewProfitMargin && (
+                    <td className="px-4 py-4 text-right bg-purple-50/50">
+                      <span className={`text-base font-bold ${marginColor}`}>
+                        {(order.profit_margin_percent * 100).toFixed(2)}%
+                      </span>
+                    </td>
+                  )}
 
                   {/* Actions */}
                   <td className="px-4 py-4 text-center">

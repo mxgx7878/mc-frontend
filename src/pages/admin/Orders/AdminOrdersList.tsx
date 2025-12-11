@@ -1,26 +1,32 @@
 // FILE PATH: src/pages/admin/Orders/AdminOrdersList.tsx
 
 /**
- * Admin Orders List Page
+ * Admin Orders List Page - WITH PERMISSION-BASED VISIBILITY
  * Main page with metrics, filters panel, active chips, and comprehensive table
+ * Uses role-based menu items
  */
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { RefreshCw, Filter, Search } from 'lucide-react';
+import { RefreshCw, Filter, Search, Eye } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import OrderMetricsCards from '../../../components/admin/Orders/OrderMetricsCards';
 import OrderFiltersPanel from '../../../components/admin/Orders/OrderFiltersPanel';
 import ActiveFilterChips from '../../../components/admin/Orders/ActiveFilterChips';
 import OrdersTable from '../../../components/admin/Orders/OrdersTable';
 import { useAdminOrders } from '../../../features/adminOrders/hooks';
-import { adminMenuItems } from '../../../utils/menuItems';
+import { getMenuItemsByRole } from '../../../utils/menuItems';
+import { usePermissions } from '../../../hooks/usePermissions';
 
 const AdminOrdersList: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [availableFilters, setAvailableFilters] = useState<any>(null);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+
+  // Get permissions and role-based menu
+  const { role, isReadOnly } = usePermissions();
+  const menuItems = getMenuItemsByRole(role);
 
   // Initialize filters from URL params
   const [filters, setFilters] = useState({
@@ -106,7 +112,7 @@ const AdminOrdersList: React.FC = () => {
   };
 
   return (
-    <DashboardLayout menuItems={adminMenuItems}>
+    <DashboardLayout menuItems={menuItems}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -118,14 +124,23 @@ const AdminOrdersList: React.FC = () => {
               Comprehensive view of all orders with full cost insights
             </p>
           </div>
-          <button
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 font-medium shadow-sm hover:shadow-md"
-          >
-            <RefreshCw size={18} className={isFetching ? 'animate-spin' : ''} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Read-Only Badge for Accountant */}
+            {isReadOnly && (
+              <span className="px-4 py-2 bg-yellow-100 text-yellow-800 text-sm font-bold rounded-lg border-2 border-yellow-300 flex items-center gap-2">
+                <Eye size={16} />
+                Read Only Mode
+              </span>
+            )}
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 font-medium shadow-sm hover:shadow-md"
+            >
+              <RefreshCw size={18} className={isFetching ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Metrics Cards */}
