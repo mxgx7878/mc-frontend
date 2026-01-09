@@ -51,7 +51,7 @@ export interface ProductsResponse {
 export interface CartItem {
   product_id: number;
   product_name: string;
-  product_photo: string;
+  product_photo: string | null;
   product_type: string;
   quantity: number;
   unit_of_measure: string;

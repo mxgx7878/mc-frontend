@@ -1,12 +1,13 @@
 // src/pages/admin/UserManagement.tsx
 // ============================================
 // USER MANAGEMENT WITH PERMISSION-BASED ACTIONS
+// âś… FINAL FIX: Separate page state for reliable pagination
 // ============================================
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import type { PaginatedUsers, User, UserFilters } from '../../api/handlers/users.api';
+import type { PaginatedUsers, User } from '../../api/handlers/users.api';
 import { 
   Search, 
   Eye, 
@@ -71,14 +72,16 @@ const UserManagement = () => {
   
   const menuItems = getMenuItemsByRole(role);
 
-  // State
+  // ==================== âœ… FIXED STATE MANAGEMENT ====================
+  // WHAT: Separate pagination state from filter state
+  // WHY: React's state batching was causing stale page values in queryFn
+  // HOW: Use dedicated state variables that React Query can track independently
+  
   const [activeTab, setActiveTab] = useState<'active' | 'deleted'>('active');
-  const [filters, setFilters] = useState<UserFilters>({
-    role: '',
-    company_id: '',
-    page: 1,
-    per_page: 10,
-  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [roleFilter, setRoleFilter] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -86,10 +89,15 @@ const UserManagement = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
-      setFilters(prev => ({ ...prev, page: 1 }));
+      setCurrentPage(1); // Reset to page 1 when search changes
     }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [roleFilter, companyFilter, activeTab]);
 
   // Fetch Companies
   const { data: companies = [] } = useQuery({
@@ -97,17 +105,20 @@ const UserManagement = () => {
     queryFn: companiesAPI.getAll,
   });
 
-  // Build query params
-  const queryParams: UserFilters = {
-    ...filters,
-    isDeleted: activeTab === 'deleted',
-    contact_name: debouncedSearch || undefined,
-  };
-
-  // Fetch users
+  // ==================== âś… WORKING PAGINATION ====================
+  // WHAT: Fetch users with all state dependencies in queryKey
+  // WHY: Ensures React Query refetches when ANY relevant state changes
+  // HOW: Each state variable is tracked separately in queryKey array
   const { data: usersData, isLoading, error } = useQuery<PaginatedUsers>({
-    queryKey: ['users', queryParams],
-    queryFn: () => usersAPI.getUsers(queryParams),
+    queryKey: ['users', currentPage, perPage, roleFilter, companyFilter, activeTab, debouncedSearch],
+    queryFn: () => usersAPI.getUsers({
+      page: currentPage,
+      per_page: perPage,
+      role: roleFilter || undefined,
+      company_id: companyFilter || undefined,
+      isDeleted: activeTab === 'deleted',
+      contact_name: debouncedSearch || undefined,
+    }),
     placeholderData: keepPreviousData,
   });
 
@@ -123,14 +134,29 @@ const UserManagement = () => {
     },
   });
 
-  // Handlers
-  const handleFilterChange = (key: keyof UserFilters, value: any) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+  // ==================== HANDLERS ====================
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
+
+  const handlePerPageChange = (newPerPage: number) => {
+    setPerPage(newPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  const handleRoleFilterChange = (newRole: string) => {
+    setRoleFilter(newRole);
+    // Page reset happens in useEffect
+  };
+
+  const handleCompanyFilterChange = (newCompany: string) => {
+    setCompanyFilter(newCompany);
+    // Page reset happens in useEffect
   };
 
   const handleTabChange = (tab: 'active' | 'deleted') => {
     setActiveTab(tab);
-    setFilters(prev => ({ ...prev, page: 1 }));
+    // Page reset happens in useEffect
   };
 
   const handleDeleteRestore = (userId: number, isDeleted: boolean) => {
@@ -141,13 +167,10 @@ const UserManagement = () => {
   };
 
   const clearFilters = () => {
-    setFilters({
-      role: '',
-      company_id: '',
-      page: 1,
-      per_page: 10,
-    });
+    setRoleFilter('');
+    setCompanyFilter('');
     setSearchTerm('');
+    setCurrentPage(1);
   };
 
   const users = usersData?.data || [];
@@ -261,8 +284,8 @@ const UserManagement = () => {
 
               {/* Role Filter */}
               <select
-                value={filters.role}
-                onChange={(e) => handleFilterChange('role', e.target.value)}
+                value={roleFilter}
+                onChange={(e) => handleRoleFilterChange(e.target.value)}
                 className="px-4 py-3 border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20"
               >
                 <option value="">All Roles</option>
@@ -275,8 +298,8 @@ const UserManagement = () => {
 
               {/* Company Filter */}
               <select
-                value={filters.company_id}
-                onChange={(e) => handleFilterChange('company_id', e.target.value)}
+                value={companyFilter}
+                onChange={(e) => handleCompanyFilterChange(e.target.value)}
                 className="px-4 py-3 border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20"
               >
                 <option value="">All Companies</option>
@@ -289,7 +312,7 @@ const UserManagement = () => {
             </div>
 
             {/* Clear Filters Button */}
-            {(filters.role || filters.company_id || searchTerm) && (
+            {(roleFilter || companyFilter || searchTerm) && (
               <button
                 onClick={clearFilters}
                 className="mt-4 text-sm text-primary-600 hover:text-primary-700 font-medium"
@@ -321,7 +344,7 @@ const UserManagement = () => {
             ) : users.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-secondary-500">
                 <p className="mb-2">No users found</p>
-                {(filters.role || filters.company_id || searchTerm) && (
+                {(roleFilter || companyFilter || searchTerm) && (
                   <button 
                     onClick={clearFilters}
                     className="text-sm text-primary-600 hover:underline"
@@ -484,8 +507,8 @@ const UserManagement = () => {
               <div className="flex items-center gap-4">
                 {/* Per Page Selector */}
                 <select
-                  value={filters.per_page}
-                  onChange={(e) => handleFilterChange('per_page', Number(e.target.value))}
+                  value={perPage}
+                  onChange={(e) => handlePerPageChange(Number(e.target.value))}
                   className="px-3 py-2 border border-secondary-300 rounded-lg text-sm focus:outline-none focus:border-primary-500"
                 >
                   <option value={10}>10 per page</option>
@@ -497,20 +520,20 @@ const UserManagement = () => {
                 {/* Page Navigation */}
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleFilterChange('page', pagination.currentPage - 1)}
-                    disabled={pagination.currentPage === 1}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
                     className="p-2 border border-secondary-300 rounded-lg hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronLeft size={18} />
                   </button>
                   
                   <span className="text-sm text-secondary-700 px-3">
-                    Page {pagination.currentPage} of {pagination.lastPage}
+                    Page {currentPage} of {pagination.lastPage}
                   </span>
 
                   <button
-                    onClick={() => handleFilterChange('page', pagination.currentPage + 1)}
-                    disabled={pagination.currentPage === pagination.lastPage}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === pagination.lastPage}
                     className="p-2 border border-secondary-300 rounded-lg hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <ChevronRight size={18} />

@@ -46,10 +46,15 @@ const Step3_ReviewOrder: React.FC<Step3Props> = ({
   onConfirm,
   isSubmitting,
 }) => {
-  const getImageUrl = (photo: string) => {
+  const getImageUrl = (photo: string | null | undefined): string => {
+    // Return fallback image if photo is null, undefined, or empty
+    if (!photo) {
+      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZTVlN2ViIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+    }
+
     return photo.startsWith('http')
       ? photo
-      : `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '/storage')}/${photo}`;
+      : `${import.meta.env.VITE_IMAGE_BASE_URL}storage/${photo}`;
   };
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);

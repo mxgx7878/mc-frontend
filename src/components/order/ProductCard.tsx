@@ -11,9 +11,28 @@ interface ProductCardProps {
 }
 
 const ProductCard = ({ product, isInCart, onAddToCart, onViewDetails }: ProductCardProps) => {
-  const imageUrl = product.photo.startsWith('http') 
-    ? product.photo 
-    : `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '/storage')}/${product.photo}`;
+  /**
+   * WHAT: Safely construct image URL with null checking
+   * WHY: product.photo can be null, causing .startsWith() to throw error
+   * HOW: Check if photo exists, then determine if it's a full URL or relative path
+   */
+  const getImageUrl = () => {
+    // If no photo, return placeholder
+    if (!product.photo) {
+      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+    }
+
+    // Check if it's already a full URL
+    if (product.photo.startsWith('http://') || product.photo.startsWith('https://')) {
+      return product.photo;
+    }
+
+    // Otherwise, construct storage URL
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || '';
+    return `${baseUrl}/storage/${product.photo}`;
+  };
+
+  const imageUrl = getImageUrl();
 
   return (
     <div className="group bg-white rounded-xl border-2 border-secondary-200 hover:border-primary-300 hover:shadow-lg transition-all overflow-hidden">

@@ -68,6 +68,16 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   const watchDeliveryAddress = watch('delivery_address');
   // const watchDeliveryLat = watch('delivery_lat');
   // const watchDeliveryLong = watch('delivery_long');
+   const getImageUrl = (photo: string | null | undefined): string => {
+    // Return fallback image if photo is null, undefined, or empty
+    if (!photo) {
+      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZTVlN2ViIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+    }
+
+    return photo.startsWith('http')
+      ? photo
+      : `${import.meta.env.VITE_IMAGE_BASE_URL}storage/${photo}`;
+  };
 
   useEffect(() => {
     if (projects.length === 1 && !selectedProject) {
@@ -157,13 +167,13 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                   <div className="flex items-start gap-3 mb-3">
                     <div className="w-14 h-14 rounded-lg bg-secondary-100 flex-shrink-0 overflow-hidden">
                       <img
-                        src={
-                          item.product_photo.startsWith('http')
-                            ? item.product_photo
-                            : `${import.meta.env.VITE_IMAGE_BASE_URL}storage/${item.product_photo}`
-                        }
+                        src={getImageUrl(item.product_photo)}
                         alt={item.product_name}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZTVlN2ViIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+                        }}
                       />
                     </div>
                     <div className="flex-1 min-w-0">

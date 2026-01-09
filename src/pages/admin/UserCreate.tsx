@@ -239,7 +239,7 @@ const UserCreate = () => {
                 <Input
                   label="Contact Number"
                   type="tel"
-                  placeholder="+92 300 1234567"
+                  placeholder="0491 570 159"
                   icon={Phone}
                   register={register('contact_number')}
                   error={errors.contact_number?.message}

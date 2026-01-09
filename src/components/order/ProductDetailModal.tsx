@@ -1,6 +1,6 @@
 // src/components/order/ProductDetailModal.tsx
 import React from 'react';
-import { X, Package, Tag, Ruler, FileText, Info } from 'lucide-react';
+import { X, Tag, Ruler, FileText, Info, Download, ShoppingCart, Check } from 'lucide-react';
 import type { Product } from '../../types/order.types';
 import Button from '../common/Buttons';
 
@@ -21,23 +21,51 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 }) => {
   if (!isOpen || !product) return null;
 
-  const getImageUrl = (photo: string) => {
-    return photo.startsWith('http')
-      ? photo
-      : `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '/storage')}/${photo}`;
+  /**
+   * WHAT: Safely construct image URL with null checking
+   * WHY: product.photo can be null, causing .startsWith() to throw error
+   * HOW: Check if photo exists first, then determine URL type
+   */
+  const getImageUrl = (photo: string | null): string => {
+    // If no photo, return placeholder
+    if (!photo) {
+      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+    }
+
+    // Check if it's already a full URL
+    if (photo.startsWith('http://') || photo.startsWith('https://')) {
+      return photo;
+    }
+
+    // Otherwise, construct storage URL
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || '';
+    return `${baseUrl}/storage/${photo}`;
   };
 
-  const getTechDocUrl = (techDoc: string | null) => {
+  /**
+   * WHAT: Safely construct tech document URL with null checking
+   * WHY: tech_doc can be null, need to handle gracefully
+   * HOW: Return null if no doc, otherwise construct URL
+   */
+  const getTechDocUrl = (techDoc: string | null): string | null => {
     if (!techDoc) return null;
-    return techDoc.startsWith('http')
-      ? techDoc
-      : `${import.meta.env.VITE_API_BASE_URL?.replace('/api', '')}/${techDoc}`;
+
+    // Check if it's already a full URL
+    if (techDoc.startsWith('http://') || techDoc.startsWith('https://')) {
+      return techDoc;
+    }
+
+    // Otherwise, construct storage URL
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || '';
+    return `${baseUrl}/${techDoc}`;
   };
 
   const handleAddToCart = () => {
     onAddToCart(product);
     onClose();
   };
+
+  const techDocUrl = getTechDocUrl(product.tech_doc);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -71,9 +99,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
 
               {/* Category Badge */}
-              <div className="flex items-center gap-2 bg-primary-50 border border-primary-200 rounded-lg px-4 py-2">
+              <div className="flex items-center gap-2 bg-primary-50 px-4 py-2 rounded-lg">
                 <Tag className="text-primary-600" size={18} />
-                <span className="text-sm font-medium text-primary-700">
+                <span className="text-sm font-semibold text-primary-700">
                   {product.category.name}
                 </span>
               </div>
@@ -86,92 +114,88 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <h3 className="text-2xl font-bold text-secondary-900 mb-2">
                   {product.product_name}
                 </h3>
-                <div className="flex items-center gap-2 text-secondary-600">
-                  <Package size={18} />
-                  <span className="font-medium">{product.product_type}</span>
-                </div>
+                <p className="text-secondary-600">{product.product_type}</p>
               </div>
 
-              {/* Unit of Measure */}
-              <div className="bg-secondary-50 rounded-lg p-4 border border-secondary-200">
-                <div className="flex items-center gap-2 mb-1">
-                  <Ruler className="text-secondary-600" size={18} />
-                  <span className="text-sm font-semibold text-secondary-700">
-                    Unit of Measure
-                  </span>
-                </div>
-                <p className="text-lg font-bold text-secondary-900 ml-7">
-                  {product.unit_of_measure}
-                </p>
-              </div>
-
-              {/* Specifications */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Info className="text-secondary-600" size={20} />
-                  <h4 className="font-semibold text-secondary-900">Specifications</h4>
-                </div>
-                <p className="text-secondary-700 leading-relaxed bg-secondary-50 rounded-lg p-4 border border-secondary-200">
-                  {product.specifications}
-                </p>
-              </div>
-
-              {/* Technical Documentation */}
-              {product.tech_doc && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileText className="text-blue-600" size={18} />
-                    <span className="text-sm font-semibold text-blue-900">
-                      Technical Documentation
-                    </span>
+              {/* Info Cards */}
+              <div className="space-y-3">
+                {/* Unit of Measure */}
+                <div className="flex items-center gap-3 p-4 bg-secondary-50 rounded-lg border border-secondary-200">
+                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                    <Ruler className="text-primary-600" size={20} />
                   </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-secondary-600 font-medium">Unit of Measure</p>
+                    <p className="text-sm font-bold text-secondary-900">{product.unit_of_measure}</p>
+                  </div>
+                </div>
+
+                {/* Specifications */}
+                <div className="p-4 bg-secondary-50 rounded-lg border border-secondary-200">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Info className="text-primary-600" size={20} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs text-secondary-600 font-medium mb-2">Specifications</p>
+                      <p className="text-sm text-secondary-700 leading-relaxed">
+                        {product.specifications}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+               {/* Technical Document */}
+                {techDocUrl && (
                   <a
-                    href={getTechDocUrl(product.tech_doc) || '#'}
+                    href={techDocUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:text-blue-700 underline"
+                    className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors group"
                   >
-                    Download Technical Specifications →
+                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                      <FileText className="text-blue-600" size={20} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs text-blue-600 font-medium">Technical Documentation</p>
+                      <p className="text-sm font-semibold text-blue-700">View Document</p>
+                    </div>
+                    <Download className="text-blue-600 group-hover:translate-y-0.5 transition-transform" size={18} />
                   </a>
-                </div>
-              )}
-
-              {/* Pricing Note */}
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <p className="text-sm text-amber-900 leading-relaxed">
-                  <span className="font-semibold">📋 Note:</span> Final pricing will be 
-                  calculated after order placement based on delivery location and supplier 
-                  availability. You'll receive a detailed invoice within 20 minutes of 
-                  order confirmation.
-                </p>
+                )}
               </div>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="border-t border-secondary-200 px-6 py-4 bg-secondary-50">
-          <div className="flex items-center justify-between gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              fullWidth={false}
-              className="px-6"
-            >
-              Close
-            </Button>
-            <Button
-              type="button"
-              variant={isInCart ? 'outline' : 'primary'}
-              onClick={handleAddToCart}
-              disabled={isInCart}
-              fullWidth={false}
-              className="px-8"
-            >
-              {isInCart ? '✓ Already in Cart' : '+ Add to Cart'}
-            </Button>
-          </div>
+        <div className="border-t-2 border-secondary-100 px-6 py-4 flex items-center justify-between bg-secondary-50">
+          <Button
+            onClick={onClose}
+            variant="outline"
+            className="px-6"
+          >
+            Close
+          </Button>
+          
+          <Button
+            onClick={handleAddToCart}
+            disabled={isInCart}
+            variant={isInCart ? 'outline' : 'primary'}
+            className="px-6"
+          >
+            {isInCart ? (
+              <>
+                <Check size={18} />
+                Already in Cart
+              </>
+            ) : (
+              <>
+                <ShoppingCart size={18} />
+                Add to Cart
+              </>
+            )}
+          </Button>
         </div>
       </div>
     </div>
