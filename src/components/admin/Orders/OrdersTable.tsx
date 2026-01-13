@@ -185,27 +185,31 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                   </td>
 
                   {/* Status */}
-                  <td className="px-4 py-4">
-                    <div className="flex flex-col gap-2">
-                      <span
-                        className={`inline-flex px-2.5 py-1 text-xs font-bold rounded-full ${getWorkflowBadgeClass(
-                          order.workflow
-                        )}`}
-                      >
-                        {order.workflow}
-                      </span>
-                      <span
-                        className={`inline-flex px-2.5 py-1 text-xs font-bold rounded-full ${getPaymentBadgeClass(
-                          order.payment_status
-                        )}`}
-                      >
-                        {order.payment_status}
-                      </span>
-                    </div>
-                    {order.order_info && (
-                      <div className="text-xs text-gray-500 mt-1 italic">{order.order_info}</div>
-                    )}
-                  </td>
+                    <td className="px-4 py-4">
+                      <div className="flex flex-col gap-2">
+                        {/* Show workflow only if payment status is NOT Paid or Partially Paid */}
+                        {!['Paid', 'Partially Paid'].includes(order.payment_status) && (
+                          <span
+                            className={`inline-flex px-2.5 py-1 text-xs font-bold rounded-full ${getWorkflowBadgeClass(
+                              order.workflow
+                            )}`}
+                          >
+                            {order.workflow}
+                          </span>
+                        )}
+                        <span
+                          className={`inline-flex px-2.5 py-1 text-xs font-bold rounded-full ${getPaymentBadgeClass(
+                            order.payment_status
+                          )}`}
+                        >
+                          {order.payment_status}
+                        </span>
+                      </div>
+                      {/* Show order_info only if payment status is NOT Paid or Partially Paid */}
+                      {order.order_info && !['Paid', 'Partially Paid'].includes(order.payment_status) && (
+                        <div className="text-xs text-gray-500 mt-1 italic">{order.order_info}</div>
+                      )}
+                    </td>
 
                   {/* Items */}
                   <td className="px-4 py-4 text-center">

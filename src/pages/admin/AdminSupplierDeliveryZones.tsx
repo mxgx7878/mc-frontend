@@ -113,7 +113,7 @@ const AdminSupplierDeliveryZones = () => {
                 />
                 <input
                   type="text"
-                  placeholder="Search suppliers by name or email..."
+                  placeholder="Search suppliers by name"
                   value={searchTerm}
                   onChange={(e) => handleSearch(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-opacity-20"

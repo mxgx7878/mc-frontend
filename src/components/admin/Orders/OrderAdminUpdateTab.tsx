@@ -4,8 +4,8 @@
  * Order Admin Update Tab Component - IMPROVED
  * Comprehensive admin controls for:
  * 1. Discount management
- * 2. Supplier assignment overview
- * 3. Payment status overview
+ * 2. Payment status management
+ * 3. Supplier assignment overview
  * 4. Quoted prices summary
  */
 
@@ -20,10 +20,25 @@ import {
   CreditCard,
   CheckCircle,
   XCircle,
+  RefreshCw,
 } from 'lucide-react';
-import type { AdminOrderDetail } from '../../../types/adminOrder.types';
-import { useUpdateAdminOrder } from '../../../features/adminOrders/hooks';
-import { canEditOrder, formatCurrency } from '../../../features/adminOrders/utils';
+import type { AdminOrderDetail, PaymentStatus } from '../../../types/adminOrder.types';
+import { useUpdateAdminOrder, useUpdatePaymentStatus } from '../../../features/adminOrders/hooks';
+import { canEditOrder, formatCurrency, getPaymentBadgeClass } from '../../../features/adminOrders/utils';
+import ConfirmModal from '../../common/ConfirmModal';
+
+// Payment status options
+const PAYMENT_STATUSES: PaymentStatus[] = [
+  'Pending',
+  'Requested',
+  'Paid',
+  'Partially Paid',
+  'Partial Refunded',
+  'Refunded',
+];
+
+// Statuses that require confirmation before changing
+const SENSITIVE_STATUSES: PaymentStatus[] = ['Refunded', 'Partial Refunded'];
 
 interface OrderAdminUpdateTabProps {
   order: AdminOrderDetail;
@@ -31,10 +46,17 @@ interface OrderAdminUpdateTabProps {
 
 const OrderAdminUpdateTab: React.FC<OrderAdminUpdateTabProps> = ({ order }) => {
   const updateMutation = useUpdateAdminOrder();
+  const paymentStatusMutation = useUpdatePaymentStatus();
   const canEdit = canEditOrder(order.workflow);
 
+  // Discount state
   const [discount, setDiscount] = useState<string>(order.discount.toString());
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Payment status state
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<PaymentStatus>(order.payment_status);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<PaymentStatus | null>(null);
 
   const handleDiscountChange = (value: string) => {
     setDiscount(value);
@@ -66,10 +88,53 @@ const OrderAdminUpdateTab: React.FC<OrderAdminUpdateTabProps> = ({ order }) => {
     setHasChanges(false);
   };
 
+  // Payment status handlers
+  const handlePaymentStatusChange = (newStatus: PaymentStatus) => {
+    setSelectedPaymentStatus(newStatus);
+  };
+
+  const handlePaymentStatusSubmit = () => {
+    if (selectedPaymentStatus === order.payment_status) return;
+
+    // Check if confirmation is needed for sensitive statuses
+    if (SENSITIVE_STATUSES.includes(selectedPaymentStatus)) {
+      setPendingStatus(selectedPaymentStatus);
+      setIsConfirmModalOpen(true);
+    } else {
+      executePaymentStatusUpdate(selectedPaymentStatus);
+    }
+  };
+
+  const executePaymentStatusUpdate = (status: PaymentStatus) => {
+    paymentStatusMutation.mutate(
+      {
+        orderId: order.id,
+        paymentStatus: status,
+      },
+      {
+        onSuccess: () => {
+          setPendingStatus(null);
+        },
+      }
+    );
+  };
+
+  const handleConfirmStatusChange = () => {
+    if (pendingStatus) {
+      executePaymentStatusUpdate(pendingStatus);
+    }
+    setIsConfirmModalOpen(false);
+  };
+
+  const handleCancelStatusChange = () => {
+    setSelectedPaymentStatus(order.payment_status);
+    setPendingStatus(null);
+    setIsConfirmModalOpen(false);
+  };
+
   // Calculate statistics
   const totalItems = order.items.length;
   const assignedItems = order.items.filter((item) => item.supplier?.id).length;
-  console.log(assignedItems,order.items)
   const unassignedItems = totalItems - assignedItems;
   const quotedItems = order.items.filter((item) => item.is_quoted === 1).length;
   const paidItems = order.items.filter((item) => item.is_paid === 1).length;
@@ -79,6 +144,9 @@ const OrderAdminUpdateTab: React.FC<OrderAdminUpdateTabProps> = ({ order }) => {
   const currentTotal = order.total_price || order.customer_cost || 0;
   const discountValue = parseFloat(discount) || 0;
   const totalAfterDiscount = currentTotal - discountValue;
+
+  // Check if payment status has changed
+  const hasPaymentStatusChanged = selectedPaymentStatus !== order.payment_status;
 
   if (!canEdit) {
     return (
@@ -195,6 +263,98 @@ const OrderAdminUpdateTab: React.FC<OrderAdminUpdateTabProps> = ({ order }) => {
             </p>
           )}
         </div>
+      </div>
+
+      {/* Payment Status Management Section */}
+      <div className="bg-white border-2 border-gray-200 rounded-xl p-6 shadow-sm">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg shadow-sm">
+            <CreditCard className="text-white" size={24} />
+          </div>
+          <div>
+            <h4 className="text-xl font-bold text-gray-900">Update Payment Status</h4>
+            <p className="text-sm text-gray-600">Change the payment status for this order</p>
+          </div>
+        </div>
+
+        {/* Current Status Display */}
+        <div className="mb-6">
+          <label className="block text-sm font-bold text-gray-900 mb-2">
+            Current Status
+          </label>
+          <span className={`inline-flex px-4 py-2 rounded-lg text-sm font-bold ${getPaymentBadgeClass(order.payment_status)}`}>
+            {order.payment_status}
+          </span>
+        </div>
+
+        {/* Status Selection */}
+        <div className="mb-6">
+          <label className="block text-sm font-bold text-gray-900 mb-3">
+            New Status
+          </label>
+          <select
+            value={selectedPaymentStatus}
+            onChange={(e) => handlePaymentStatusChange(e.target.value as PaymentStatus)}
+            disabled={paymentStatusMutation.isPending}
+            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg font-medium transition-colors bg-white"
+          >
+            {PAYMENT_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Status Change Preview */}
+        {hasPaymentStatusChanged && (
+          <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="text-blue-600" size={18} />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-blue-900">Status Change Preview</p>
+                <p className="text-xs text-blue-800 mt-1">
+                  <span className={`inline-flex px-2 py-0.5 rounded text-xs font-bold ${getPaymentBadgeClass(order.payment_status)}`}>
+                    {order.payment_status}
+                  </span>
+                  <span className="mx-2">→</span>
+                  <span className={`inline-flex px-2 py-0.5 rounded text-xs font-bold ${getPaymentBadgeClass(selectedPaymentStatus)}`}>
+                    {selectedPaymentStatus}
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Warning for Sensitive Status */}
+        {hasPaymentStatusChanged && SENSITIVE_STATUSES.includes(selectedPaymentStatus) && (
+          <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="text-amber-600 mt-0.5" size={18} />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-amber-900">Warning</p>
+                <p className="text-xs text-amber-800 mt-1">
+                  You are about to set the payment status to "{selectedPaymentStatus}". 
+                  This action may trigger refund processes. Please confirm this change.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Update Button */}
+        {hasPaymentStatusChanged && (
+          <button
+            type="button"
+            onClick={handlePaymentStatusSubmit}
+            disabled={paymentStatusMutation.isPending}
+            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-bold text-lg shadow-lg hover:shadow-xl"
+          >
+            <Save size={20} />
+            {paymentStatusMutation.isPending ? 'Updating...' : 'Update Payment Status'}
+          </button>
+        )}
       </div>
 
       {/* Discount Management Section */}
@@ -328,6 +488,19 @@ const OrderAdminUpdateTab: React.FC<OrderAdminUpdateTabProps> = ({ order }) => {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal for Sensitive Status Changes */}
+      <ConfirmModal
+        isOpen={isConfirmModalOpen}
+        onClose={handleCancelStatusChange}
+        onConfirm={handleConfirmStatusChange}
+        title="Confirm Payment Status Change"
+        message={`Are you sure you want to change the payment status to "${pendingStatus}"? This action may trigger refund processes and cannot be easily undone.`}
+        confirmText="Yes, Update Status"
+        cancelText="Cancel"
+        isDanger={true}
+        loading={paymentStatusMutation.isPending}
+      />
     </div>
   );
 };

@@ -194,3 +194,29 @@ export const useAdminUpdateOrderItem = () => {
     },
   });
 };
+
+
+/**
+ * Update payment status mutation
+ */
+export const useUpdatePaymentStatus = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      paymentStatus,
+    }: {
+      orderId: number;
+      paymentStatus: string;
+    }) => adminOrdersAPI.updatePaymentStatus(orderId, paymentStatus),
+    onSuccess: (data, variables) => {
+      toast.success(data.message || 'Payment status updated successfully');
+      queryClient.invalidateQueries({ queryKey: adminOrdersKeys.detail(variables.orderId) });
+      queryClient.invalidateQueries({ queryKey: adminOrdersKeys.lists() });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update payment status');
+    },
+  });
+};

@@ -152,4 +152,22 @@ export const adminOrdersAPI = {
       throw new Error(error?.message || 'Failed to update order item');
     }
   },
+
+
+  /**
+   * Update payment status for an order
+   */
+  updatePaymentStatus: async (
+    orderId: number,
+    paymentStatus: string
+  ): Promise<{ payment_status: string; message: string }> => {
+    try {
+      const response = await api.post(`/admin/orders/payment-status/${orderId}`, {
+        payment_status: paymentStatus,
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to update payment status');
+    }
+  },
 };
