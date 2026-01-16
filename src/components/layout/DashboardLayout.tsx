@@ -7,7 +7,6 @@ import {
   X, 
   LogOut, 
   User, 
-  Settings,
   ChevronDown
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -110,10 +109,10 @@ const DashboardLayout = ({ children, menuItems }: DashboardLayoutProps) => {
                     Profile Settings
                   </button>
                   
-                  <button className="w-full px-4 py-2 text-left text-sm text-secondary-700 hover:bg-secondary-50 flex items-center gap-2 transition-colors">
+                  {/* <button className="w-full px-4 py-2 text-left text-sm text-secondary-700 hover:bg-secondary-50 flex items-center gap-2 transition-colors">
                     <Settings size={16} />
                     Settings
-                  </button>
+                  </button> */}
                   
                   <hr className="my-2 border-secondary-200" />
                   

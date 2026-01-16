@@ -1,5 +1,5 @@
 // FILE PATH: src/api/handlers/clientOrders.api.ts
-// Updated Client Orders API with proper type handling
+// Updated Client Orders API with Archive and Cancel functionality
 
 import api from '../axios.config';
 import type {
@@ -19,6 +19,25 @@ export interface ClientOrdersQueryParams {
   details?: boolean;
 }
 
+// Response types for new endpoints
+export interface ArchiveOrderResponse {
+  success: boolean;
+  message: string;
+  order: {
+    id: number;
+    is_archived: number;
+  };
+}
+
+export interface CancelOrderResponse {
+  success: boolean;
+  message: string;
+  order: {
+    id: number;
+    order_status: string;
+  };
+}
+
 export const clientOrdersAPI = {
   /**
    * Get all client orders with filters
@@ -28,7 +47,7 @@ export const clientOrdersAPI = {
       const response = await api.get('/my-orders', { params });
       return response.data;
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || 'Failed to fetch orders');
+      throw new Error(error?.message || 'Failed to fetch orders');
     }
   },
 
@@ -40,7 +59,7 @@ export const clientOrdersAPI = {
       const response = await api.get(`/orders/${orderId}`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || 'Failed to fetch order details');
+      throw new Error(error?.message || 'Failed to fetch order details');
     }
   },
 
@@ -52,7 +71,7 @@ export const clientOrdersAPI = {
       const response = await api.post(`/repeat-order/${orderId}`, payload);
       return response.data;
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || 'Failed to repeat order');
+      throw new Error(error?.message || 'Failed to repeat order');
     }
   },
 
@@ -64,7 +83,37 @@ export const clientOrdersAPI = {
       const response = await api.post(`/mark-repeat-order/${orderId}`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || 'Failed to mark as repeat order');
+      throw new Error(error?.message || 'Failed to mark as repeat order');
+    }
+  },
+
+  /**
+   * Archive (soft delete) an order
+   * Client can only archive their own orders
+   * @param orderId - Order ID to archive
+   */
+  archiveOrder: async (orderId: number): Promise<ArchiveOrderResponse> => {
+    try {
+      const response = await api.delete(`/orders/${orderId}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to delete order');
+    }
+  },
+
+  /**
+   * Cancel an order (set status to Cancelled)
+   * Only allowed for orders with status: Draft, Confirmed, Scheduled, In Transit
+   * @param orderId - Order ID to cancel
+   */
+  cancelOrder: async (orderId: number): Promise<CancelOrderResponse> => {
+    try {
+      const response = await api.post(`/set-order-status/${orderId}`, {
+        order_status: 'Cancelled',
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to cancel order');
     }
   },
 };

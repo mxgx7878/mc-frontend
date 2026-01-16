@@ -1,4 +1,5 @@
-// src/pages/client/Orders/ClientOrderView.tsx
+// src/pages/client/ClientOrderView.tsx
+// Updated with Cancel Order functionality
 
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -17,13 +18,20 @@ import {
   Phone,
   ClipboardList,
   AlertCircle,
+  XCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { useClientOrderDetail, useRepeatOrder } from '../../features/clientOrders/hooks';
+import { 
+  useClientOrderDetail, 
+  useRepeatOrder, 
+  useCancelOrder,
+  canCancelOrder 
+} from '../../features/clientOrders/hooks';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import RepeatOrderModal from '../../components/client/RepeatOrderModal';
 import StripePayment from '../../components/client/StripePayment';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { clientMenuItems } from '../../utils/menuItems';
 
 const ClientOrderView = () => {
@@ -31,7 +39,10 @@ const ClientOrderView = () => {
   const navigate = useNavigate();
   const { data, isLoading, refetch } = useClientOrderDetail(Number(orderId));
   const repeatOrderMutation = useRepeatOrder();
+  const cancelOrderMutation = useCancelOrder();
+  
   const [repeatOrderModalOpen, setRepeatOrderModalOpen] = useState(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
@@ -110,6 +121,29 @@ const ClientOrderView = () => {
     }
   };
 
+  // Cancel order handlers
+  const handleCancelClick = () => {
+    setCancelModalOpen(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!orderId) return;
+
+    try {
+      await cancelOrderMutation.mutateAsync(Number(orderId));
+      setCancelModalOpen(false);
+      // Stay on page - data will refresh automatically via query invalidation
+    } catch (error) {
+      // Error is handled by the mutation
+    }
+  };
+
+  const handleCancelModalClose = () => {
+    if (!cancelOrderMutation.isPending) {
+      setCancelModalOpen(false);
+    }
+  };
+
   const handlePaymentSuccess = () => {
     toast.success('Payment completed successfully!');
     refetch();
@@ -148,8 +182,8 @@ const ClientOrderView = () => {
   }
 
   const { order, items } = data.data;
-  const showPayment =
-    order.workflow === 'Payment Requested';
+  const showPayment = order.workflow === 'Payment Requested';
+  const showCancelButton = canCancelOrder(order.order_status);
 
   return (
     <DashboardLayout menuItems={clientMenuItems}>
@@ -196,6 +230,18 @@ const ClientOrderView = () => {
               <RefreshCw className="w-4 h-4" />
               Refresh
             </button>
+            
+            {/* Cancel Order Button - Only shown for cancellable statuses */}
+            {showCancelButton && (
+              <button
+                onClick={handleCancelClick}
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border-2 border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors font-medium"
+              >
+                <XCircle className="w-4 h-4" />
+                Cancel Order
+              </button>
+            )}
+            
             <button
               onClick={handleRepeatOrder}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md hover:shadow-lg"
@@ -501,6 +547,20 @@ const ClientOrderView = () => {
           order={order && items ? { ...order, items } : null}
           onSubmit={handleRepeatOrderSubmit}
           isSubmitting={repeatOrderMutation.isPending}
+        />
+
+        {/* Cancel Order Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={cancelModalOpen}
+          onClose={handleCancelModalClose}
+          onConfirm={handleCancelConfirm}
+          title="Cancel Order"
+          message={`Are you sure you want to cancel order "${order.po_number}"? This action cannot be undone and the order status will be changed to Cancelled.`}
+          confirmText="Yes, Cancel Order"
+          cancelText="No, Keep Order"
+          variant="danger"
+          icon="cancel"
+          isLoading={cancelOrderMutation.isPending}
         />
       </div>
     </DashboardLayout>
