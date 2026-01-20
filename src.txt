@@ -1,4 +1,4 @@
-// SRC BUNDLE 2026-01-16T05:31:05.786Z
+// SRC BUNDLE 2026-01-16T07:35:32.891Z
 
 /* FILE: src/api/axios.config.ts */
 // src/api/axios.config.ts
@@ -531,7 +531,7 @@ export const authAPI = {
 };
 /* FILE: src/api/handlers/clientOrders.api.ts */
 // FILE PATH: src/api/handlers/clientOrders.api.ts
-// Updated Client Orders API with proper type handling
+// Updated Client Orders API with Archive and Cancel functionality
 
 import api from '../axios.config';
 import type {
@@ -551,6 +551,25 @@ export interface ClientOrdersQueryParams {
   details?: boolean;
 }
 
+// Response types for new endpoints
+export interface ArchiveOrderResponse {
+  success: boolean;
+  message: string;
+  order: {
+    id: number;
+    is_archived: number;
+  };
+}
+
+export interface CancelOrderResponse {
+  success: boolean;
+  message: string;
+  order: {
+    id: number;
+    order_status: string;
+  };
+}
+
 export const clientOrdersAPI = {
   /**
    * Get all client orders with filters
@@ -560,7 +579,7 @@ export const clientOrdersAPI = {
       const response = await api.get('/my-orders', { params });
       return response.data;
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || 'Failed to fetch orders');
+      throw new Error(error?.message || 'Failed to fetch orders');
     }
   },
 
@@ -572,7 +591,7 @@ export const clientOrdersAPI = {
       const response = await api.get(`/orders/${orderId}`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || 'Failed to fetch order details');
+      throw new Error(error?.message || 'Failed to fetch order details');
     }
   },
 
@@ -584,7 +603,7 @@ export const clientOrdersAPI = {
       const response = await api.post(`/repeat-order/${orderId}`, payload);
       return response.data;
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || 'Failed to repeat order');
+      throw new Error(error?.message || 'Failed to repeat order');
     }
   },
 
@@ -596,7 +615,37 @@ export const clientOrdersAPI = {
       const response = await api.post(`/mark-repeat-order/${orderId}`);
       return response.data;
     } catch (error: any) {
-      throw new Error(error?.response?.data?.message || 'Failed to mark as repeat order');
+      throw new Error(error?.message || 'Failed to mark as repeat order');
+    }
+  },
+
+  /**
+   * Archive (soft delete) an order
+   * Client can only archive their own orders
+   * @param orderId - Order ID to archive
+   */
+  archiveOrder: async (orderId: number): Promise<ArchiveOrderResponse> => {
+    try {
+      const response = await api.delete(`/orders/${orderId}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to delete order');
+    }
+  },
+
+  /**
+   * Cancel an order (set status to Cancelled)
+   * Only allowed for orders with status: Draft, Confirmed, Scheduled, In Transit
+   * @param orderId - Order ID to cancel
+   */
+  cancelOrder: async (orderId: number): Promise<CancelOrderResponse> => {
+    try {
+      const response = await api.post(`/set-order-status/${orderId}`, {
+        order_status: 'Cancelled',
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to cancel order');
     }
   },
 };
@@ -8349,11 +8398,19 @@ const ClientOrderMetricsCards: React.FC<MetricsCardsProps> = ({ metrics, loading
 export default ClientOrderMetricsCards;
 /* FILE: src/components/client/ClientOrdersTable.tsx */
 // src/components/client/ClientOrdersTable.tsx
+// Updated with Delete (Archive) functionality
 
-import React from 'react';
-import { Eye, Package, Calendar, RefreshCw } from 'lucide-react';
-import type {ClientOrderListItem } from '../../types/clientOrder.types';
-import { getOrderStatusBadgeClass, getPaymentStatusBadgeClass, formatCurrency, formatDate } from '../../features/clientOrders/utils';
+import React, { useState } from 'react';
+import { Eye, Package, Calendar, RefreshCw, Trash2 } from 'lucide-react';
+import type { ClientOrderListItem } from '../../types/clientOrder.types';
+import { 
+  getOrderStatusBadgeClass, 
+  getPaymentStatusBadgeClass, 
+  formatCurrency, 
+  formatDate 
+} from '../../features/clientOrders/utils';
+import { useArchiveOrder } from '../../features/clientOrders/hooks';
+import ConfirmationModal from '../common/ConfirmationModal';
 
 interface ClientOrdersTableProps {
   orders: ClientOrderListItem[];
@@ -8375,6 +8432,39 @@ const ClientOrdersTable: React.FC<ClientOrdersTableProps> = ({
   onPageChange,
   onViewOrder,
 }) => {
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<ClientOrderListItem | null>(null);
+
+  // Archive mutation
+  const archiveMutation = useArchiveOrder();
+
+  // Handle delete click - opens confirmation modal
+  const handleDeleteClick = (order: ClientOrderListItem) => {
+    setOrderToDelete(order);
+    setDeleteModalOpen(true);
+  };
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = async () => {
+    if (!orderToDelete) return;
+    
+    try {
+      await archiveMutation.mutateAsync(orderToDelete.id);
+      setDeleteModalOpen(false);
+      setOrderToDelete(null);
+    } catch (error) {
+      // Error is handled by the mutation
+    }
+  };
+
+  // Handle modal close
+  const handleModalClose = () => {
+    if (!archiveMutation.isPending) {
+      setDeleteModalOpen(false);
+      setOrderToDelete(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -8398,128 +8488,147 @@ const ClientOrdersTable: React.FC<ClientOrdersTableProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200">
-            <tr>
-              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">PO Number</th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Project</th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Delivery</th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Status</th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Payment</th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Items</th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Total</th>
-              <th className="px-6 py-4 text-center text-sm font-bold text-gray-900">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {orders.map((order) => (
-              <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-gray-900">{order.po_number}</span>
-                    <span className="text-xs text-gray-500">ID: {order.id}</span>
-                    {order.repeat_order && (
-                      <span className="inline-flex items-center gap-1 text-xs text-blue-600 font-medium mt-1">
-                        <RefreshCw size={12} />
-                        Repeat
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="font-medium text-gray-900">{order.project?.name || 'N/A'}</span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar size={14} className="text-gray-400" />
-                      <span className="font-medium text-gray-900">{formatDate(order.delivery_date)}</span>
-                    </div>
-                    {order.delivery_time && (
-                      <span className="text-xs text-gray-600">{order.delivery_time}</span>
-                    )}
-                    {/* <div className="flex items-center gap-1 text-xs text-gray-600">
-                      <span>{getDeliveryMethodIcon(order.delivery_method)}</span>
-                      <span>{order.delivery_method}</span>
-                    </div> */}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getOrderStatusBadgeClass(order.order_status)}`}>
-                    {order.order_status}
-                  </span>
-                  {order.order_info && (
-                    <div className="text-xs text-gray-600 mt-1">{order.order_info}</div>
-                  )}
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getPaymentStatusBadgeClass(order.payment_status)}`}>
-                    {order.payment_status}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <Package size={16} className="text-gray-400" />
-                    <span className="font-semibold text-gray-900">{order.items_count}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-gray-900 text-lg">{formatCurrency(order.total_price ?? 0)}</span>
-                    {(order.gst_tax ?? 0) > 0 && (
-                      <span className="text-xs text-gray-500">GST: {formatCurrency((order.gst_tax ?? 0))}</span>
-                    )}
-                    {order.discount > 0 && (
-                      <span className="text-xs text-green-600">Discount: -{formatCurrency(order.discount)}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex justify-center">
-                    <button
-                      onClick={() => onViewOrder(order.id)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-                    >
-                      <Eye size={16} />
-                      View
-                    </button>
-                  </div>
-                </td>
+    <>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200">
+              <tr>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">PO Number</th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Project</th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Delivery</th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Status</th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Payment</th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Items</th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Total</th>
+                <th className="px-6 py-4 text-center text-sm font-bold text-gray-900">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {orders.map((order) => (
+                <tr key={order.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-gray-900">{order.po_number}</span>
+                      <span className="text-xs text-gray-500">ID: {order.id}</span>
+                      {order.repeat_order && (
+                        <span className="inline-flex items-center gap-1 text-xs text-blue-600 font-medium mt-1">
+                          <RefreshCw size={12} />
+                          Repeat
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="font-medium text-gray-900">{order.project?.name || 'N/A'}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar size={14} className="text-gray-400" />
+                        <span className="font-medium text-gray-900">{formatDate(order.delivery_date)}</span>
+                      </div>
+                      {order.delivery_time && (
+                        <span className="text-xs text-gray-600">{order.delivery_time}</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getOrderStatusBadgeClass(order.order_status)}`}>
+                      {order.order_status}
+                    </span>
+                    {order.order_info && (
+                      <div className="text-xs text-gray-600 mt-1">{order.order_info}</div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getPaymentStatusBadgeClass(order.payment_status)}`}>
+                      {order.payment_status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <Package size={16} className="text-gray-400" />
+                      <span className="font-semibold text-gray-900">{order.items_count}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-gray-900 text-lg">{formatCurrency(order.total_price ?? 0)}</span>
+                      {(order.gst_tax ?? 0) > 0 && (
+                        <span className="text-xs text-gray-500">GST: {formatCurrency((order.gst_tax ?? 0))}</span>
+                      )}
+                      {order.discount > 0 && (
+                        <span className="text-xs text-green-600">Discount: -{formatCurrency(order.discount)}</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex justify-center gap-2">
+                      <button
+                        onClick={() => onViewOrder(order.id)}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                      >
+                        <Eye size={16} />
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(order)}
+                        className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 border-2 border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors font-medium text-sm"
+                        title="Delete Order"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-      {/* Pagination */}
-      {pagination && pagination.total_pages > 1 && (
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              Showing page {pagination.current_page} of {pagination.total_pages} ({pagination.total_items} total orders)
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => onPageChange(pagination.current_page - 1)}
-                disabled={pagination.current_page === 1}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => onPageChange(pagination.current_page + 1)}
-                disabled={pagination.current_page === pagination.total_pages}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
+        {/* Pagination */}
+        {pagination && pagination.total_pages > 1 && (
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Showing page {pagination.current_page} of {pagination.total_pages} ({pagination.total_items} total orders)
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onPageChange(pagination.current_page - 1)}
+                  disabled={pagination.current_page === 1}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => onPageChange(pagination.current_page + 1)}
+                  disabled={pagination.current_page === pagination.total_pages}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={handleModalClose}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Order"
+        message={`Are you sure you want to delete order "${orderToDelete?.po_number}"? This action will archive the order and it will no longer appear in your order list.`}
+        confirmText="Delete Order"
+        cancelText="Keep Order"
+        variant="danger"
+        icon="delete"
+        isLoading={archiveMutation.isPending}
+      />
+    </>
   );
 };
 
@@ -8976,6 +9085,149 @@ const Button = ({
 };
 
 export default Button;
+/* FILE: src/components/common/ConfirmationModal.tsx */
+// src/components/common/ConfirmationModal.tsx
+/**
+ * Reusable Confirmation Modal Component
+ * Used for delete, cancel, and other destructive actions
+ */
+
+import React from 'react';
+import { X, AlertTriangle, Trash2, XCircle, Loader2 } from 'lucide-react';
+
+export type ConfirmationVariant = 'danger' | 'warning' | 'info';
+
+interface ConfirmationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: ConfirmationVariant;
+  isLoading?: boolean;
+  icon?: 'delete' | 'cancel' | 'warning';
+}
+
+const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  variant = 'danger',
+  isLoading = false,
+  icon = 'warning',
+}) => {
+  if (!isOpen) return null;
+
+  // Variant styles
+  const variantStyles = {
+    danger: {
+      iconBg: 'bg-red-100',
+      iconColor: 'text-red-600',
+      buttonBg: 'bg-red-600 hover:bg-red-700',
+      borderColor: 'border-red-200',
+    },
+    warning: {
+      iconBg: 'bg-yellow-100',
+      iconColor: 'text-yellow-600',
+      buttonBg: 'bg-yellow-600 hover:bg-yellow-700',
+      borderColor: 'border-yellow-200',
+    },
+    info: {
+      iconBg: 'bg-blue-100',
+      iconColor: 'text-blue-600',
+      buttonBg: 'bg-blue-600 hover:bg-blue-700',
+      borderColor: 'border-blue-200',
+    },
+  };
+
+  const styles = variantStyles[variant];
+
+  // Icon component
+  const IconComponent = () => {
+    const iconClass = `w-6 h-6 ${styles.iconColor}`;
+    switch (icon) {
+      case 'delete':
+        return <Trash2 className={iconClass} />;
+      case 'cancel':
+        return <XCircle className={iconClass} />;
+      default:
+        return <AlertTriangle className={iconClass} />;
+    }
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className={`bg-white rounded-xl shadow-2xl w-full max-w-md border-2 ${styles.borderColor} transform transition-all`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-full ${styles.iconBg}`}>
+                <IconComponent />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+            </div>
+            <button
+              onClick={onClose}
+              disabled={isLoading}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="p-6">
+            <p className="text-gray-600 leading-relaxed">{message}</p>
+          </div>
+
+          {/* Footer */}
+          <div className="flex gap-3 p-6 bg-gray-50 border-t border-gray-200 rounded-b-xl">
+            <button
+              onClick={onClose}
+              disabled={isLoading}
+              className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-white transition-colors font-medium disabled:opacity-50"
+            >
+              {cancelText}
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={isLoading}
+              className={`flex-1 px-4 py-3 text-white rounded-lg transition-all font-medium shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2 ${styles.buttonBg}`}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                confirmText
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default ConfirmationModal;
 /* FILE: src/components/common/ConfirmModal.tsx */
 // FILE PATH: src/components/common/ConfirmModal.tsx
 
@@ -10483,7 +10735,6 @@ import {
   X, 
   LogOut, 
   User, 
-  Settings,
   ChevronDown
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -16301,13 +16552,13 @@ export const isValidPrice = (price: number): boolean => {
 };
 /* FILE: src/features/clientOrders/hooks.ts */
 // FILE PATH: src/features/clientOrders/hooks.ts
-// Updated Client Orders Hooks
+// Client Orders Hooks - With Archive and Cancel functionality
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { clientOrdersAPI } from '../../api/handlers/clientOrders.api';
 import type { ClientOrdersQueryParams } from '../../api/handlers/clientOrders.api';
-import type {RepeatOrderPayload} from '../../types/clientOrder.types'
+import type { RepeatOrderPayload } from '../../types/clientOrder.types';
 
 // Query Keys
 export const clientOrdersKeys = {
@@ -16321,7 +16572,7 @@ export const clientOrdersKeys = {
 /**
  * Hook to fetch client orders list with filters
  */
-export const useClientOrders = (params?: ClientOrdersQueryParams,) => {
+export const useClientOrders = (params?: ClientOrdersQueryParams) => {
   return useQuery({
     queryKey: clientOrdersKeys.list(params || {}),
     queryFn: () => clientOrdersAPI.getOrders(params),
@@ -16379,6 +16630,60 @@ export const useMarkRepeatOrder = () => {
       toast.error(error.message || 'Failed to mark as repeat order');
     },
   });
+};
+
+/**
+ * Hook to archive (soft delete) an order
+ * Used in order listing table
+ */
+export const useArchiveOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (orderId: number) => clientOrdersAPI.archiveOrder(orderId),
+    onSuccess: (_, orderId) => {
+      // Invalidate orders list to remove archived order
+      queryClient.invalidateQueries({ queryKey: clientOrdersKeys.lists() });
+      // Also invalidate the detail cache if it exists
+      queryClient.invalidateQueries({ queryKey: clientOrdersKeys.detail(orderId) });
+      toast.success('Order deleted successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete order');
+    },
+  });
+};
+
+/**
+ * Hook to cancel an order
+ * Only works for orders with status: Draft, Confirmed, Scheduled, In Transit
+ * Used in order detail view
+ */
+export const useCancelOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (orderId: number) => clientOrdersAPI.cancelOrder(orderId),
+    onSuccess: (_, orderId) => {
+      // Invalidate both list and detail to reflect new status
+      queryClient.invalidateQueries({ queryKey: clientOrdersKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: clientOrdersKeys.detail(orderId) });
+      toast.success('Order cancelled successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to cancel order');
+    },
+  });
+};
+
+// Helper constant for cancellable statuses
+export const CANCELLABLE_STATUSES = ['Draft', 'Confirmed', 'Scheduled', 'In Transit'] as const;
+
+/**
+ * Check if an order can be cancelled based on its status
+ */
+export const canCancelOrder = (orderStatus: string): boolean => {
+  return CANCELLABLE_STATUSES.includes(orderStatus as typeof CANCELLABLE_STATUSES[number]);
 };
 /* FILE: src/features/clientOrders/queryKeys.ts */
 // import type { ClientOrderFilters } from '../../api/handlers/clientOrders.api';
@@ -21661,7 +21966,8 @@ const ClientOrdersList: React.FC = () => {
 
 export default ClientOrdersList;
 /* FILE: src/pages/client/ClientOrderView.tsx */
-// src/pages/client/Orders/ClientOrderView.tsx
+// src/pages/client/ClientOrderView.tsx
+// Updated with Cancel Order functionality
 
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -21680,13 +21986,20 @@ import {
   Phone,
   ClipboardList,
   AlertCircle,
+  XCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { useClientOrderDetail, useRepeatOrder } from '../../features/clientOrders/hooks';
+import { 
+  useClientOrderDetail, 
+  useRepeatOrder, 
+  useCancelOrder,
+  canCancelOrder 
+} from '../../features/clientOrders/hooks';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import RepeatOrderModal from '../../components/client/RepeatOrderModal';
 import StripePayment from '../../components/client/StripePayment';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { clientMenuItems } from '../../utils/menuItems';
 
 const ClientOrderView = () => {
@@ -21694,7 +22007,10 @@ const ClientOrderView = () => {
   const navigate = useNavigate();
   const { data, isLoading, refetch } = useClientOrderDetail(Number(orderId));
   const repeatOrderMutation = useRepeatOrder();
+  const cancelOrderMutation = useCancelOrder();
+  
   const [repeatOrderModalOpen, setRepeatOrderModalOpen] = useState(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
@@ -21773,6 +22089,29 @@ const ClientOrderView = () => {
     }
   };
 
+  // Cancel order handlers
+  const handleCancelClick = () => {
+    setCancelModalOpen(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!orderId) return;
+
+    try {
+      await cancelOrderMutation.mutateAsync(Number(orderId));
+      setCancelModalOpen(false);
+      // Stay on page - data will refresh automatically via query invalidation
+    } catch (error) {
+      // Error is handled by the mutation
+    }
+  };
+
+  const handleCancelModalClose = () => {
+    if (!cancelOrderMutation.isPending) {
+      setCancelModalOpen(false);
+    }
+  };
+
   const handlePaymentSuccess = () => {
     toast.success('Payment completed successfully!');
     refetch();
@@ -21811,8 +22150,8 @@ const ClientOrderView = () => {
   }
 
   const { order, items } = data.data;
-  const showPayment =
-    order.workflow === 'Payment Requested';
+  const showPayment = order.workflow === 'Payment Requested';
+  const showCancelButton = canCancelOrder(order.order_status);
 
   return (
     <DashboardLayout menuItems={clientMenuItems}>
@@ -21859,6 +22198,18 @@ const ClientOrderView = () => {
               <RefreshCw className="w-4 h-4" />
               Refresh
             </button>
+            
+            {/* Cancel Order Button - Only shown for cancellable statuses */}
+            {showCancelButton && (
+              <button
+                onClick={handleCancelClick}
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border-2 border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors font-medium"
+              >
+                <XCircle className="w-4 h-4" />
+                Cancel Order
+              </button>
+            )}
+            
             <button
               onClick={handleRepeatOrder}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md hover:shadow-lg"
@@ -22164,6 +22515,20 @@ const ClientOrderView = () => {
           order={order && items ? { ...order, items } : null}
           onSubmit={handleRepeatOrderSubmit}
           isSubmitting={repeatOrderMutation.isPending}
+        />
+
+        {/* Cancel Order Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={cancelModalOpen}
+          onClose={handleCancelModalClose}
+          onConfirm={handleCancelConfirm}
+          title="Cancel Order"
+          message={`Are you sure you want to cancel order "${order.po_number}"? This action cannot be undone and the order status will be changed to Cancelled.`}
+          confirmText="Yes, Cancel Order"
+          cancelText="No, Keep Order"
+          variant="danger"
+          icon="cancel"
+          isLoading={cancelOrderMutation.isPending}
         />
       </div>
     </DashboardLayout>

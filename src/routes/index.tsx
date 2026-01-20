@@ -29,7 +29,7 @@ import ViewMasterProduct from '../pages/admin/MasterProducts/ViewMasterProduct';
 //Admin Orders
 import AdminOrdersList from '../pages/admin/Orders/AdminOrdersList';
 import AdminOrderView from '../pages/admin/Orders/AdminOrderView';
-
+import Archives from '../pages/admin/Archives';
 //Client Projects
 import ProjectsList from '../pages/client/projects/ProjectsList';
 import ProjectDetail from '../pages/client/projects/ProjectDetail';
@@ -303,6 +303,14 @@ const AppRouter = () => {
           element={
             <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <AdminOrderView />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/archives"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Archives />
             </ProtectedRoute>
           }
         />

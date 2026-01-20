@@ -15,6 +15,7 @@ import {
   User,
   PlusCircle,
   CreditCard,
+  Archive,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Role } from '../config/permissions';
@@ -44,6 +45,7 @@ export const adminMenuItems: MenuItem[] = [
   { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
   { label: 'Supplier Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
   { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
+  { label: 'Archives', path: '/admin/archives', icon: <Archive size={20} /> },
   // { label: 'Payments', path: '/admin/payments', icon: <CreditCard size={20} /> },
   // { label: 'Reports', path: '/admin/reports', icon: <BarChart3 size={20} /> },
   // { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
