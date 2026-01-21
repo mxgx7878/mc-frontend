@@ -14,6 +14,18 @@ export interface DeliveryZone {
   radius: number;
 }
 
+
+// ==================== ORDER LOG ====================
+export interface OrderLog {
+  id: number;
+  action: string;
+  details: string;
+  order_id: number;
+  user_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // ==================== ELIGIBLE SUPPLIER ====================
 export interface EligibleSupplier {
   supplier_id: number;
@@ -116,6 +128,7 @@ export interface AdminOrderDetail {
   filters: {
     projects: ProjectFilter[];
   };
+  logs: OrderLog[];
 }
 
 // ==================== ORDER LIST ITEM (UPDATED) ====================

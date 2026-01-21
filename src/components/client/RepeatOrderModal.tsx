@@ -3,10 +3,18 @@
 // ============================================================================
 
 import { useState, useEffect } from 'react';
-import { X, Package } from 'lucide-react';
+import { X, Package, Calendar } from 'lucide-react';
 
 const RepeatOrderModal = ({ isOpen, onClose, order, onSubmit, isSubmitting }: any) => {
   const [items, setItems] = useState<any[]>([]);
+  const [deliveryDate, setDeliveryDate] = useState<string>('');
+
+  // Get minimum date (tomorrow)
+  const getMinDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
 
   useEffect(() => {
     if (order && order.items) {
@@ -20,6 +28,8 @@ const RepeatOrderModal = ({ isOpen, onClose, order, onSubmit, isSubmitting }: an
           has_custom_blend: !!item.custom_blend_mix,
         }))
       );
+      // Reset delivery date when modal opens with new order
+      setDeliveryDate('');
     }
   }, [order]);
 
@@ -36,13 +46,18 @@ const RepeatOrderModal = ({ isOpen, onClose, order, onSubmit, isSubmitting }: an
   };
 
   const handleSubmit = () => {
-    const payload = items.map((item) => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      ...(item.has_custom_blend && item.custom_blend_mix && { custom_blend_mix: item.custom_blend_mix }),
-    }));
+    const payload = {
+      delivery_date: deliveryDate,
+      items: items.map((item) => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        ...(item.has_custom_blend && item.custom_blend_mix && { custom_blend_mix: item.custom_blend_mix }),
+      })),
+    };
     onSubmit(payload);
   };
+
+  const isFormValid = deliveryDate && items.every((item) => item.quantity > 0);
 
   if (!isOpen || !order) return null;
 
@@ -69,7 +84,29 @@ const RepeatOrderModal = ({ isOpen, onClose, order, onSubmit, isSubmitting }: an
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
+          {/* Delivery Date Section */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+              <Calendar className="w-4 h-4 text-blue-600" />
+              Delivery Date *
+            </label>
+            <input
+              type="date"
+              value={deliveryDate}
+              onChange={(e) => setDeliveryDate(e.target.value)}
+              min={getMinDate()}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={isSubmitting}
+              required
+            />
+            {!deliveryDate && (
+              <p className="text-xs text-amber-600 mt-1">Please select a delivery date</p>
+            )}
+          </div>
+
+          {/* Items Section */}
           <div className="space-y-4">
+            <h3 className="text-sm font-medium text-gray-700">Order Items</h3>
             {items.map((item, index) => (
               <div key={index} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-start justify-between mb-3">
@@ -126,8 +163,8 @@ const RepeatOrderModal = ({ isOpen, onClose, order, onSubmit, isSubmitting }: an
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            disabled={isSubmitting || !isFormValid}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isSubmitting ? (
               <>

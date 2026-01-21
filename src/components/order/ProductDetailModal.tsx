@@ -1,6 +1,6 @@
 // src/components/order/ProductDetailModal.tsx
 import React from 'react';
-import { X, Tag, Ruler, FileText, Info, Download, ShoppingCart, Check } from 'lucide-react';
+import { X, Tag, Ruler, FileText, Info, Download, ShoppingCart, Check  } from 'lucide-react';
 import type { Product } from '../../types/order.types';
 import Button from '../common/Buttons';
 
@@ -115,6 +115,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   {product.product_name}
                 </h3>
                 <p className="text-secondary-600">{product.product_type}</p>
+              </div>
+              <div className="space-y-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-primary-600">
+                      {product.price ? product.price : 'N/A'}
+                    </span>
+                    <span className="text-sm text-secondary-500">
+                      / {product.unit_of_measure}
+                    </span>
+                  </div>
+                  <p className="text-xs text-secondary-400 italic">
+                    * Approximate pricing. Actual price may vary based on location & routes.
+                  </p>
               </div>
 
               {/* Info Cards */}

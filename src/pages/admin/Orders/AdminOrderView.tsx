@@ -18,18 +18,20 @@ import {
   Loader2,
   AlertCircle,
   Eye,
+  History,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import OrderOverviewTab from '../../../components/admin/Orders/OrderOverviewTab';
 import OrderItemsTab from '../../../components/admin/Orders/OrderItemsTab';
 import OrderCostingTab from '../../../components/admin/Orders/OrderCostingTab';
 import OrderMapTab from '../../../components/admin/Orders/OrderMapTab';
+import OrderLogsTab from '../../../components/admin/Orders/OrderLogsTab';
 import OrderAdminUpdateTab from '../../../components/admin/Orders/OrderAdminUpdateTab';
 import { useAdminOrderDetail } from '../../../features/adminOrders/hooks';
 import { getMenuItemsByRole } from '../../../utils/menuItems';
 import { usePermissions } from '../../../hooks/usePermissions';
 
-type TabType = 'overview' | 'items' | 'costing' | 'map' | 'admin';
+type TabType = 'overview' | 'items' | 'costing' | 'map' | 'admin' | 'logs';
 
 const AdminOrderView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -140,6 +142,7 @@ const AdminOrderView: React.FC = () => {
       activeClass: 'bg-purple-600 text-white border-purple-700 shadow-md',
       inactiveClass: 'text-purple-700 hover:bg-purple-50 border-purple-200',
     },
+    
   ];
 
   // Only show Costing tab if user can view cost price OR profit margin
@@ -172,6 +175,14 @@ const AdminOrderView: React.FC = () => {
       inactiveClass: 'text-indigo-700 hover:bg-indigo-50 border-indigo-200',
     });
   }
+  tabs.push({
+    id: 'logs' as TabType,
+    label: 'Activity Log',
+    icon: History,
+    badge: order.logs?.length || 0,
+    activeClass: 'bg-slate-600 text-white border-slate-700 shadow-md',
+    inactiveClass: 'text-slate-700 hover:bg-slate-50 border-slate-200',
+  });
 
   return (
     <DashboardLayout menuItems={menuItems}>
@@ -300,6 +311,9 @@ const AdminOrderView: React.FC = () => {
           )}
           {activeTab === 'admin' && (canEditOrders || canUpdateOrderStatus) && (
             <OrderAdminUpdateTab order={order} />
+          )}
+          {activeTab === 'logs' && (
+            <OrderLogsTab logs={order.logs || []} />
           )}
         </div>
       </div>

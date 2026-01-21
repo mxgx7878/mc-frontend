@@ -105,21 +105,36 @@ const ClientOrderView = () => {
     }
   };
 
-  const handleRepeatOrderSubmit = async (items: any[]) => {
-    if (!orderId) return;
+  // const handleRepeatOrderSubmit = async (items: any[]) => {
+  //   if (!orderId) return;
 
-    try {
-      await repeatOrderMutation.mutateAsync({
-        orderId: Number(orderId),
-        payload: { items },
-      });
-      toast.success('Order repeated successfully!');
-      setRepeatOrderModalOpen(false);
-      navigate('/client/orders');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to repeat order');
-    }
-  };
+  //   try {
+  //     await repeatOrderMutation.mutateAsync({
+  //       orderId: Number(orderId),
+  //       payload: { items },
+  //     });
+  //     toast.success('Order repeated successfully!');
+  //     setRepeatOrderModalOpen(false);
+  //     navigate('/client/orders');
+  //   } catch (error: any) {
+  //     toast.error(error.message || 'Failed to repeat order');
+  //   }
+  // };
+  const handleRepeatOrderSubmit = async (payload: { delivery_date: string; items: any[] }) => {
+  if (!orderId) return;
+
+  try {
+    await repeatOrderMutation.mutateAsync({
+      orderId: Number(orderId),
+      payload: payload, // Pass the complete payload with delivery_date and items
+    });
+    toast.success('Order repeated successfully!');
+    setRepeatOrderModalOpen(false);
+    navigate('/client/orders');
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to repeat order');
+  }
+};
 
   // Cancel order handlers
   const handleCancelClick = () => {

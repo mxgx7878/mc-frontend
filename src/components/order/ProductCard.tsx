@@ -54,6 +54,7 @@ const ProductCard = ({ product, isInCart, onAddToCart, onViewDetails }: ProductC
             {product.category.name}
           </span>
         </div>
+        
 
         {/* Quick Actions Overlay */}
         {onViewDetails && (
@@ -78,6 +79,11 @@ const ProductCard = ({ product, isInCart, onAddToCart, onViewDetails }: ProductC
           <p className="text-sm text-secondary-600">{product.product_type}</p>
         </div>
 
+        {/* Price */}
+        <div className="text-xl font-bold text-primary-600">
+          {product.price ? product.price : 'N/A'}
+        </div>
+
         {/* Unit of Measure */}
         <div className="flex items-center justify-between py-2 px-3 bg-secondary-50 rounded-lg">
           <span className="text-xs text-secondary-600 font-medium">Unit:</span>
@@ -88,6 +94,8 @@ const ProductCard = ({ product, isInCart, onAddToCart, onViewDetails }: ProductC
         <p className="text-xs text-secondary-600 line-clamp-2">
           {product.specifications}
         </p>
+
+        
 
         {/* Add to Cart Button */}
         <Button
