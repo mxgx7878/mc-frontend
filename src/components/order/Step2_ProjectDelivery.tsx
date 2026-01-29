@@ -1,4 +1,25 @@
-// src/components/order/Step2_ProjectDelivery.tsx
+// FILE PATH: src/components/order/Step2_ProjectDelivery.tsx
+
+/**
+ * Step2_ProjectDelivery Component
+ * 
+ * UPDATED: Added Pin Location on Map feature
+ * 
+ * Changes Made:
+ * 1. Imported MapPinModal component
+ * 2. Added state for modal visibility (isMapModalOpen)
+ * 3. Added handleMapPinConfirm callback to receive pinned location data
+ * 4. Added "Pin on Map" button next to address field (when editing)
+ * 5. Integrated MapPinModal with existing address flow
+ * 
+ * User Flow:
+ * - Project selected → Address auto-filled from project
+ * - User clicks Edit → Can use autocomplete OR pin on map
+ * - User clicks "Pin on Map" → Modal opens with interactive map
+ * - User pins location → Address auto-fetched and applied
+ * - Reset button restores project's original address
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,6 +46,7 @@ import type { OrderFormValues } from '../../utils/validators';
 import type { CartItem, Project } from '../../types/order.types';
 import Button from '../common/Buttons';
 import Input from '../common/Input';
+import MapPinModal from './MapPinModal';
 
 interface Step2Props {
   cartItems: CartItem[];
@@ -54,6 +76,9 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   const [projectSearchTerm, setProjectSearchTerm] = useState('');
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [addressKey, setAddressKey] = useState(0);
+  
+  // NEW: State for MapPinModal
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
 
   const {
     register,
@@ -66,10 +91,16 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   });
 
   const watchDeliveryAddress = watch('delivery_address');
-  // const watchDeliveryLat = watch('delivery_lat');
-  // const watchDeliveryLong = watch('delivery_long');
-   const getImageUrl = (photo: string | null | undefined): string => {
-    // Return fallback image if photo is null, undefined, or empty
+  const watchDeliveryLat = watch('delivery_lat');
+  const watchDeliveryLong = watch('delivery_long');
+
+  /**
+   * Get image URL with fallback
+   * 
+   * Why: Product photos might be null or invalid
+   * What: Returns fallback SVG if photo is missing
+   */
+  const getImageUrl = (photo: string | null | undefined): string => {
     if (!photo) {
       return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZTVlN2ViIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
     }
@@ -79,12 +110,23 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
       : `${import.meta.env.VITE_IMAGE_BASE_URL}storage/${photo}`;
   };
 
+  /**
+   * Auto-select project if only one exists
+   * 
+   * Why: Better UX - no need to manually select if there's only one option
+   */
   useEffect(() => {
     if (projects.length === 1 && !selectedProject) {
       handleProjectSelect(projects[0]);
     }
   }, [projects]);
 
+  /**
+   * Handle project selection
+   * 
+   * What: Sets project and auto-fills delivery address from project
+   * Why: Projects have default delivery locations
+   */
   const handleProjectSelect = (project: Project) => {
     setSelectedProject(project);
     setValue('project_id', project.id, { shouldValidate: true });
@@ -101,6 +143,12 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
     setProjectSearchTerm('');
   };
 
+  /**
+   * Handle Google Autocomplete place selection
+   * 
+   * What: Gets address and coordinates from selected place
+   * Why: Primary method for address input
+   */
   const handlePlaceSelected = (place: any) => {
     if (place.formatted_address) {
       setValue('delivery_address', place.formatted_address, { shouldValidate: true });
@@ -113,6 +161,35 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
     }
   };
 
+  /**
+   * NEW: Handle map pin confirmation
+   * 
+   * What: Receives address, lat, lng from MapPinModal and applies to form
+   * Why: Alternative method when autocomplete doesn't find the address
+   * Flow:
+   * 1. User pins location on map
+   * 2. Modal performs reverse geocoding
+   * 3. User confirms selection
+   * 4. This callback receives the data
+   * 5. Form values are updated
+   * 6. Address editing mode is disabled
+   * 7. Modal is closed
+   */
+  const handleMapPinConfirm = (address: string, lat: number, lng: number) => {
+    setValue('delivery_address', address, { shouldValidate: true });
+    setValue('delivery_lat', lat, { shouldValidate: true });
+    setValue('delivery_long', lng, { shouldValidate: true });
+    setIsEditingAddress(false);
+    setIsMapModalOpen(false);
+    setAddressKey(prev => prev + 1); // Force re-render of autocomplete
+  };
+
+  /**
+   * Reset address to project's default
+   * 
+   * What: Restores project's original delivery address
+   * Why: User might want to undo manual changes
+   */
   const handleResetToProjectAddress = () => {
     if (selectedProject?.delivery_address && selectedProject?.delivery_lat && selectedProject?.delivery_long) {
       setValue('delivery_address', selectedProject.delivery_address, { shouldValidate: true });
@@ -123,10 +200,16 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
     }
   };
 
+  /**
+   * Filter projects based on search term
+   */
   const filteredProjects = projects.filter((project) =>
     project.name.toLowerCase().includes(projectSearchTerm.toLowerCase())
   );
 
+  /**
+   * Handle quantity changes for cart items
+   */
   const handleQuantityChange = (productId: number, value: string) => {
     const quantity = parseInt(value);
     if (!isNaN(quantity) && quantity > 0) {
@@ -147,426 +230,456 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* LEFT: Order Summary with EDITABLE QUANTITIES */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-5 lg:sticky lg:top-6">
-            <h3 className="font-bold text-secondary-900 mb-4 flex items-center gap-2">
-              <FileText size={20} className="text-primary-600" />
-              Order Summary
-            </h3>
+    <>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* LEFT: Order Summary with EDITABLE QUANTITIES */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-5 lg:sticky lg:top-6">
+              <h3 className="font-bold text-secondary-900 mb-4 flex items-center gap-2">
+                <FileText size={20} className="text-primary-600" />
+                Order Summary
+              </h3>
 
-            <div className="space-y-4">
-              {cartItems.map((item) => (
-                <div
-                  key={item.product_id}
-                  className="pb-4 border-b border-secondary-100 last:border-0"
-                >
-                  {/* Product Info */}
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="w-14 h-14 rounded-lg bg-secondary-100 flex-shrink-0 overflow-hidden">
-                      <img
-                        src={getImageUrl(item.product_photo)}
-                        alt={item.product_name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZTVlN2ViIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+              <div className="space-y-4">
+                {cartItems.map((item) => (
+                  <div
+                    key={item.product_id}
+                    className="pb-4 border-b border-secondary-100 last:border-0"
+                  >
+                    {/* Product Info */}
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-14 h-14 rounded-lg bg-secondary-100 flex-shrink-0 overflow-hidden">
+                        <img
+                          src={getImageUrl(item.product_photo)}
+                          alt={item.product_name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZTVlN2ViIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-secondary-900 text-sm">
+                          {item.product_name}
+                        </p>
+                        <p className="text-xs text-secondary-600 mt-1">
+                          {item.product_type}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Remove ${item.product_name}?`)) {
+                            onRemoveItem(item.product_id);
+                          }
                         }}
-                      />
+                        className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                        title="Remove item"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-secondary-900 text-sm">
-                        {item.product_name}
-                      </p>
-                      <p className="text-xs text-secondary-600 mt-1">
-                        {item.product_type}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (window.confirm(`Remove ${item.product_name}?`)) {
-                          onRemoveItem(item.product_id);
-                        }
-                      }}
-                      className="text-red-500 hover:text-red-700 p-1"
-                      title="Remove item"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
 
-                  {/* Quantity Controls */}
-                  <div className="flex items-center gap-2">
+                    {/* Quantity Controls */}
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-secondary-600 font-medium">Quantity:</label>
+                      <div className="flex items-center border border-secondary-300 rounded-lg overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => handleDecrement(item.product_id, item.quantity)}
+                          disabled={item.quantity <= 1}
+                          className="px-2 py-1 bg-secondary-50 hover:bg-secondary-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => handleQuantityChange(item.product_id, e.target.value)}
+                          className="w-12 text-center text-sm font-medium border-x border-secondary-300 py-1 focus:outline-none"
+                          min="1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleIncrement(item.product_id, item.quantity)}
+                          className="px-2 py-1 bg-secondary-50 hover:bg-secondary-100 transition-colors"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Custom Blend (if applicable) */}
+                    {item.custom_blend_mix !== null && onUpdateCustomBlend && (
+                      <div className="mt-2">
+                        <label className="text-xs text-secondary-600 font-medium mb-1 block">
+                          Custom Blend:
+                        </label>
+                        <input
+                          type="text"
+                          value={item.custom_blend_mix || ''}
+                          onChange={(e) => onUpdateCustomBlend(item.product_id, e.target.value)}
+                          placeholder="Enter custom blend details"
+                          className="w-full text-xs px-2 py-1 border border-secondary-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Total Items */}
+              <div className="mt-4 pt-4 border-t border-secondary-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold text-secondary-900">Total Items:</span>
+                  <span className="text-lg font-bold text-primary-600">{totalItems}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT: Project & Delivery Details */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Section 1: Project Selection */}
+            <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Building2 className="text-primary-600" size={22} />
+                <h3 className="font-bold text-secondary-900">Select Project</h3>
+              </div>
+
+              <div className="space-y-4">
+                {/* Project Selector */}
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Project *
+                  </label>
+                  <div className="relative">
                     <button
                       type="button"
-                      onClick={() => handleDecrement(item.product_id, item.quantity)}
-                      disabled={item.quantity <= 1}
-                      className={`w-8 h-8 rounded-lg border flex items-center justify-center ${
-                        item.quantity <= 1
-                          ? 'border-secondary-200 text-secondary-400 cursor-not-allowed'
-                          : 'border-secondary-300 hover:border-primary-500 hover:bg-primary-50 text-secondary-700'
+                      onClick={() => setShowProjectDropdown(!showProjectDropdown)}
+                      className={`w-full px-4 py-3 border rounded-lg flex items-center justify-between transition-colors ${
+                        errors.project_id
+                          ? 'border-red-500 bg-red-50'
+                          : 'border-secondary-300 hover:border-primary-500'
                       }`}
                     >
-                      <Minus size={14} />
-                    </button>
-                    
-                    <input
-                      type="number"
-                      value={item.quantity}
-                      onChange={(e) => handleQuantityChange(item.product_id, e.target.value)}
-                      min="1"
-                      className="w-16 px-2 py-1.5 border border-secondary-300 rounded-lg text-center text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    />
-                    
-                    <button
-                      type="button"
-                      onClick={() => handleIncrement(item.product_id, item.quantity)}
-                      className="w-8 h-8 rounded-lg border border-secondary-300 hover:border-primary-500 hover:bg-primary-50 text-secondary-700 flex items-center justify-center"
-                    >
-                      <Plus size={14} />
-                    </button>
-                    
-                    <span className="text-xs text-secondary-600 ml-1">
-                      {item.unit_of_measure}
-                    </span>
-                  </div>
-
-                  {/* Custom Blend Input */}
-                  {onUpdateCustomBlend && (
-                    <div className="mt-3">
-                      <input
-                        type="text"
-                        value={item.custom_blend_mix || ''}
-                        onChange={(e) => onUpdateCustomBlend(item.product_id, e.target.value)}
-                        placeholder="Custom blend (optional)"
-                        className="w-full px-3 py-2 border border-secondary-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      <span className={selectedProject ? 'text-secondary-900' : 'text-secondary-400'}>
+                        {selectedProject ? selectedProject.name : 'Select a project'}
+                      </span>
+                      <ChevronDown
+                        size={20}
+                        className={`transition-transform ${showProjectDropdown ? 'rotate-180' : ''}`}
                       />
+                    </button>
+
+                    {/* Dropdown */}
+                    {showProjectDropdown && (
+                      <div className="absolute z-10 mt-2 w-full bg-white border border-secondary-200 rounded-lg shadow-lg max-h-72 overflow-auto">
+                        {/* Search */}
+                        <div className="p-3 border-b border-secondary-100 sticky top-0 bg-white">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={18} />
+                            <input
+                              type="text"
+                              value={projectSearchTerm}
+                              onChange={(e) => setProjectSearchTerm(e.target.value)}
+                              placeholder="Search projects..."
+                              className="w-full pl-10 pr-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Projects List */}
+                        <div className="py-2">
+                          {filteredProjects.length > 0 ? (
+                            filteredProjects.map((project) => (
+                              <button
+                                key={project.id}
+                                type="button"
+                                onClick={() => handleProjectSelect(project)}
+                                className="w-full px-4 py-3 text-left hover:bg-primary-50 transition-colors flex items-center justify-between"
+                              >
+                                <span className="font-medium text-secondary-900">{project.name}</span>
+                                {selectedProject?.id === project.id && (
+                                  <div className="w-2 h-2 bg-primary-600 rounded-full" />
+                                )}
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-4 py-6 text-center text-secondary-500 text-sm">
+                              No projects found
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Create New Project */}
+                        {onCreateProject && (
+                          <div className="p-3 border-t border-secondary-100">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowProjectDropdown(false);
+                                onCreateProject();
+                              }}
+                              className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Plus size={18} />
+                              Create New Project
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {errors.project_id && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.project_id.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Project Info Display */}
+              {selectedProject && (
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm font-medium text-blue-900 mb-2">
+                    {selectedProject.name}
+                  </p>
+                  {selectedProject.site_contact_name && (
+                    <div className="flex items-center gap-2 text-sm text-blue-800">
+                      <User size={14} />
+                      <span>{selectedProject.site_contact_name}</span>
+                    </div>
+                  )}
+                  {selectedProject.site_contact_phone && (
+                    <div className="flex items-center gap-2 text-sm text-blue-800 mt-1">
+                      <Phone size={14} />
+                      <span>{selectedProject.site_contact_phone}</span>
                     </div>
                   )}
                 </div>
-              ))}
+              )}
             </div>
 
-            <div className="mt-4 pt-4 border-t border-secondary-200 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-secondary-600">Total Items:</span>
-                <span className="font-bold text-secondary-900">{cartItems.length}</span>
+            {/* Section 2: Delivery Details */}
+            <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <MapPin className="text-primary-600" size={22} />
+                <h3 className="font-bold text-secondary-900">Delivery Details</h3>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-secondary-600">Total Quantity:</span>
-                <span className="font-bold text-secondary-900">{totalItems} units</span>
+
+              <div className="space-y-4">
+                {/* PO Number */}
+                <Input
+                  label="PO Number (Optional)"
+                  placeholder="Enter PO number if you have one"
+                  {...register('po_number')}
+                  error={errors.po_number?.message}
+                />
+
+                {/* Delivery Address */}
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Delivery Address *
+                  </label>
+                  {!isEditingAddress && watchDeliveryAddress ? (
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 px-4 py-3 bg-secondary-50 border border-secondary-200 rounded-lg">
+                        <p className="text-sm text-secondary-900">{watchDeliveryAddress}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingAddress(true)}
+                        className="p-3 border border-secondary-300 rounded-lg hover:bg-secondary-50 transition-colors"
+                        title="Edit address"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      {selectedProject?.delivery_address && watchDeliveryAddress !== selectedProject.delivery_address && (
+                        <button
+                          type="button"
+                          onClick={handleResetToProjectAddress}
+                          className="p-3 border border-secondary-300 rounded-lg hover:bg-secondary-50 transition-colors"
+                          title="Reset to project address"
+                        >
+                          <RotateCcw size={18} />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {/* Autocomplete Input */}
+                      <Autocomplete
+                        key={addressKey}
+                        apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                        onPlaceSelected={handlePlaceSelected}
+                        options={{
+                          types: ['address'],
+                          componentRestrictions: { country: 'au' },
+                        }}
+                        defaultValue={watchDeliveryAddress || ''}
+                        className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        placeholder="Start typing to search address..."
+                      />
+                      
+                      {/* NEW: Pin on Map Button */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-px bg-secondary-200" />
+                        <span className="text-xs text-secondary-500 font-medium">OR</span>
+                        <div className="flex-1 h-px bg-secondary-200" />
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setIsMapModalOpen(true)}
+                        className="w-full px-4 py-3 border-2 border-primary-500 bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100 transition-colors flex items-center justify-center gap-2 font-medium"
+                      >
+                        <MapPin size={18} />
+                        Pin Location on Map
+                      </button>
+                    </div>
+                  )}
+                  {errors.delivery_address && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.delivery_address.message}
+                    </p>
+                  )}
+                  {errors.delivery_lat && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.delivery_lat.message}
+                    </p>
+                  )}
+                  {errors.delivery_long && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.delivery_long.message}
+                    </p>
+                  )}
+                  
+                  {/* Hidden inputs for lat/long */}
+                  <input type="hidden" {...register('delivery_lat')} />
+                  <input type="hidden" {...register('delivery_long')} />
+                </div>
+
+                {/* Date and Time */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Delivery Date */}
+                  <div>
+                    <label className="block text-sm font-medium text-secondary-700 mb-2">
+                      Delivery Date *
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                      <input
+                        type="date"
+                        {...register('delivery_date')}
+                        className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    {errors.delivery_date && (
+                      <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle size={14} />
+                        {errors.delivery_date.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Delivery Time */}
+                  <div>
+                    <label className="block text-sm font-medium text-secondary-700 mb-2">
+                      Delivery Time *
+                    </label>
+                    <div className="relative">
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                      <input
+                        type="time"
+                        {...register('delivery_time')}
+                        className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    {errors.delivery_time && (
+                      <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle size={14} />
+                        {errors.delivery_time.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Load Size */}
+                <Input
+                  label="Load Size *"
+                  placeholder="e.g., 6 cubic meters"
+                  {...register('load_size')}
+                  error={errors.load_size?.message}
+                />
+
+                {/* Special Equipment */}
+                <Input
+                  label="Special Equipment (Optional)"
+                  placeholder="Any special equipment required"
+                  {...register('special_equipment')}
+                  error={errors.special_equipment?.message}
+                />
+
+                {/* Special Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Special Notes (Optional)
+                  </label>
+                  <textarea
+                    {...register('special_notes')}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Any special instructions or notes..."
+                  />
+                  {errors.special_notes && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.special_notes.message}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-secondary-200">
+            {/* Action Buttons */}
+            <div className="flex gap-4">
               <Button
                 type="button"
                 onClick={onBack}
                 variant="outline"
-                className="w-full"
+                className="flex-1"
               >
-                ← Add More Products
+                ← Back
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting || cartItems.length === 0}
+                className="flex-1"
+              >
+                {isSubmitting ? 'Processing...' : 'Continue to Review →'}
               </Button>
             </div>
           </div>
         </div>
+      </form>
 
-        {/* RIGHT: Form Fields */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Section 1: Project Selection */}
-          <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
-            {/* Validation Errors Summary */}
-            {Object.keys(errors).length > 0 && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={18} />
-                  <div>
-                    <p className="text-sm font-semibold text-red-900">Please fix the following errors:</p>
-                    <ul className="mt-2 text-sm text-red-800 list-disc list-inside space-y-1">
-                      {Object.entries(errors).map(([key, error]) => (
-                        <li key={key}>{error.message}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div className="flex items-center gap-2 mb-4">
-              <Building2 className="text-primary-600" size={22} />
-              <h3 className="font-bold text-secondary-900">Select Project</h3>
-            </div>
-
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-                className={`
-                  w-full flex items-center justify-between px-4 py-3 border rounded-lg
-                  transition-all
-                  ${
-                    selectedProject
-                      ? 'border-primary-500 bg-primary-50'
-                      : 'border-secondary-300 bg-white hover:border-primary-400'
-                  }
-                `}
-              >
-                <span className={selectedProject ? 'text-secondary-900 font-medium' : 'text-secondary-500'}>
-                  {selectedProject ? selectedProject.name : 'Choose a project...'}
-                </span>
-                <ChevronDown
-                  size={20}
-                  className={`transition-transform ${showProjectDropdown ? 'rotate-180' : ''}`}
-                />
-              </button>
-
-              {showProjectDropdown && (
-                <div className="absolute z-10 w-full mt-2 bg-white border border-secondary-300 rounded-lg shadow-lg max-h-80 overflow-hidden">
-                  <div className="p-3 border-b border-secondary-200">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={18} />
-                      <input
-                        type="text"
-                        placeholder="Search projects..."
-                        value={projectSearchTerm}
-                        onChange={(e) => setProjectSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="max-h-60 overflow-y-auto">
-                    {filteredProjects.length > 0 ? (
-                      filteredProjects.map((project) => (
-                        <button
-                          key={project.id}
-                          type="button"
-                          onClick={() => handleProjectSelect(project)}
-                          className="w-full px-4 py-3 text-left hover:bg-secondary-50 transition-colors border-b border-secondary-100 last:border-0"
-                        >
-                          <p className="font-medium text-secondary-900">{project.name}</p>
-                          {project.site_contact_name && (
-                            <p className="text-sm text-secondary-600 mt-1">Contact: {project.site_contact_name}</p>
-                          )}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-8 text-center text-secondary-500">
-                        No projects found
-                      </div>
-                    )}
-                  </div>
-
-                  {onCreateProject && (
-                    <div className="p-3 border-t border-secondary-200">
-                      <button
-                        type="button"
-                        onClick={onCreateProject}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                      >
-                        <Plus size={18} />
-                        Create New Project
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {errors.project_id && (
-                <p className="mt-2 text-sm text-red-600">{errors.project_id.message}</p>
-              )}
-            </div>
-
-            {selectedProject && (
-              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="font-medium text-blue-900 mb-2">{selectedProject.name}</p>
-                {selectedProject.site_contact_name && (
-                  <div className="flex items-center gap-2 text-sm text-blue-800 mt-1">
-                    <User size={14} />
-                    <span>{selectedProject.site_contact_name}</span>
-                  </div>
-                )}
-                {selectedProject.site_contact_phone && (
-                  <div className="flex items-center gap-2 text-sm text-blue-800 mt-1">
-                    <Phone size={14} />
-                    <span>{selectedProject.site_contact_phone}</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Section 2: Delivery Details */}
-          <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <MapPin className="text-primary-600" size={22} />
-              <h3 className="font-bold text-secondary-900">Delivery Details</h3>
-            </div>
-
-            <div className="space-y-4">
-              {/* PO Number */}
-              <Input
-                label="PO Number (Optional)"
-                placeholder="Enter PO number if you have one"
-                {...register('po_number')}
-                error={errors.po_number?.message}
-              />
-
-              {/* Delivery Address */}
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Delivery Address *
-                </label>
-                {!isEditingAddress && watchDeliveryAddress ? (
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 px-4 py-3 bg-secondary-50 border border-secondary-200 rounded-lg">
-                      <p className="text-sm text-secondary-900">{watchDeliveryAddress}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingAddress(true)}
-                      className="p-3 border border-secondary-300 rounded-lg hover:bg-secondary-50"
-                      title="Edit address"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                    {selectedProject?.delivery_address && watchDeliveryAddress !== selectedProject.delivery_address && (
-                      <button
-                        type="button"
-                        onClick={handleResetToProjectAddress}
-                        className="p-3 border border-secondary-300 rounded-lg hover:bg-secondary-50"
-                        title="Reset to project address"
-                      >
-                        <RotateCcw size={18} />
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <Autocomplete
-                    key={addressKey}
-                    apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-                    onPlaceSelected={handlePlaceSelected}
-                    options={{
-                      types: ['address'],
-                      componentRestrictions: { country: 'au' },
-                    }}
-                    defaultValue={watchDeliveryAddress || ''}
-                    className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Start typing to search address..."
-                  />
-                )}
-                {errors.delivery_address && (
-                  <p className="mt-2 text-sm text-red-600">{errors.delivery_address.message}</p>
-                )}
-                {errors.delivery_lat && (
-                  <p className="mt-2 text-sm text-red-600">{errors.delivery_lat.message}</p>
-                )}
-                {errors.delivery_long && (
-                  <p className="mt-2 text-sm text-red-600">{errors.delivery_long.message}</p>
-                )}
-                
-                {/* Hidden inputs for lat/long */}
-                <input type="hidden" {...register('delivery_lat')} />
-                <input type="hidden" {...register('delivery_long')} />
-              </div>
-
-              {/* Date and Time */}
-              <div className="grid md:grid-cols-2 gap-4">
-                {/* Delivery Date */}
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    Delivery Date *
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
-                    <input
-                      type="date"
-                      {...register('delivery_date')}
-                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                  {errors.delivery_date && (
-                    <p className="mt-2 text-sm text-red-600">{errors.delivery_date.message}</p>
-                  )}
-                </div>
-
-                {/* Delivery Time */}
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    Delivery Time *
-                  </label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
-                    <input
-                      type="time"
-                      {...register('delivery_time')}
-                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                  {errors.delivery_time && (
-                    <p className="mt-2 text-sm text-red-600">{errors.delivery_time.message}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Load Size */}
-              <Input
-                label="Load Size *"
-                placeholder="e.g., 6 cubic meters"
-                {...register('load_size')}
-                error={errors.load_size?.message}
-              />
-
-              {/* Special Equipment */}
-              <Input
-                label="Special Equipment (Optional)"
-                placeholder="Any special equipment required"
-                {...register('special_equipment')}
-                error={errors.special_equipment?.message}
-              />
-
-              {/* Special Notes */}
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Special Notes (Optional)
-                </label>
-                <textarea
-                  {...register('special_notes')}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="Any special instructions or notes..."
-                />
-                {errors.special_notes && (
-                  <p className="mt-2 text-sm text-red-600">{errors.special_notes.message}</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-4">
-            <Button
-              type="button"
-              onClick={onBack}
-              variant="outline"
-              className="flex-1"
-            >
-              ← Back
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting || cartItems.length === 0}
-              className="flex-1"
-            >
-              {isSubmitting ? 'Processing...' : 'Continue to Review →'}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </form>
+      {/* NEW: MapPinModal Component */}
+      <MapPinModal
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        onConfirm={handleMapPinConfirm}
+        initialLat={watchDeliveryLat}
+        initialLng={watchDeliveryLong}
+        initialAddress={watchDeliveryAddress}
+      />
+    </>
   );
 };
 

@@ -27,7 +27,7 @@ interface RequestProductModalProps {
   categories: Category[];
 }
 
-const RequestProductModal = ({ isOpen, onClose, categories }: RequestProductModalProps) => {
+const RequestProductModal = ({ isOpen, onClose }: RequestProductModalProps) => {
   const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -87,7 +87,6 @@ const RequestProductModal = ({ isOpen, onClose, categories }: RequestProductModa
     const payload = {
       product_name: data.product_name,
       product_type: data.product_type,
-      category_id: data.category_id,
       specifications: data.specifications || '',
       unit_of_measure: data.unit_of_measure,
       price: data.price,
@@ -158,7 +157,7 @@ const RequestProductModal = ({ isOpen, onClose, categories }: RequestProductModa
           />
 
           {/* Category */}
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
               Category <span className="text-error-500">*</span>
             </label>
@@ -186,7 +185,7 @@ const RequestProductModal = ({ isOpen, onClose, categories }: RequestProductModa
             {errors.category_id && (
               <p className="text-sm text-error-500 mt-1">{errors.category_id.message}</p>
             )}
-          </div>
+          </div> */}
 
           {/* Unit of Measure */}
           <Input2

@@ -52,13 +52,15 @@ const OrderCreate = () => {
   // Product Selection State
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   // Product Detail Modal
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductModal, setShowProductModal] = useState(false);
+
+  //Product types 
+  const [selectedProductType, setSelectedProductType] = useState<string | undefined>();
+  const [showProductTypeDropdown, setShowProductTypeDropdown] = useState(false);
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -67,21 +69,21 @@ const OrderCreate = () => {
 
   // ==================== DATA FETCHING ====================
 
-  // Fetch Categories
-  const { data: categoriesData } = useQuery({
-    queryKey: ['product-categories'],
-    queryFn: () => ordersAPI.getCategories(),
+  //Fetch Product Types
+  const { data: productTypesData } = useQuery({
+    queryKey: ['product-types'],
+    queryFn: () => ordersAPI.getProductTypes(),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Fetch Products
   const { data: productsData, isLoading: loadingProducts, error: productsError } = useQuery({
-    queryKey: ['client-products', currentPage, searchTerm, selectedCategory],
+    queryKey: ['client-products', currentPage, searchTerm, selectedProductType],
     queryFn: () => ordersAPI.getClientProducts({
       page: currentPage,
       per_page: 12,
       search: searchTerm || undefined,
-      category: selectedCategory,
+      product_type: selectedProductType,
     }),
     enabled: currentStep === 1, // Only fetch when on product selection step
   });
@@ -188,10 +190,11 @@ const OrderCreate = () => {
 
   // ==================== FILTERS ====================
 
-  const handleCategorySelect = (categoryId: number | undefined) => {
-    setSelectedCategory(categoryId);
-    setCurrentPage(1);
-    setShowCategoryDropdown(false);
+
+  const handleProductTypeSelect = (productType: string | undefined) => {
+    setSelectedProductType(productType);
+    setCurrentPage(1); // Reset to page 1 when changing filters
+    setShowProductTypeDropdown(false);
   };
 
   // ==================== PRODUCT MODAL ====================
@@ -213,7 +216,7 @@ const OrderCreate = () => {
   const projects = projectsData?.data || [];
 
   // Get categories from API
-  const categories = categoriesData?.data || [];
+  const productTypes = Array.isArray(productTypesData) ? productTypesData : productTypesData?.data || [];
 
   const totalCartItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -267,38 +270,38 @@ const OrderCreate = () => {
                     )}
                   </div>
 
-                  {/* Category Filter Dropdown */}
+                  {/* Product Type Filter Dropdown */}
                   <div className="relative">
                     <Button
                       variant="outline"
-                      onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                      onClick={() => setShowProductTypeDropdown(!showProductTypeDropdown)}
                       className="w-full md:w-auto"
                     >
                       <Filter size={18} />
-                      {selectedCategory 
-                        ? categories.find(c => c.id === selectedCategory)?.name 
-                        : 'All Categories'}
+                      {selectedProductType
+                        ? productTypes.find(p => p.product_type === selectedProductType)?.product_type
+                        : 'All Product Types'}
                     </Button>
 
-                    {showCategoryDropdown && (
+                    {showProductTypeDropdown && (
                       <div className="absolute right-0 mt-2 w-56 bg-white border border-secondary-200 rounded-lg shadow-lg z-50">
                         <button
-                          onClick={() => handleCategorySelect(undefined)}
+                          onClick={() => handleProductTypeSelect(undefined)}
                           className={`w-full text-left px-4 py-2 hover:bg-secondary-50 transition-colors ${
-                            !selectedCategory ? 'bg-primary-50 text-primary-700 font-semibold' : ''
+                            !selectedProductType ? 'bg-primary-50 text-primary-700 font-semibold' : ''
                           }`}
                         >
-                          All Categories
+                          All Product Types
                         </button>
-                        {categories.map((category) => (
+                        {productTypes.map((type) => (
                           <button
-                            key={category.id}
-                            onClick={() => handleCategorySelect(category.id)}
+                            key={type.product_type}
+                            onClick={() => handleProductTypeSelect(type.product_type)}
                             className={`w-full text-left px-4 py-2 hover:bg-secondary-50 transition-colors border-t border-secondary-100 ${
-                              selectedCategory === category.id ? 'bg-primary-50 text-primary-700 font-semibold' : ''
+                              selectedProductType === type.product_type ? 'bg-primary-50 text-primary-700 font-semibold' : ''
                             }`}
                           >
-                            {category.name}
+                            {type.product_type}
                           </button>
                         ))}
                       </div>
@@ -332,16 +335,16 @@ const OrderCreate = () => {
                     <div>
                       <h3 className="text-lg font-semibold text-secondary-900">No products found</h3>
                       <p className="text-sm text-secondary-600 mt-1">
-                        {searchTerm || selectedCategory 
-                          ? 'Try adjusting your search or filters' 
+                        {searchTerm || selectedProductType
+                          ? 'Try adjusting your search or filters'
                           : 'No products available at the moment'}
                       </p>
                     </div>
-                    {(searchTerm || selectedCategory) && (
+                    {(searchTerm || selectedProductType) && (
                       <Button
                         onClick={() => {
                           setSearchTerm('');
-                          setSelectedCategory(undefined);
+                          setSelectedProductType(undefined);
                         }}
                         variant="outline"
                       >

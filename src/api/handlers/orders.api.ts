@@ -27,6 +27,17 @@ export interface CategoriesResponse {
 }
 
 // ===========================
+// Product Types
+// ===========================
+export interface ProductType {
+  product_type: string;
+}
+
+export interface ProductTypesResponse {
+  data: ProductType[];
+}
+
+// ===========================
 // API Functions
 // ===========================
 
@@ -41,6 +52,7 @@ export const ordersAPI = {
     per_page?: number;
     search?: string;
     category?: number;
+    product_type?: string;
   }): Promise<ProductsResponse> => {
     try {
       const response = await api.get('/client/products', { params });
@@ -62,6 +74,17 @@ export const ordersAPI = {
       throw new Error(error?.response?.data?.message || 'Failed to fetch categories');
     }
   },
+
+  getProductTypes: async (): Promise<ProductTypesResponse> => {
+    try {
+      const response = await api.get('/product-types');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.message || 'Failed to fetch product types');
+    }
+  },
+
+
 
   /**
    * Get single product details

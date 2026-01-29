@@ -1,5 +1,5 @@
 // FILE PATH: src/components/supplier/ProductCard.tsx
-import { Package, Edit, Trash2, Plus, AlertCircle, Tag, Layers, CheckCircle2 } from 'lucide-react';
+import { Package, Edit, Trash2, Plus, AlertCircle, Layers, CheckCircle2 } from 'lucide-react';
 import type { MasterProduct , SupplierOffer} from '../../api/handlers/supplierProducts.api';
 import ApproveStatusBadge from '../common/ApproveStatusBadge';
 import type { BadgeStatus } from '../common/ApproveStatusBadge';
@@ -85,11 +85,11 @@ const ProductCard = ({ product, onAddOffer, onEditOffer, onRemoveOffer }: Produc
           </h3>
           
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Category Badge */}
+            {/* Category Badge
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-50 text-primary-700 rounded-lg text-xs font-medium border border-primary-100">
               <Tag size={12} />
               {product.category?.name || 'Uncategorized'}
-            </span>
+            </span> */}
             
             {/* Product Type Badge */}
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100">

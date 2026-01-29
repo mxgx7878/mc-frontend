@@ -114,7 +114,7 @@ export const requestProductSchema = z
       .min(1, "Product type is required")
       .max(255, "Product type must not exceed 255 characters"),
 
-    category_id: z.number().positive("Please select a valid category"),
+    // category_id: z.number().positive("Please select a valid category"),
 
     unit_of_measure: z
       .string()
@@ -132,15 +132,7 @@ export const requestProductSchema = z
 
     availability_status: AvailabilityEnum,
   })
-  .superRefine((val, ctx) => {
-    if (val.category_id === undefined || val.category_id === null) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["category_id"],
-        message: "Category is required",
-      });
-    }
-  });
+  
 
 // ==================== ORDER SCHEMAS ====================
 

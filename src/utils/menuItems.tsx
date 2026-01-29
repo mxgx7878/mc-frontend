@@ -16,6 +16,7 @@ import {
   PlusCircle,
   CreditCard,
   Archive,
+  Tags,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Role } from '../config/permissions';
@@ -55,7 +56,8 @@ export const adminMenuItems: MenuItem[] = [
 
 export const supplierMenuItems: MenuItem[] = [
   { label: 'Dashboard', path: '/supplier/dashboard', icon: <Home size={20} /> },
-  { label: 'My Products', path: '/supplier/products', icon: <Package size={20} /> },
+  { label: 'Platform Products', path: '/supplier/products', icon: <Package size={20} /> },
+  { label: 'My Offers', icon: <Tags size={20} />, path: '/supplier/my-offers'},
   { label: 'Orders', path: '/supplier/orders', icon: <DollarSign size={20} /> },
   { label: 'Delivery Zones', path: '/supplier/zones', icon: <MapPin size={20} /> },
   { label: 'Profile', path: '/supplier/profile', icon: <User size={20} /> },

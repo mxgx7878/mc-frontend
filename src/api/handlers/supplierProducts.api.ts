@@ -139,7 +139,7 @@ export interface UpdateOfferPayload {
 export interface RequestProductPayload {
   product_name: string;
   product_type: string;
-  category_id: number;
+  // category_id: number;
   specifications: string;
   unit_of_measure: string;
   price: string;                    // ✅ NEW FIELD
@@ -158,6 +158,63 @@ export interface OfferStatus {
   updated_at: string;
 }
 
+
+
+export interface SupplierOffersQueryParams {
+  page?: number;
+  per_page?: number;
+  search?: string;
+  product_type?: string;
+  status?: string;
+  sort_by?: 'price' | 'created_at' | 'updated_at';
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface SupplierOfferItem {
+  offer_id: number;
+  master_product_id: number;
+  offer_status: 'Pending' | 'Approved' | 'Rejected';
+  availability_status: 'In Stock' | 'Out of Stock' | 'Limited';
+  product_name: string;
+  product_type: string;
+  unit: string | null;
+  specifications: string | null;
+  image_url: string | null;
+  image: string | null;
+  category: Category | null;
+  price: number;
+  slug: string;
+  approved_by: AddedBy | null;
+  tech_doc: string;
+  description: string;
+  is_approved: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupplierOffersResponse {
+  success: boolean;
+  data: SupplierOfferItem[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number | null;
+  to: number | null;
+}
+
+
+// ===========================
+// Product Types
+// ===========================
+export interface ProductType {
+  product_type: string;
+}
+
+export interface ProductTypesResponse {
+  data: ProductType[];
+}
+
 // ==================== API FUNCTIONS ====================
 
 /**
@@ -168,6 +225,7 @@ export const getProducts = async (params?: {
   per_page?: number;
   search?: string;
   category_id?: number;
+  product_type?: string;
 }): Promise<ProductsResponse> => {
   const response = await axiosInstance.get('/master-product-inventory', { params });
   return response.data;
@@ -179,6 +237,27 @@ export const getProducts = async (params?: {
 export const getCategories = async (): Promise<CategoriesResponse> => {
   const response = await axiosInstance.get('/categories');
   return response.data;
+};
+
+/** 
+ * Get My Offers
+ */
+
+export const getMyOffers = async (params?: SupplierOffersQueryParams): Promise<SupplierOffersResponse> => {
+  try {
+      const response = await axiosInstance.get('/get-supplier-products', { params });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to fetch your offers');
+    }
+}
+
+/**
+ * Get all product types
+ */
+export const getProductTypes = async (): Promise<ProductTypesResponse> => {
+  const response = await axiosInstance.get('/product-types');
+  return response;
 };
 
 /**
@@ -221,7 +300,6 @@ export const requestMasterProduct = async (payload: RequestProductPayload): Prom
   // Existing fields
   formData.append('product_name', payload.product_name);
   formData.append('product_type', payload.product_type);
-  formData.append('category_id', payload.category_id.toString());
   formData.append('specifications', payload.specifications);
   formData.append('unit_of_measure', payload.unit_of_measure);
   
@@ -251,6 +329,9 @@ export const getOfferStatus = async (): Promise<OfferStatus[]> => {
   return response.data;
 };
 
+
+
+
 // Export as default object
 export const supplierProductsAPI = {
   getProducts,
@@ -260,4 +341,5 @@ export const supplierProductsAPI = {
   deleteSupplierOffer,
   requestMasterProduct,
   getOfferStatus,
+  getProductTypes,
 };

@@ -48,12 +48,12 @@ const ProductCard = ({ product, isInCart, onAddToCart, onViewDetails }: ProductC
           }}
         />
         
-        {/* Category Badge */}
+        {/* Category Badge
         <div className="absolute top-3 left-3">
           <span className="bg-white/90 backdrop-blur-sm text-xs font-semibold text-primary-700 px-3 py-1 rounded-full shadow-sm">
             {product.category.name}
           </span>
-        </div>
+        </div> */}
         
 
         {/* Quick Actions Overlay */}

@@ -1,4 +1,4 @@
-// SRC BUNDLE 2026-01-16T07:35:32.891Z
+// SRC BUNDLE 2026-01-29T07:44:45.061Z
 
 /* FILE: src/api/axios.config.ts */
 // src/api/axios.config.ts
@@ -428,6 +428,170 @@ export const adminSupplierZonesAPI = {
       throw new Error(
         error?.message || 'Failed to fetch suppliers with zones'
       );
+    }
+  },
+};
+/* FILE: src/api/handlers/archives.api.ts */
+// FILE PATH: src/api/handlers/archives.api.ts
+
+/**
+ * Archives API Handler
+ * Handles all API calls for admin archives management
+ */
+
+import api from '../axios.config';
+
+// ==================== TYPES ====================
+
+export interface ArchivedOrder {
+  id: number;
+  po_number: string;
+  project?: {
+    id: number;
+    name: string;
+  };
+  client?: {
+    id: number;
+    name: string;
+  };
+  total_price: number;
+  order_status: string;
+  payment_status: string;
+  archived_by?: number;
+  is_archived: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ArchivedUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  company?: {
+    id: number;
+    name: string;
+  };
+  contact_number?: string;
+  isDeleted: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ArchivedProject {
+  id: number;
+  name: string;
+  added_by?: {
+    id: number;
+    name: string;
+  };
+  delivery_address: string;
+  is_archived: number;
+  archived_by?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaginationData {
+  data: any[];
+  current_page: number;
+  per_page: number;
+  total: number;
+  last_page: number;
+}
+
+export interface ArchivesResponse {
+  success: boolean;
+  data: {
+    orders: PaginationData & { data: ArchivedOrder[] };
+    users: PaginationData & { data: ArchivedUser[] };
+    projects: PaginationData & { data: ArchivedProject[] };
+  };
+}
+
+export interface ArchiveOrderResponse {
+  success: boolean;
+  message: string;
+  order: {
+    id: number;
+    is_archived: number;
+  };
+}
+
+export interface ArchiveParams {
+  orders_per_page?: number;
+  users_per_page?: number;
+  projects_per_page?: number;
+  orders_page?: number;
+  users_page?: number;
+  projects_page?: number;
+}
+
+// ==================== API FUNCTIONS ====================
+
+export const archivesAPI = {
+  /**
+   * Get all archived items (orders, users, projects)
+   * @param params - Pagination parameters for each type
+   */
+  getArchives: async (params?: ArchiveParams): Promise<ArchivesResponse> => {
+    try {
+      const response = await api.get('/admin/archives', { params });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to fetch archives');
+    }
+  },
+
+  /**
+   * Archive (soft delete) an order
+   * @param orderId - Order ID to archive
+   */
+  archiveOrder: async (orderId: number): Promise<ArchiveOrderResponse> => {
+    try {
+      const response = await api.delete(`/admin/delete-order/${orderId}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to archive order');
+    }
+  },
+
+  /**
+   * Restore an archived order (optional - if you add this endpoint later)
+   * @param orderId - Order ID to restore
+   */
+  restoreOrder: async (orderId: number): Promise<{ success: boolean; message: string }> => {
+    try {
+      const response = await api.post(`/admin/archives/orders/${orderId}/restore`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to restore order');
+    }
+  },
+
+  /**
+   * Restore an archived user (optional - if you add this endpoint later)
+   * @param userId - User ID to restore
+   */
+  restoreUser: async (userId: number): Promise<{ success: boolean; message: string }> => {
+    try {
+      const response = await api.post(`/admin/archives/users/${userId}/restore`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to restore user');
+    }
+  },
+
+  /**
+   * Restore an archived project (optional - if you add this endpoint later)
+   * @param projectId - Project ID to restore
+   */
+  restoreProject: async (projectId: number): Promise<{ success: boolean; message: string }> => {
+    try {
+      const response = await api.post(`/admin/archives/projects/${projectId}/restore`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to restore project');
     }
   },
 };
@@ -949,6 +1113,17 @@ export interface CategoriesResponse {
 }
 
 // ===========================
+// Product Types
+// ===========================
+export interface ProductType {
+  product_type: string;
+}
+
+export interface ProductTypesResponse {
+  data: ProductType[];
+}
+
+// ===========================
 // API Functions
 // ===========================
 
@@ -963,6 +1138,7 @@ export const ordersAPI = {
     per_page?: number;
     search?: string;
     category?: number;
+    product_type?: string;
   }): Promise<ProductsResponse> => {
     try {
       const response = await api.get('/client/products', { params });
@@ -984,6 +1160,17 @@ export const ordersAPI = {
       throw new Error(error?.response?.data?.message || 'Failed to fetch categories');
     }
   },
+
+  getProductTypes: async (): Promise<ProductTypesResponse> => {
+    try {
+      const response = await api.get('/product-types');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.message || 'Failed to fetch product types');
+    }
+  },
+
+
 
   /**
    * Get single product details
@@ -1630,7 +1817,7 @@ export interface UpdateOfferPayload {
 export interface RequestProductPayload {
   product_name: string;
   product_type: string;
-  category_id: number;
+  // category_id: number;
   specifications: string;
   unit_of_measure: string;
   price: string;                    // ✅ NEW FIELD
@@ -1649,6 +1836,63 @@ export interface OfferStatus {
   updated_at: string;
 }
 
+
+
+export interface SupplierOffersQueryParams {
+  page?: number;
+  per_page?: number;
+  search?: string;
+  product_type?: string;
+  status?: string;
+  sort_by?: 'price' | 'created_at' | 'updated_at';
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface SupplierOfferItem {
+  offer_id: number;
+  master_product_id: number;
+  offer_status: 'Pending' | 'Approved' | 'Rejected';
+  availability_status: 'In Stock' | 'Out of Stock' | 'Limited';
+  product_name: string;
+  product_type: string;
+  unit: string | null;
+  specifications: string | null;
+  image_url: string | null;
+  image: string | null;
+  category: Category | null;
+  price: number;
+  slug: string;
+  approved_by: AddedBy | null;
+  tech_doc: string;
+  description: string;
+  is_approved: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupplierOffersResponse {
+  success: boolean;
+  data: SupplierOfferItem[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number | null;
+  to: number | null;
+}
+
+
+// ===========================
+// Product Types
+// ===========================
+export interface ProductType {
+  product_type: string;
+}
+
+export interface ProductTypesResponse {
+  data: ProductType[];
+}
+
 // ==================== API FUNCTIONS ====================
 
 /**
@@ -1659,6 +1903,7 @@ export const getProducts = async (params?: {
   per_page?: number;
   search?: string;
   category_id?: number;
+  product_type?: string;
 }): Promise<ProductsResponse> => {
   const response = await axiosInstance.get('/master-product-inventory', { params });
   return response.data;
@@ -1670,6 +1915,27 @@ export const getProducts = async (params?: {
 export const getCategories = async (): Promise<CategoriesResponse> => {
   const response = await axiosInstance.get('/categories');
   return response.data;
+};
+
+/** 
+ * Get My Offers
+ */
+
+export const getMyOffers = async (params?: SupplierOffersQueryParams): Promise<SupplierOffersResponse> => {
+  try {
+      const response = await axiosInstance.get('/get-supplier-products', { params });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to fetch your offers');
+    }
+}
+
+/**
+ * Get all product types
+ */
+export const getProductTypes = async (): Promise<ProductTypesResponse> => {
+  const response = await axiosInstance.get('/product-types');
+  return response;
 };
 
 /**
@@ -1712,7 +1978,6 @@ export const requestMasterProduct = async (payload: RequestProductPayload): Prom
   // Existing fields
   formData.append('product_name', payload.product_name);
   formData.append('product_type', payload.product_type);
-  formData.append('category_id', payload.category_id.toString());
   formData.append('specifications', payload.specifications);
   formData.append('unit_of_measure', payload.unit_of_measure);
   
@@ -1742,6 +2007,9 @@ export const getOfferStatus = async (): Promise<OfferStatus[]> => {
   return response.data;
 };
 
+
+
+
 // Export as default object
 export const supplierProductsAPI = {
   getProducts,
@@ -1751,6 +2019,7 @@ export const supplierProductsAPI = {
   deleteSupplierOffer,
   requestMasterProduct,
   getOfferStatus,
+  getProductTypes,
 };
 /* FILE: src/api/handlers/users.api.ts */
 // src/api/handlers/users.api.ts
@@ -4345,6 +4614,108 @@ const AdminOrderView: React.FC = () => {
 
 export default AdminOrderView;
 
+/* FILE: src/components/admin/Orders/DeleteOrderModal.tsx */
+// FILE PATH: src/components/admin/Orders/DeleteOrderModal.tsx
+
+/**
+ * Delete Order Modal Component
+ * Confirms order archival (soft delete)
+ */
+
+import { X, AlertTriangle, Loader2 } from 'lucide-react';
+
+interface DeleteOrderModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  isLoading: boolean;
+  orderNumber: string;
+}
+
+const DeleteOrderModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  isLoading,
+  orderNumber,
+}: DeleteOrderModalProps) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full transform transition-all">
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            disabled={isLoading}
+            className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+          >
+            <X size={20} />
+          </button>
+
+          {/* Content */}
+          <div className="p-6">
+            {/* Icon */}
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertTriangle size={32} className="text-red-600" />
+              </div>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+              Delete Order?
+            </h3>
+
+            {/* Description */}
+            <p className="text-gray-600 text-center mb-2">
+              Are you sure you want to delete order{' '}
+              <span className="font-bold text-blue-600">{orderNumber}</span>?
+            </p>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              This order will be moved to archives and can be viewed in the Archives section.
+            </p>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                disabled={isLoading}
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onConfirm}
+                disabled={isLoading}
+                className="flex-1 px-4 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete Order'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DeleteOrderModal;
 /* FILE: src/components/admin/Orders/OrderAdminUpdateTab.tsx */
 // FILE PATH: src/components/admin/Orders/OrderAdminUpdateTab.tsx
 
@@ -6635,6 +7006,159 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
 };
 
 export default OrderItemsTab;
+/* FILE: src/components/admin/Orders/OrderLogsTab.tsx */
+// FILE PATH: src/components/admin/Orders/OrderLogsTab.tsx
+
+/**
+ * Order Logs Tab Component
+ * Displays activity timeline/audit log for the order
+ */
+
+import React from 'react';
+import {
+  History,
+  UserCircle,
+  Package,
+  Truck,
+  CreditCard,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+} from 'lucide-react';
+import type { OrderLog } from '../../../types/adminOrder.types';
+
+interface OrderLogsTabProps {
+  logs: OrderLog[];
+}
+
+// Map action types to icons and colors
+const getActionConfig = (action: string) => {
+  const actionLower = action.toLowerCase();
+  
+  if (actionLower.includes('created')) {
+    return { icon: Package, color: 'blue', bgColor: 'bg-blue-100', textColor: 'text-blue-600', borderColor: 'border-blue-300' };
+  }
+  if (actionLower.includes('supplier') && actionLower.includes('assigned')) {
+    return { icon: Truck, color: 'green', bgColor: 'bg-green-100', textColor: 'text-green-600', borderColor: 'border-green-300' };
+  }
+  if (actionLower.includes('payment')) {
+    return { icon: CreditCard, color: 'purple', bgColor: 'bg-purple-100', textColor: 'text-purple-600', borderColor: 'border-purple-300' };
+  }
+  if (actionLower.includes('delivered') || actionLower.includes('completed')) {
+    return { icon: CheckCircle, color: 'emerald', bgColor: 'bg-emerald-100', textColor: 'text-emerald-600', borderColor: 'border-emerald-300' };
+  }
+  if (actionLower.includes('cancelled') || actionLower.includes('refund')) {
+    return { icon: AlertCircle, color: 'red', bgColor: 'bg-red-100', textColor: 'text-red-600', borderColor: 'border-red-300' };
+  }
+  if (actionLower.includes('updated') || actionLower.includes('modified')) {
+    return { icon: History, color: 'orange', bgColor: 'bg-orange-100', textColor: 'text-orange-600', borderColor: 'border-orange-300' };
+  }
+  
+  // Default
+  return { icon: Clock, color: 'gray', bgColor: 'bg-gray-100', textColor: 'text-gray-600', borderColor: 'border-gray-300' };
+};
+
+const formatDateTime = (dateString: string) => {
+  const date = new Date(dateString);
+  return {
+    date: date.toLocaleDateString('en-AU', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric' 
+    }),
+    time: date.toLocaleTimeString('en-AU', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    }),
+  };
+};
+
+const OrderLogsTab: React.FC<OrderLogsTabProps> = ({ logs }) => {
+  if (!logs || logs.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <History className="mx-auto text-gray-400 mb-4" size={48} />
+        <p className="text-gray-500 font-medium">No activity logs available</p>
+        <p className="text-sm text-gray-400 mt-1">Order activity will appear here</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
+        <div className="p-2 bg-indigo-100 rounded-lg">
+          <History className="text-indigo-600" size={24} />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-gray-900">Activity Timeline</h3>
+          <p className="text-sm text-gray-500">{logs.length} event{logs.length !== 1 ? 's' : ''} recorded</p>
+        </div>
+      </div>
+
+      {/* Timeline */}
+      <div className="relative">
+        {/* Vertical Line */}
+        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200" />
+
+        {/* Log Items */}
+        <div className="space-y-4">
+          {logs.map((log, index) => {
+            const config = getActionConfig(log.action);
+            const Icon = config.icon;
+            const { date, time } = formatDateTime(log.created_at);
+
+            return (
+              <div 
+                key={log.id} 
+                className="relative flex gap-4 pl-0"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                {/* Icon */}
+                <div className={`
+                  relative z-10 flex-shrink-0 w-12 h-12 rounded-full 
+                  ${config.bgColor} border-2 ${config.borderColor}
+                  flex items-center justify-center shadow-sm
+                `}>
+                  <Icon size={20} className={config.textColor} />
+                </div>
+
+                {/* Content Card */}
+                <div className="flex-1 bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      {/* Action Title */}
+                      <h4 className="font-semibold text-gray-900">{log.action}</h4>
+                      
+                      {/* Details */}
+                      <p className="text-sm text-gray-600 mt-1">{log.details}</p>
+                      
+                      {/* User Info */}
+                      <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+                        <UserCircle size={14} />
+                        <span>User ID: {log.user_id}</span>
+                      </div>
+                    </div>
+
+                    {/* Timestamp */}
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-medium text-gray-700">{date}</p>
+                      <p className="text-xs text-gray-400">{time}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default OrderLogsTab;
 /* FILE: src/components/admin/Orders/OrderMapTab.tsx */
 // FILE PATH: src/components/admin/Orders/OrderMapTab.tsx
 
@@ -7289,11 +7813,14 @@ export default OrderOverviewTab;
  * Orders Table Component - WITH PERMISSION-BASED COLUMNS
  * Comprehensive table with pricing information
  * HIDES supplier cost, profit, and margin columns for Support role
+ * INCLUDES delete/archive functionality for Admin
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Lock } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import { Eye, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Lock, Trash2 } from 'lucide-react';
 import type { AdminOrder } from '../../../types/adminOrder.types';
 import {
   getWorkflowBadgeClass,
@@ -7302,6 +7829,9 @@ import {
   formatDate,
 } from '../../../features/adminOrders/utils';
 import { usePermissions } from '../../../hooks/usePermissions';
+import { archivesAPI } from '../../../api/handlers/archives.api';
+import { adminOrdersKeys } from '../../../features/adminOrders/hooks';
+import DeleteOrderModal from './DeleteOrderModal';
 
 interface OrdersTableProps {
   orders: AdminOrder[];
@@ -7323,9 +7853,54 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
   onPageChange,
 }) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   // Get permissions
-  const { canViewCostPrice, canViewProfitMargin } = usePermissions();
+  const { canViewCostPrice, canViewProfitMargin, role } = usePermissions();
+  
+  // Delete modal state
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    orderId: number | null;
+    poNumber: string;
+  }>({
+    isOpen: false,
+    orderId: null,
+    poNumber: '',
+  });
+
+  // Archive order mutation
+  const archiveOrderMutation = useMutation({
+    mutationFn: archivesAPI.archiveOrder,
+    onSuccess: () => {
+      toast.success('Order archived successfully');
+      // Invalidate the admin orders list to refetch data
+      queryClient.invalidateQueries({ queryKey: adminOrdersKeys.lists() });
+      setDeleteModal({ isOpen: false, orderId: null, poNumber: '' });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to archive order');
+    },
+  });
+
+  // Delete modal handlers
+  const handleOpenDeleteModal = (e: React.MouseEvent, orderId: number, poNumber: string) => {
+    e.stopPropagation();
+    setDeleteModal({ isOpen: true, orderId, poNumber });
+  };
+
+  const handleCloseDeleteModal = () => {
+    setDeleteModal({ isOpen: false, orderId: null, poNumber: '' });
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteModal.orderId) {
+      archiveOrderMutation.mutate(deleteModal.orderId);
+    }
+  };
+
+  // Check if user can delete orders (admin only)
+  const canDeleteOrders = role === 'admin';
 
   if (loading) {
     return (
@@ -7352,138 +7927,136 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-      {/* Permission Notice Banner */}
-      {(!canViewCostPrice || !canViewProfitMargin) && (
-        <div className="px-4 py-3 bg-yellow-50 border-b border-yellow-200 flex items-center gap-2">
-          <Lock size={16} className="text-yellow-600" />
-          <span className="text-sm text-yellow-800">
-            Some pricing columns are hidden based on your role permissions
-          </span>
-        </div>
-      )}
+    <>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        {/* Permission Notice Banner */}
+        {(!canViewCostPrice || !canViewProfitMargin) && (
+          <div className="px-4 py-3 bg-yellow-50 border-b border-yellow-200 flex items-center gap-2">
+            <Lock size={16} className="text-yellow-600" />
+            <span className="text-sm text-yellow-800">
+              Some pricing columns are hidden based on your role permissions
+            </span>
+          </div>
+        )}
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
-            <tr>
-              <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                PO Number
-              </th>
-              <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                Client / Project
-              </th>
-              <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                Delivery
-              </th>
-              <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                Status
-              </th>
-              <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                Items
-              </th>
-              
-              {/* Supplier Cost Column - Only visible if can view cost price */}
-              {canViewCostPrice && (
-                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-blue-50">
-                  Supplier Cost
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+              <tr>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                  PO Number
                 </th>
-              )}
-              
-              {/* Customer Price - Always visible */}
-              <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-green-50">
-                Customer Price
-              </th>
-              
-              {/* Profit Column - Only visible if can view profit margin */}
-              {canViewProfitMargin && (
-                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
-                  Profit
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                  Client / Project
                 </th>
-              )}
-              
-              {/* Margin % Column - Only visible if can view profit margin */}
-              {canViewProfitMargin && (
-                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
-                  Margin %
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                  Delivery
                 </th>
-              )}
-              
-              <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {orders.map((order) => {
-              const profitIsPositive = order.profit_amount >= 0;
-              const marginColor = profitIsPositive ? 'text-green-600' : 'text-red-600';
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                  Status
+                </th>
+                <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                  Items
+                </th>
+                
+                {/* Supplier Cost Column - Only visible if can view cost price */}
+                {canViewCostPrice && (
+                  <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-blue-50">
+                    Supplier Cost
+                  </th>
+                )}
+                
+                {/* Customer Price - Always visible */}
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-green-50">
+                  Customer Price
+                </th>
+                
+                {/* Profit Column - Only visible if can view profit margin */}
+                {canViewProfitMargin && (
+                  <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
+                    Profit
+                  </th>
+                )}
+                
+                {/* Margin % Column - Only visible if can view profit margin */}
+                {canViewProfitMargin && (
+                  <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
+                    Margin %
+                  </th>
+                )}
+                
+                <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {orders.map((order) => {
+                const profitIsPositive = order.profit_amount >= 0;
+                const marginColor = profitIsPositive ? 'text-green-600' : 'text-red-600';
 
-              return (
-                <tr
-                  key={order.id}
-                  className="hover:bg-blue-50 transition-colors cursor-pointer group"
-                  onClick={() => navigate(`/admin/orders/${order.id}`)}
-                >
-                  {/* PO Number */}
-                  <td className="px-4 py-4">
-                    <div className="flex flex-col">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/admin/orders/${order.id}`);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 font-bold text-left"
-                      >
-                        {order.po_number}
-                      </button>
-                      {order.repeat_order && (
-                        <span className="inline-block mt-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
-                          Repeat
-                        </span>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Client / Project */}
-                  <td className="px-4 py-4">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-semibold text-gray-900">{order.client}</span>
-                      <span className="text-sm text-gray-600">{order.project}</span>
-                    </div>
-                  </td>
-
-                  {/* Delivery */}
-                  <td className="px-4 py-4">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-sm font-medium text-gray-900">
-                        {formatDate(order.delivery_date)}
-                      </span>
-                      <span className="text-xs text-gray-500">{order.delivery_time}</span>
-                      {order.delivery_method && (
-                        <span className="text-xs text-blue-600 font-medium">
-                          {order.delivery_method}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Status */}
+                return (
+                  <tr
+                    key={order.id}
+                    className="hover:bg-blue-50 transition-colors cursor-pointer group"
+                    onClick={() => navigate(`/admin/orders/${order.id}`)}
+                  >
+                    {/* PO Number */}
                     <td className="px-4 py-4">
-                      <div className="flex flex-col gap-2">
-                        {/* Show workflow only if payment status is NOT Paid or Partially Paid */}
-                        {!['Paid', 'Partially Paid'].includes(order.payment_status) && (
-                          <span
-                            className={`inline-flex px-2.5 py-1 text-xs font-bold rounded-full ${getWorkflowBadgeClass(
-                              order.workflow
-                            )}`}
-                          >
-                            {order.workflow}
+                      <div className="flex flex-col">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/admin/orders/${order.id}`);
+                          }}
+                          className="text-blue-600 hover:text-blue-800 font-bold text-left"
+                        >
+                          {order.po_number}
+                        </button>
+                        {order.repeat_order && (
+                          <span className="inline-block mt-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
+                            Repeat
                           </span>
                         )}
+                      </div>
+                    </td>
+
+                    {/* Client / Project */}
+                    <td className="px-4 py-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-semibold text-gray-900">{order.client}</span>
+                        <span className="text-sm text-gray-600">{order.project}</span>
+                      </div>
+                    </td>
+
+                    {/* Delivery */}
+                    <td className="px-4 py-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium text-gray-900">
+                          {formatDate(order.delivery_date)}
+                        </span>
+                        <span className="text-xs text-gray-500">{order.delivery_time}</span>
+                        {order.delivery_method && (
+                          <span className="text-xs text-blue-600 font-medium">
+                            {order.delivery_method}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-4 py-4">
+                      <div className="flex flex-col gap-1.5">
                         <span
-                          className={`inline-flex px-2.5 py-1 text-xs font-bold rounded-full ${getPaymentBadgeClass(
+                          className={`inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${getWorkflowBadgeClass(
+                            order.workflow
+                          )}`}
+                        >
+                          {order.workflow}
+                        </span>
+                        <span
+                          className={`inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${getPaymentBadgeClass(
                             order.payment_status
                           )}`}
                         >
@@ -7496,169 +8069,194 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                       )}
                     </td>
 
-                  {/* Items */}
-                  <td className="px-4 py-4 text-center">
-                    <div className="flex flex-col gap-1 items-center">
-                      <span className="text-lg font-bold text-gray-900">
-                        {order.items_count}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {order.suppliers_count} supplier{order.suppliers_count !== 1 ? 's' : ''}
-                      </span>
-                      {order.unassigned_items_count > 0 && (
-                        <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded">
-                          {order.unassigned_items_count} unassigned
+                    {/* Items */}
+                    <td className="px-4 py-4 text-center">
+                      <div className="flex flex-col gap-1 items-center">
+                        <span className="text-lg font-bold text-gray-900">
+                          {order.items_count}
                         </span>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Supplier Cost - Only visible if can view cost price */}
-                  {canViewCostPrice && (
-                    <td className="px-4 py-4 text-right bg-blue-50/50">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-base font-bold text-gray-900">
-                          {formatCurrency(order.supplier_total)}
+                        <span className="text-xs text-gray-500">
+                          {order.suppliers_count} supplier{order.suppliers_count !== 1 ? 's' : ''}
                         </span>
-                        <div className="text-xs text-gray-600 space-y-0.5">
-                          <div>Items: {formatCurrency(order.supplier_item_cost)}</div>
-                          <div>Delivery: {formatCurrency(order.supplier_delivery_cost)}</div>
-                        </div>
-                      </div>
-                    </td>
-                  )}
-
-                  {/* Customer Price - Always visible */}
-                  <td className="px-4 py-4 text-right bg-green-50/50">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-base font-bold text-gray-900">
-                        {formatCurrency(order.total_price)}
-                      </span>
-                      <div className="text-xs text-gray-600 space-y-0.5">
-                        <div>Items: {formatCurrency(order.customer_item_cost)}</div>
-                        <div>Delivery: {formatCurrency(order.customer_delivery_cost)}</div>
-                        <div>GST: {formatCurrency(order.gst_tax)}</div>
-                        {order.discount > 0 && (
-                          <div className="text-red-600">
-                            Discount: -{formatCurrency(order.discount)}
-                          </div>
+                        {order.unassigned_items_count > 0 && (
+                          <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded">
+                            {order.unassigned_items_count} unassigned
+                          </span>
                         )}
                       </div>
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* Profit - Only visible if can view profit margin */}
-                  {canViewProfitMargin && (
-                    <td className="px-4 py-4 text-right bg-purple-50/50">
-                      <div className="flex flex-col items-end gap-1">
-                        <div className="flex items-center gap-1">
-                          {profitIsPositive ? (
-                            <TrendingUp size={16} className="text-green-600" />
-                          ) : (
-                            <TrendingDown size={16} className="text-red-600" />
-                          )}
-                          <span className={`text-base font-bold ${marginColor}`}>
-                            {formatCurrency(order.profit_amount)}
+                    {/* Supplier Cost - Only visible if can view cost price */}
+                    {canViewCostPrice && (
+                      <td className="px-4 py-4 text-right bg-blue-50/50">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-base font-bold text-gray-900">
+                            {formatCurrency(order.supplier_total)}
                           </span>
+                          <div className="text-xs text-gray-600 space-y-0.5">
+                            <div>Items: {formatCurrency(order.supplier_item_cost)}</div>
+                            <div>Delivery: {formatCurrency(order.supplier_delivery_cost)}</div>
+                          </div>
+                        </div>
+                      </td>
+                    )}
+
+                    {/* Customer Price - Always visible */}
+                    <td className="px-4 py-4 text-right bg-green-50/50">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-base font-bold text-gray-900">
+                          {formatCurrency(order.total_price)}
+                        </span>
+                        <div className="text-xs text-gray-600 space-y-0.5">
+                          <div>Items: {formatCurrency(order.customer_item_cost)}</div>
+                          <div>Delivery: {formatCurrency(order.customer_delivery_cost)}</div>
+                          <div>GST: {formatCurrency(order.gst_tax)}</div>
+                          {order.discount > 0 && (
+                            <div className="text-red-600">
+                              Discount: -{formatCurrency(order.discount)}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
-                  )}
 
-                  {/* Margin % - Only visible if can view profit margin */}
-                  {canViewProfitMargin && (
-                    <td className="px-4 py-4 text-right bg-purple-50/50">
-                      <span className={`text-base font-bold ${marginColor}`}>
-                        {(order.profit_margin_percent * 100).toFixed(2)}%
-                      </span>
+                    {/* Profit - Only visible if can view profit margin */}
+                    {canViewProfitMargin && (
+                      <td className="px-4 py-4 text-right bg-purple-50/50">
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="flex items-center gap-1">
+                            {profitIsPositive ? (
+                              <TrendingUp size={16} className="text-green-600" />
+                            ) : (
+                              <TrendingDown size={16} className="text-red-600" />
+                            )}
+                            <span className={`text-base font-bold ${marginColor}`}>
+                              {formatCurrency(order.profit_amount)}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                    )}
+
+                    {/* Margin % - Only visible if can view profit margin */}
+                    {canViewProfitMargin && (
+                      <td className="px-4 py-4 text-right bg-purple-50/50">
+                        <span className={`text-base font-bold ${marginColor}`}>
+                          {(order.profit_margin_percent * 100).toFixed(2)}%
+                        </span>
+                      </td>
+                    )}
+
+                    {/* Actions - View + Delete */}
+                    <td className="px-4 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        {/* View Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/admin/orders/${order.id}`);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium shadow-sm hover:shadow-md"
+                          title="View Order"
+                        >
+                          <Eye size={16} />
+                          View
+                        </button>
+                        
+                        {/* Delete Button - Only for Admin */}
+                        {canDeleteOrders && (
+                          <button
+                            onClick={(e) => handleOpenDeleteModal(e, order.id, order.po_number)}
+                            className="inline-flex items-center justify-center p-2 text-red-600 hover:text-white hover:bg-red-600 border border-red-200 hover:border-red-600 rounded-lg transition-all"
+                            title="Delete Order"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                     </td>
-                  )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
-                  {/* Actions */}
-                  <td className="px-4 py-4 text-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/admin/orders/${order.id}`);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium shadow-sm hover:shadow-md"
-                    >
-                      <Eye size={16} />
-                      View
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {/* Pagination */}
+        {pagination && pagination.total_pages > 1 && (
+          <div className="px-6 py-4 border-t-2 border-gray-200 flex items-center justify-between bg-gray-50">
+            <div className="text-sm text-gray-600 font-medium">
+              Showing page {pagination.current_page} of {pagination.total_pages} (
+              {pagination.total_items.toLocaleString()} total orders)
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onPageChange(pagination.current_page - 1)}
+                disabled={pagination.current_page === 1}
+                className="px-4 py-2 border-2 border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-colors"
+              >
+                <ChevronLeft size={16} />
+                Previous
+              </button>
+
+              {/* Page Numbers */}
+              <div className="flex items-center gap-1">
+                {[...Array(pagination.total_pages)].map((_, i) => {
+                  const page = i + 1;
+                  if (
+                    page === 1 ||
+                    page === pagination.total_pages ||
+                    (page >= pagination.current_page - 1 && page <= pagination.current_page + 1)
+                  ) {
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => onPageChange(page)}
+                        className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
+                          page === pagination.current_page
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'text-gray-700 hover:bg-gray-100 border-2 border-gray-300'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  } else if (
+                    page === pagination.current_page - 2 ||
+                    page === pagination.current_page + 2
+                  ) {
+                    return (
+                      <span key={page} className="px-2 text-gray-500 font-bold">
+                        ...
+                      </span>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
+
+              <button
+                onClick={() => onPageChange(pagination.current_page + 1)}
+                disabled={!pagination.has_more_pages}
+                className="px-4 py-2 border-2 border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-colors"
+              >
+                Next
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Pagination */}
-      {pagination && pagination.total_pages > 1 && (
-        <div className="px-6 py-4 border-t-2 border-gray-200 flex items-center justify-between bg-gray-50">
-          <div className="text-sm text-gray-600 font-medium">
-            Showing page {pagination.current_page} of {pagination.total_pages} (
-            {pagination.total_items.toLocaleString()} total orders)
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onPageChange(pagination.current_page - 1)}
-              disabled={pagination.current_page === 1}
-              className="px-4 py-2 border-2 border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-colors"
-            >
-              <ChevronLeft size={16} />
-              Previous
-            </button>
-
-            {/* Page Numbers */}
-            <div className="flex items-center gap-1">
-              {[...Array(pagination.total_pages)].map((_, i) => {
-                const page = i + 1;
-                if (
-                  page === 1 ||
-                  page === pagination.total_pages ||
-                  (page >= pagination.current_page - 1 && page <= pagination.current_page + 1)
-                ) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => onPageChange(page)}
-                      className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
-                        page === pagination.current_page
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'text-gray-700 hover:bg-gray-100 border-2 border-gray-300'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                } else if (
-                  page === pagination.current_page - 2 ||
-                  page === pagination.current_page + 2
-                ) {
-                  return (
-                    <span key={page} className="px-2 text-gray-500 font-bold">
-                      ...
-                    </span>
-                  );
-                }
-                return null;
-              })}
-            </div>
-
-            <button
-              onClick={() => onPageChange(pagination.current_page + 1)}
-              disabled={!pagination.has_more_pages}
-              className="px-4 py-2 border-2 border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-colors"
-            >
-              Next
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+      {/* Delete Confirmation Modal */}
+      <DeleteOrderModal
+        isOpen={deleteModal.isOpen}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        isLoading={archiveOrderMutation.isPending}
+        orderNumber={deleteModal.poNumber}
+      />
+    </>
   );
 };
 
@@ -8639,10 +9237,18 @@ export default ClientOrdersTable;
 // ============================================================================
 
 import { useState, useEffect } from 'react';
-import { X, Package } from 'lucide-react';
+import { X, Package, Calendar } from 'lucide-react';
 
 const RepeatOrderModal = ({ isOpen, onClose, order, onSubmit, isSubmitting }: any) => {
   const [items, setItems] = useState<any[]>([]);
+  const [deliveryDate, setDeliveryDate] = useState<string>('');
+
+  // Get minimum date (tomorrow)
+  const getMinDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
 
   useEffect(() => {
     if (order && order.items) {
@@ -8656,6 +9262,8 @@ const RepeatOrderModal = ({ isOpen, onClose, order, onSubmit, isSubmitting }: an
           has_custom_blend: !!item.custom_blend_mix,
         }))
       );
+      // Reset delivery date when modal opens with new order
+      setDeliveryDate('');
     }
   }, [order]);
 
@@ -8672,13 +9280,18 @@ const RepeatOrderModal = ({ isOpen, onClose, order, onSubmit, isSubmitting }: an
   };
 
   const handleSubmit = () => {
-    const payload = items.map((item) => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      ...(item.has_custom_blend && item.custom_blend_mix && { custom_blend_mix: item.custom_blend_mix }),
-    }));
+    const payload = {
+      delivery_date: deliveryDate,
+      items: items.map((item) => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        ...(item.has_custom_blend && item.custom_blend_mix && { custom_blend_mix: item.custom_blend_mix }),
+      })),
+    };
     onSubmit(payload);
   };
+
+  const isFormValid = deliveryDate && items.every((item) => item.quantity > 0);
 
   if (!isOpen || !order) return null;
 
@@ -8705,7 +9318,29 @@ const RepeatOrderModal = ({ isOpen, onClose, order, onSubmit, isSubmitting }: an
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
+          {/* Delivery Date Section */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+              <Calendar className="w-4 h-4 text-blue-600" />
+              Delivery Date *
+            </label>
+            <input
+              type="date"
+              value={deliveryDate}
+              onChange={(e) => setDeliveryDate(e.target.value)}
+              min={getMinDate()}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={isSubmitting}
+              required
+            />
+            {!deliveryDate && (
+              <p className="text-xs text-amber-600 mt-1">Please select a delivery date</p>
+            )}
+          </div>
+
+          {/* Items Section */}
           <div className="space-y-4">
+            <h3 className="text-sm font-medium text-gray-700">Order Items</h3>
             {items.map((item, index) => (
               <div key={index} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-start justify-between mb-3">
@@ -8762,8 +9397,8 @@ const RepeatOrderModal = ({ isOpen, onClose, order, onSubmit, isSubmitting }: an
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            disabled={isSubmitting || !isFormValid}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isSubmitting ? (
               <>
@@ -11289,6 +11924,7 @@ const ProductCard = ({ product, isInCart, onAddToCart, onViewDetails }: ProductC
             {product.category.name}
           </span>
         </div>
+        
 
         {/* Quick Actions Overlay */}
         {onViewDetails && (
@@ -11313,6 +11949,11 @@ const ProductCard = ({ product, isInCart, onAddToCart, onViewDetails }: ProductC
           <p className="text-sm text-secondary-600">{product.product_type}</p>
         </div>
 
+        {/* Price */}
+        <div className="text-xl font-bold text-primary-600">
+          {product.price ? product.price : 'N/A'}
+        </div>
+
         {/* Unit of Measure */}
         <div className="flex items-center justify-between py-2 px-3 bg-secondary-50 rounded-lg">
           <span className="text-xs text-secondary-600 font-medium">Unit:</span>
@@ -11323,6 +11964,8 @@ const ProductCard = ({ product, isInCart, onAddToCart, onViewDetails }: ProductC
         <p className="text-xs text-secondary-600 line-clamp-2">
           {product.specifications}
         </p>
+
+        
 
         {/* Add to Cart Button */}
         <Button
@@ -11353,7 +11996,7 @@ export default ProductCard;
 /* FILE: src/components/order/ProductDetailModal.tsx */
 // src/components/order/ProductDetailModal.tsx
 import React from 'react';
-import { X, Tag, Ruler, FileText, Info, Download, ShoppingCart, Check } from 'lucide-react';
+import { X, Tag, Ruler, FileText, Info, Download, ShoppingCart, Check  } from 'lucide-react';
 import type { Product } from '../../types/order.types';
 import Button from '../common/Buttons';
 
@@ -11468,6 +12111,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   {product.product_name}
                 </h3>
                 <p className="text-secondary-600">{product.product_type}</p>
+              </div>
+              <div className="space-y-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-primary-600">
+                      {product.price ? product.price : 'N/A'}
+                    </span>
+                    <span className="text-sm text-secondary-500">
+                      / {product.unit_of_measure}
+                    </span>
+                  </div>
+                  <p className="text-xs text-secondary-400 italic">
+                    * Approximate pricing. Actual price may vary based on location & routes.
+                  </p>
               </div>
 
               {/* Info Cards */}
@@ -13926,6 +14582,227 @@ const EditOfferModal = ({ isOpen, onClose, product, offer }: EditOfferModalProps
 };
 
 export default EditOfferModal;
+/* FILE: src/components/supplier/OfferCard.tsx */
+// FILE PATH: src/components/supplier/OfferCard.tsx
+
+import { useState, type FC } from 'react';
+import {
+  Package,
+  DollarSign,
+  Edit3,
+  Trash2,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Tag,
+  Layers,
+} from 'lucide-react';
+import type { SupplierOfferItem } from '../../api/handlers/supplierProducts.api';
+
+export interface OfferCardProps {
+  offer: SupplierOfferItem;
+  onEdit: (offer: SupplierOfferItem) => void;
+  onRemove: (offerId: number, productName: string) => void;
+}
+
+const OfferCard: FC<OfferCardProps> = ({ offer, onEdit, onRemove }) => {
+  const [imageError, setImageError] = useState(false);
+  const imageBaseUrl = import.meta.env.VITE_IMG_URL || '';
+
+  // Status badge configuration
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'Approved':
+        return {
+          bg: 'bg-green-100',
+          text: 'text-green-700',
+          border: 'border-green-200',
+          icon: CheckCircle,
+          label: 'Approved',
+        };
+      case 'Rejected':
+        return {
+          bg: 'bg-red-100',
+          text: 'text-red-700',
+          border: 'border-red-200',
+          icon: XCircle,
+          label: 'Rejected',
+        };
+      case 'Pending':
+      default:
+        return {
+          bg: 'bg-amber-100',
+          text: 'text-amber-700',
+          border: 'border-amber-200',
+          icon: Clock,
+          label: 'Pending',
+        };
+    }
+  };
+
+  // Availability badge configuration
+  const getAvailabilityConfig = (availability: string) => {
+    switch (availability) {
+      case 'In Stock':
+        return {
+          bg: 'bg-emerald-50',
+          text: 'text-emerald-700',
+          dot: 'bg-emerald-500',
+        };
+      case 'Out of Stock':
+        return {
+          bg: 'bg-red-50',
+          text: 'text-red-700',
+          dot: 'bg-red-500',
+        };
+      case 'Limited':
+        return {
+          bg: 'bg-orange-50',
+          text: 'text-orange-700',
+          dot: 'bg-orange-500',
+        };
+      default:
+        return {
+          bg: 'bg-gray-50',
+          text: 'text-gray-700',
+          dot: 'bg-gray-500',
+        };
+    }
+  };
+
+  const statusConfig = getStatusConfig(offer.offer_status);
+  const availabilityConfig = getAvailabilityConfig(offer.availability_status);
+  const StatusIcon = statusConfig.icon;
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-AU', {
+      style: 'currency',
+      currency: 'AUD',
+      minimumFractionDigits: 2,
+    }).format(price);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-AU', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  return (
+    <div className="group bg-white rounded-2xl border border-secondary-200 shadow-sm hover:shadow-lg hover:border-primary-300 transition-all duration-300 overflow-hidden">
+      {/* Image Section */}
+      <div className="relative h-48 bg-gradient-to-br from-secondary-100 to-secondary-50 overflow-hidden">
+        {(offer.image_url || offer.image) && !imageError ? (
+          <img
+            src={`${imageBaseUrl}${offer.image_url || offer.image}`}
+            alt={offer.product_name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Package size={64} className="text-secondary-300" />
+          </div>
+        )}
+
+        {/* Status Badge - Top Left */}
+        <div className="absolute top-3 left-3">
+          <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${statusConfig.bg} ${statusConfig.text} border ${statusConfig.border}`}
+          >
+            <StatusIcon size={14} />
+            {statusConfig.label}
+          </span>
+        </div>
+
+        {/* Price Badge - Top Right */}
+        <div className="absolute top-3 right-3">
+          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-bold bg-white/95 backdrop-blur-sm text-primary-700 shadow-md">
+            <DollarSign size={16} />
+            {formatPrice(offer.price)}
+          </span>
+        </div>
+
+        {/* Product Type Badge - Bottom Left */}
+        <div className="absolute bottom-3 left-3">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-black/60 backdrop-blur-sm text-white">
+            <Layers size={12} />
+            {offer.product_type}
+          </span>
+        </div>
+      </div>
+
+      {/* Content Section */}
+      <div className="p-5">
+        {/* Product Name */}
+        <h3 className="text-lg font-bold text-secondary-900 mb-2 line-clamp-1 group-hover:text-primary-600 transition-colors">
+          {offer.product_name}
+        </h3>
+
+        {/* Category & Unit */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          {offer.category && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-secondary-100 text-secondary-700">
+              <Tag size={12} />
+              {offer.category.name}
+            </span>
+          )}
+          {offer.unit && (
+            <span className="text-xs text-secondary-500">
+              per {offer.unit}
+            </span>
+          )}
+        </div>
+
+        {/* Specifications */}
+        {offer.specifications && (
+          <p className="text-sm text-secondary-600 mb-4 line-clamp-2">
+            {offer.specifications}
+          </p>
+        )}
+
+        {/* Availability Status */}
+        <div className="mb-4">
+          <span
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${availabilityConfig.bg} ${availabilityConfig.text}`}
+          >
+            <span className={`w-2 h-2 rounded-full ${availabilityConfig.dot} animate-pulse`} />
+            {offer.availability_status}
+          </span>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-secondary-100 pt-4 mb-4">
+          <p className="text-xs text-secondary-500">
+            Added on {formatDate(offer.created_at)}
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onEdit(offer)}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors"
+          >
+            <Edit3 size={16} />
+            Edit Offer
+          </button>
+          <button
+            onClick={() => onRemove(offer.offer_id, offer.product_name)}
+            className="inline-flex items-center justify-center p-2.5 rounded-xl text-error-600 bg-error-50 hover:bg-error-100 transition-colors"
+            title="Remove Offer"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default OfferCard;
 /* FILE: src/components/supplier/OrderFilters.tsx */
 // src/components/supplier/OrderFilters.tsx
 
@@ -14738,7 +15615,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({ orders, loading, pagination, 
 export default OrdersTable;
 /* FILE: src/components/supplier/ProductCard.tsx */
 // FILE PATH: src/components/supplier/ProductCard.tsx
-import { Package, Edit, Trash2, Plus, AlertCircle, Tag, Layers, CheckCircle2 } from 'lucide-react';
+import { Package, Edit, Trash2, Plus, AlertCircle, Layers, CheckCircle2 } from 'lucide-react';
 import type { MasterProduct , SupplierOffer} from '../../api/handlers/supplierProducts.api';
 import ApproveStatusBadge from '../common/ApproveStatusBadge';
 import type { BadgeStatus } from '../common/ApproveStatusBadge';
@@ -14824,11 +15701,11 @@ const ProductCard = ({ product, onAddOffer, onEditOffer, onRemoveOffer }: Produc
           </h3>
           
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Category Badge */}
+            {/* Category Badge
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-50 text-primary-700 rounded-lg text-xs font-medium border border-primary-100">
               <Tag size={12} />
               {product.category?.name || 'Uncategorized'}
-            </span>
+            </span> */}
             
             {/* Product Type Badge */}
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-100">
@@ -14951,7 +15828,7 @@ interface RequestProductModalProps {
   categories: Category[];
 }
 
-const RequestProductModal = ({ isOpen, onClose, categories }: RequestProductModalProps) => {
+const RequestProductModal = ({ isOpen, onClose }: RequestProductModalProps) => {
   const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -15011,7 +15888,6 @@ const RequestProductModal = ({ isOpen, onClose, categories }: RequestProductModa
     const payload = {
       product_name: data.product_name,
       product_type: data.product_type,
-      category_id: data.category_id,
       specifications: data.specifications || '',
       unit_of_measure: data.unit_of_measure,
       price: data.price,
@@ -15082,7 +15958,7 @@ const RequestProductModal = ({ isOpen, onClose, categories }: RequestProductModa
           />
 
           {/* Category */}
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-secondary-700 mb-2">
               Category <span className="text-error-500">*</span>
             </label>
@@ -15110,7 +15986,7 @@ const RequestProductModal = ({ isOpen, onClose, categories }: RequestProductModa
             {errors.category_id && (
               <p className="text-sm text-error-500 mt-1">{errors.category_id.message}</p>
             )}
-          </div>
+          </div> */}
 
           {/* Unit of Measure */}
           <Input2
@@ -17610,6 +18486,594 @@ const AdminSupplierDeliveryZones = () => {
 };
 
 export default AdminSupplierDeliveryZones;
+/* FILE: src/pages/admin/Archives.tsx */
+// FILE PATH: src/pages/admin/Archives.tsx
+
+/**
+ * Admin Archives Page
+ * Displays archived Orders, Users, and Projects in tabs
+ * Admin only - view and restore archived items
+ */
+
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import {
+  Archive,
+  ShoppingCart,
+  Users,
+  FolderOpen,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  AlertCircle,
+  Calendar,
+  Building2,
+  Package,
+} from 'lucide-react';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import { adminMenuItems } from '../../utils/menuItems';
+import { archivesAPI, type ArchiveParams } from '../../api/handlers/archives.api';
+
+// Tab type
+type TabType = 'orders' | 'users' | 'projects';
+
+const Archives = () => {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<TabType>('orders');
+  
+  // Pagination state for each tab
+  const [pagination, setPagination] = useState({
+    orders_page: 1,
+    users_page: 1,
+    projects_page: 1,
+    per_page: 10,
+  });
+
+  // Build params for API
+  const getParams = (): ArchiveParams => ({
+    orders_per_page: pagination.per_page,
+    users_per_page: pagination.per_page,
+    projects_per_page: pagination.per_page,
+  });
+
+  // Fetch archives data
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['archives', pagination],
+    queryFn: () => archivesAPI.getArchives(getParams()),
+  });
+
+  // Handle page change
+  const handlePageChange = (tab: TabType, page: number) => {
+    setPagination((prev) => ({
+      ...prev,
+      [`${tab}_page`]: page,
+    }));
+  };
+
+  // Navigation handlers
+  const handleViewOrder = (orderId: number) => {
+    navigate(`/admin/orders/${orderId}`);
+  };
+
+  const handleViewUser = (userId: number) => {
+    navigate(`/admin/users/${userId}`);
+  };
+
+  const handleViewProject = (projectId: number) => {
+    navigate(`/client/projects/${projectId}`);
+  };
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-AU', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-AU', {
+      style: 'currency',
+      currency: 'AUD',
+    }).format(amount);
+  };
+
+  // Tab configuration
+  const tabs = [
+    {
+      id: 'orders' as TabType,
+      label: 'Orders',
+      icon: ShoppingCart,
+      count: data?.data?.orders?.total || 0,
+      color: 'blue',
+    },
+    {
+      id: 'users' as TabType,
+      label: 'Users',
+      icon: Users,
+      count: data?.data?.users?.total || 0,
+      color: 'purple',
+    },
+    {
+      id: 'projects' as TabType,
+      label: 'Projects',
+      icon: FolderOpen,
+      count: data?.data?.projects?.total || 0,
+      color: 'green',
+    },
+  ];
+
+  // Render pagination
+  const renderPagination = (
+    currentPage: number,
+    lastPage: number,
+    total: number,
+    tab: TabType
+  ) => {
+    if (total === 0) return null;
+
+    return (
+      <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+        <p className="text-sm text-gray-600">
+          Showing page {currentPage} of {lastPage} ({total} items)
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handlePageChange(tab, currentPage - 1)}
+            disabled={currentPage === 1}
+            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span className="px-4 py-2 text-sm font-medium text-gray-700">
+            {currentPage} / {lastPage}
+          </span>
+          <button
+            onClick={() => handlePageChange(tab, currentPage + 1)}
+            disabled={currentPage === lastPage}
+            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Render Orders Table
+  const renderOrdersTable = () => {
+    const orders = data?.data?.orders?.data || [];
+    const paginationData = data?.data?.orders;
+
+    if (orders.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+          <Archive size={48} className="mb-4 text-gray-300" />
+          <p className="text-lg font-medium">No archived orders</p>
+          <p className="text-sm">Archived orders will appear here</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  PO Number
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Project
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Client
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Total
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Archived On
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {orders.map((order) => (
+                <tr key={order.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm font-bold text-blue-600">
+                      {order.po_number}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm text-gray-900">
+                      {order.project?.name || '-'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm text-gray-900">
+                      {order.client?.name || '-'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(order.total_price)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
+                      {order.order_status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1 text-sm text-gray-500">
+                      <Calendar size={14} />
+                      {formatDate(order.updated_at)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <button
+                      onClick={() => handleViewOrder(order.id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                      <Eye size={16} />
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {paginationData && renderPagination(
+          paginationData.current_page,
+          paginationData.last_page,
+          paginationData.total,
+          'orders'
+        )}
+      </>
+    );
+  };
+
+  // Render Users Table
+  const renderUsersTable = () => {
+    const users = data?.data?.users?.data || [];
+    const paginationData = data?.data?.users;
+
+    if (users.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+          <Archive size={48} className="mb-4 text-gray-300" />
+          <p className="text-lg font-medium">No archived users</p>
+          <p className="text-sm">Archived users will appear here</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Role
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Company
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Archived On
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {users.map((user) => (
+                <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm font-medium text-gray-900">
+                      {user.name}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm text-gray-600">
+                      {user.email}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      user.role === 'admin' 
+                        ? 'bg-red-100 text-red-700'
+                        : user.role === 'supplier'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {user.role}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1 text-sm text-gray-600">
+                      <Building2 size={14} />
+                      {user.company?.name || '-'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1 text-sm text-gray-500">
+                      <Calendar size={14} />
+                      {formatDate(user.updated_at)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <button
+                      onClick={() => handleViewUser(user.id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-600 text-sm font-medium rounded-lg hover:bg-purple-100 transition-colors"
+                    >
+                      <Eye size={16} />
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {paginationData && renderPagination(
+          paginationData.current_page,
+          paginationData.last_page,
+          paginationData.total,
+          'users'
+        )}
+      </>
+    );
+  };
+
+  // Render Projects Table
+  const renderProjectsTable = () => {
+    const projects = data?.data?.projects?.data || [];
+    const paginationData = data?.data?.projects;
+
+    if (projects.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+          <Archive size={48} className="mb-4 text-gray-300" />
+          <p className="text-lg font-medium">No archived projects</p>
+          <p className="text-sm">Archived projects will appear here</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Project Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Client
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Address
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Archived On
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {projects.map((project) => (
+                <tr key={project.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <Package size={16} className="text-green-600" />
+                      <span className="text-sm font-medium text-gray-900">
+                        {project.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm text-gray-600">
+                      {project.added_by?.name || '-'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-sm text-gray-600 line-clamp-1">
+                      {project.delivery_address || '-'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-1 text-sm text-gray-500">
+                      <Calendar size={14} />
+                      {formatDate(project.updated_at)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <button
+                      onClick={() => handleViewProject(project.id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-600 text-sm font-medium rounded-lg hover:bg-green-100 transition-colors"
+                    >
+                      <Eye size={16} />
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {paginationData && renderPagination(
+          paginationData.current_page,
+          paginationData.last_page,
+          paginationData.total,
+          'projects'
+        )}
+      </>
+    );
+  };
+
+  return (
+    <DashboardLayout menuItems={adminMenuItems}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+              <Archive className="w-8 h-8 text-gray-600" />
+              Archives
+            </h1>
+            <p className="text-gray-600 mt-1">
+              View archived orders, users, and projects
+            </p>
+          </div>
+          <button
+            onClick={() => refetch()}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium shadow-sm"
+          >
+            {isLoading ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              'Refresh'
+            )}
+          </button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative bg-white rounded-xl border-2 p-6 cursor-pointer transition-all ${
+                activeTab === tab.id
+                  ? `border-${tab.color}-500 shadow-lg`
+                  : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  tab.color === 'blue' ? 'bg-blue-100' :
+                  tab.color === 'purple' ? 'bg-purple-100' : 'bg-green-100'
+                }`}>
+                  <tab.icon size={24} className={
+                    tab.color === 'blue' ? 'text-blue-600' :
+                    tab.color === 'purple' ? 'text-purple-600' : 'text-green-600'
+                  } />
+                </div>
+                <span className={`text-3xl font-bold ${
+                  tab.color === 'blue' ? 'text-blue-600' :
+                  tab.color === 'purple' ? 'text-purple-600' : 'text-green-600'
+                }`}>
+                  {isLoading ? '-' : tab.count}
+                </span>
+              </div>
+              <p className="mt-3 text-sm font-semibold text-gray-700">
+                Archived {tab.label}
+              </p>
+              {activeTab === tab.id && (
+                <div className={`absolute bottom-0 left-0 right-0 h-1 rounded-b-xl ${
+                  tab.color === 'blue' ? 'bg-blue-500' :
+                  tab.color === 'purple' ? 'bg-purple-500' : 'bg-green-500'
+                }`} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Tabs Navigation */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="border-b border-gray-200">
+            <nav className="flex">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === tab.id
+                      ? tab.color === 'blue' 
+                        ? 'border-blue-500 text-blue-600 bg-blue-50'
+                        : tab.color === 'purple'
+                        ? 'border-purple-500 text-purple-600 bg-purple-50'
+                        : 'border-green-500 text-green-600 bg-green-50'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <tab.icon size={18} />
+                  {tab.label}
+                  <span className={`px-2 py-0.5 text-xs rounded-full ${
+                    activeTab === tab.id
+                      ? tab.color === 'blue'
+                        ? 'bg-blue-100 text-blue-700'
+                        : tab.color === 'purple'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {isLoading ? '...' : tab.count}
+                  </span>
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Tab Content */}
+          <div className="min-h-[400px]">
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <Loader2 size={40} className="animate-spin text-gray-400 mb-4" />
+                <p className="text-gray-500">Loading archives...</p>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center py-16 text-red-500">
+                <AlertCircle size={40} className="mb-4" />
+                <p className="font-medium">Failed to load archives</p>
+                <button
+                  onClick={() => refetch()}
+                  className="mt-2 text-sm text-blue-600 hover:underline"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : (
+              <>
+                {activeTab === 'orders' && renderOrdersTable()}
+                {activeTab === 'users' && renderUsersTable()}
+                {activeTab === 'projects' && renderProjectsTable()}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default Archives;
 /* FILE: src/pages/admin/Dashboard.tsx */
 // FILE PATH: src/pages/admin/Dashboard.tsx
 // ============================================
@@ -19800,18 +21264,20 @@ import {
   Loader2,
   AlertCircle,
   Eye,
+  History,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import OrderOverviewTab from '../../../components/admin/Orders/OrderOverviewTab';
 import OrderItemsTab from '../../../components/admin/Orders/OrderItemsTab';
 import OrderCostingTab from '../../../components/admin/Orders/OrderCostingTab';
 import OrderMapTab from '../../../components/admin/Orders/OrderMapTab';
+import OrderLogsTab from '../../../components/admin/Orders/OrderLogsTab';
 import OrderAdminUpdateTab from '../../../components/admin/Orders/OrderAdminUpdateTab';
 import { useAdminOrderDetail } from '../../../features/adminOrders/hooks';
 import { getMenuItemsByRole } from '../../../utils/menuItems';
 import { usePermissions } from '../../../hooks/usePermissions';
 
-type TabType = 'overview' | 'items' | 'costing' | 'map' | 'admin';
+type TabType = 'overview' | 'items' | 'costing' | 'map' | 'admin' | 'logs';
 
 const AdminOrderView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -19922,6 +21388,7 @@ const AdminOrderView: React.FC = () => {
       activeClass: 'bg-purple-600 text-white border-purple-700 shadow-md',
       inactiveClass: 'text-purple-700 hover:bg-purple-50 border-purple-200',
     },
+    
   ];
 
   // Only show Costing tab if user can view cost price OR profit margin
@@ -19954,6 +21421,14 @@ const AdminOrderView: React.FC = () => {
       inactiveClass: 'text-indigo-700 hover:bg-indigo-50 border-indigo-200',
     });
   }
+  tabs.push({
+    id: 'logs' as TabType,
+    label: 'Activity Log',
+    icon: History,
+    badge: order.logs?.length || 0,
+    activeClass: 'bg-slate-600 text-white border-slate-700 shadow-md',
+    inactiveClass: 'text-slate-700 hover:bg-slate-50 border-slate-200',
+  });
 
   return (
     <DashboardLayout menuItems={menuItems}>
@@ -20082,6 +21557,9 @@ const AdminOrderView: React.FC = () => {
           )}
           {activeTab === 'admin' && (canEditOrders || canUpdateOrderStatus) && (
             <OrderAdminUpdateTab order={order} />
+          )}
+          {activeTab === 'logs' && (
+            <OrderLogsTab logs={order.logs || []} />
           )}
         </div>
       </div>
@@ -22073,21 +23551,36 @@ const ClientOrderView = () => {
     }
   };
 
-  const handleRepeatOrderSubmit = async (items: any[]) => {
-    if (!orderId) return;
+  // const handleRepeatOrderSubmit = async (items: any[]) => {
+  //   if (!orderId) return;
 
-    try {
-      await repeatOrderMutation.mutateAsync({
-        orderId: Number(orderId),
-        payload: { items },
-      });
-      toast.success('Order repeated successfully!');
-      setRepeatOrderModalOpen(false);
-      navigate('/client/orders');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to repeat order');
-    }
-  };
+  //   try {
+  //     await repeatOrderMutation.mutateAsync({
+  //       orderId: Number(orderId),
+  //       payload: { items },
+  //     });
+  //     toast.success('Order repeated successfully!');
+  //     setRepeatOrderModalOpen(false);
+  //     navigate('/client/orders');
+  //   } catch (error: any) {
+  //     toast.error(error.message || 'Failed to repeat order');
+  //   }
+  // };
+  const handleRepeatOrderSubmit = async (payload: { delivery_date: string; items: any[] }) => {
+  if (!orderId) return;
+
+  try {
+    await repeatOrderMutation.mutateAsync({
+      orderId: Number(orderId),
+      payload: payload, // Pass the complete payload with delivery_date and items
+    });
+    toast.success('Order repeated successfully!');
+    setRepeatOrderModalOpen(false);
+    navigate('/client/orders');
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to repeat order');
+  }
+};
 
   // Cancel order handlers
   const handleCancelClick = () => {
@@ -22609,13 +24102,15 @@ const OrderCreate = () => {
   // Product Selection State
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
   const [currentPage, setCurrentPage] = useState(1);
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   // Product Detail Modal
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductModal, setShowProductModal] = useState(false);
+
+  //Product types 
+  const [selectedProductType, setSelectedProductType] = useState<string | undefined>();
+  const [showProductTypeDropdown, setShowProductTypeDropdown] = useState(false);
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -22624,21 +24119,21 @@ const OrderCreate = () => {
 
   // ==================== DATA FETCHING ====================
 
-  // Fetch Categories
-  const { data: categoriesData } = useQuery({
-    queryKey: ['product-categories'],
-    queryFn: () => ordersAPI.getCategories(),
+  //Fetch Product Types
+  const { data: productTypesData } = useQuery({
+    queryKey: ['product-types'],
+    queryFn: () => ordersAPI.getProductTypes(),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Fetch Products
   const { data: productsData, isLoading: loadingProducts, error: productsError } = useQuery({
-    queryKey: ['client-products', currentPage, searchTerm, selectedCategory],
+    queryKey: ['client-products', currentPage, searchTerm, selectedProductType],
     queryFn: () => ordersAPI.getClientProducts({
       page: currentPage,
       per_page: 12,
       search: searchTerm || undefined,
-      category: selectedCategory,
+      product_type: selectedProductType,
     }),
     enabled: currentStep === 1, // Only fetch when on product selection step
   });
@@ -22745,10 +24240,11 @@ const OrderCreate = () => {
 
   // ==================== FILTERS ====================
 
-  const handleCategorySelect = (categoryId: number | undefined) => {
-    setSelectedCategory(categoryId);
-    setCurrentPage(1);
-    setShowCategoryDropdown(false);
+
+  const handleProductTypeSelect = (productType: string | undefined) => {
+    setSelectedProductType(productType);
+    setCurrentPage(1); // Reset to page 1 when changing filters
+    setShowProductTypeDropdown(false);
   };
 
   // ==================== PRODUCT MODAL ====================
@@ -22770,7 +24266,7 @@ const OrderCreate = () => {
   const projects = projectsData?.data || [];
 
   // Get categories from API
-  const categories = categoriesData?.data || [];
+  const productTypes = Array.isArray(productTypesData) ? productTypesData : productTypesData?.data || [];
 
   const totalCartItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -22824,38 +24320,38 @@ const OrderCreate = () => {
                     )}
                   </div>
 
-                  {/* Category Filter Dropdown */}
+                  {/* Product Type Filter Dropdown */}
                   <div className="relative">
                     <Button
                       variant="outline"
-                      onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                      onClick={() => setShowProductTypeDropdown(!showProductTypeDropdown)}
                       className="w-full md:w-auto"
                     >
                       <Filter size={18} />
-                      {selectedCategory 
-                        ? categories.find(c => c.id === selectedCategory)?.name 
-                        : 'All Categories'}
+                      {selectedProductType
+                        ? productTypes.find(p => p.product_type === selectedProductType)?.product_type
+                        : 'All Product Types'}
                     </Button>
 
-                    {showCategoryDropdown && (
+                    {showProductTypeDropdown && (
                       <div className="absolute right-0 mt-2 w-56 bg-white border border-secondary-200 rounded-lg shadow-lg z-50">
                         <button
-                          onClick={() => handleCategorySelect(undefined)}
+                          onClick={() => handleProductTypeSelect(undefined)}
                           className={`w-full text-left px-4 py-2 hover:bg-secondary-50 transition-colors ${
-                            !selectedCategory ? 'bg-primary-50 text-primary-700 font-semibold' : ''
+                            !selectedProductType ? 'bg-primary-50 text-primary-700 font-semibold' : ''
                           }`}
                         >
-                          All Categories
+                          All Product Types
                         </button>
-                        {categories.map((category) => (
+                        {productTypes.map((type) => (
                           <button
-                            key={category.id}
-                            onClick={() => handleCategorySelect(category.id)}
+                            key={type.product_type}
+                            onClick={() => handleProductTypeSelect(type.product_type)}
                             className={`w-full text-left px-4 py-2 hover:bg-secondary-50 transition-colors border-t border-secondary-100 ${
-                              selectedCategory === category.id ? 'bg-primary-50 text-primary-700 font-semibold' : ''
+                              selectedProductType === type.product_type ? 'bg-primary-50 text-primary-700 font-semibold' : ''
                             }`}
                           >
-                            {category.name}
+                            {type.product_type}
                           </button>
                         ))}
                       </div>
@@ -22889,16 +24385,16 @@ const OrderCreate = () => {
                     <div>
                       <h3 className="text-lg font-semibold text-secondary-900">No products found</h3>
                       <p className="text-sm text-secondary-600 mt-1">
-                        {searchTerm || selectedCategory 
-                          ? 'Try adjusting your search or filters' 
+                        {searchTerm || selectedProductType
+                          ? 'Try adjusting your search or filters'
                           : 'No products available at the moment'}
                       </p>
                     </div>
-                    {(searchTerm || selectedCategory) && (
+                    {(searchTerm || selectedProductType) && (
                       <Button
                         onClick={() => {
                           setSearchTerm('');
-                          setSelectedCategory(undefined);
+                          setSelectedProductType(undefined);
                         }}
                         variant="outline"
                       >
@@ -25810,60 +27306,60 @@ const DeliveryZonesPage = () => {
 };
 
 export default DeliveryZonesPage;
-/* FILE: src/pages/supplier/ProductManagement.tsx */
-// FILE PATH: src/pages/supplier/ProductManagement.tsx
+/* FILE: src/pages/supplier/MyOffers.tsx */
+// FILE PATH: src/pages/supplier/MyOffers.tsx
+
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  Package, 
+import {
+  Package,
   Search,
-  Plus,
   Filter,
   Loader2,
   AlertCircle,
   X,
   TrendingUp,
   CheckCircle,
-  XCircle
+  Clock,
+  XCircle,
+  DollarSign,
+  ArrowUpDown,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-import { 
-  supplierProductsAPI, 
-   
+import {
+  supplierProductsAPI,
+  getMyOffers,
+  type SupplierOfferItem,
 } from '../../api/handlers/supplierProducts.api';
-import type { SupplierOffer, MasterProduct } from '../../api/handlers/supplierProducts.api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import ProductCard from '../../components/supplier/ProductCard';
-import AddOfferModal from '../../components/supplier/AddOfferModal';
+import OfferCard from '../../components/supplier/OfferCard';
 import EditOfferModal from '../../components/supplier/EditOfferModal';
-import RequestProductModal from '../../components/supplier/RequestProductModal';
 import Pagination from '../../components/common/Pagination';
 import Button from '../../components/common/Buttons';
 import ConfirmModal from '../../components/common/ConfirmModal';
-import {supplierMenuItems} from '../../utils/menuItems';
+import { supplierMenuItems } from '../../utils/menuItems';
 
-const PER_PAGE = 10;
+const PER_PAGE = 12;
 
-const ProductManagement = () => {
+const MyOffers = () => {
   const queryClient = useQueryClient();
 
   // State
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [localSearch, setLocalSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
-  const [statusFilter, setStatusFilter] = useState<'all' | 'my_offers' | 'not_added'>('all');
-  
+  const [selectedProductType, setSelectedProductType] = useState<string | undefined>();
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [sortBy, setSortBy] = useState<'created_at' | 'price' | 'updated_at'>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
   // Modal states
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showRequestModal, setShowRequestModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  
+
   // Selected items
-  const [selectedProduct, setSelectedProduct] = useState<MasterProduct | null>(null);
-  const [selectedOffer, setSelectedOffer] = useState<SupplierOffer | null>(null);
+  const [selectedOffer, setSelectedOffer] = useState<SupplierOfferItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
   // Debounce search
@@ -25875,69 +27371,54 @@ const ProductManagement = () => {
     return () => clearTimeout(timer);
   }, [localSearch]);
 
-  // Fetch products
-  const { data: productsData, isLoading: isLoadingProducts } = useQuery({
-    queryKey: ['supplier-products', page, searchQuery, selectedCategory],
-    queryFn: () => supplierProductsAPI.getProducts({
-      page,
-      per_page: PER_PAGE,
-      search: searchQuery || undefined,
-      category_id: selectedCategory,
-    }),
+  // Fetch my offers
+  const { data: offersData, isLoading: isLoadingOffers } = useQuery({
+    queryKey: ['my-offers', page, searchQuery, selectedProductType, statusFilter, sortBy, sortOrder],
+    queryFn: () =>
+      getMyOffers({
+        page,
+        per_page: PER_PAGE,
+        search: searchQuery || undefined,
+        product_type: selectedProductType,
+        status: statusFilter,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+      }),
   });
 
-  // Fetch categories
-  const { data: categoriesData } = useQuery({
-    queryKey: ['categories'],
-    queryFn: supplierProductsAPI.getCategories,
+  // Fetch product types for filter
+  const { data: productTypesData } = useQuery({
+    queryKey: ['product-types'],
+    queryFn: supplierProductsAPI.getProductTypes,
   });
 
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: supplierProductsAPI.deleteSupplierOffer,
     onSuccess: () => {
-      toast.success('Product removed from your offers');
-      queryClient.invalidateQueries({ queryKey: ['supplier-products'] });
+      toast.success('Offer removed successfully');
+      queryClient.invalidateQueries({ queryKey: ['my-offers'] });
       setShowDeleteModal(false);
       setDeleteTarget(null);
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to remove product');
+      toast.error(error.message || 'Failed to remove offer');
     },
   });
 
-  // Filter products
-  const filteredProducts = useMemo(() => {
-    if (!productsData?.data) return [];
-    
-    let filtered = productsData.data;
-
-    if (statusFilter === 'my_offers') {
-      filtered = filtered.filter(p => p.suppliers.some(s => s.isMe));
-    } else if (statusFilter === 'not_added') {
-      filtered = filtered.filter(p => !p.suppliers.some(s => s.isMe));
-    }
-
-    return filtered;
-  }, [productsData?.data, statusFilter]);
-
   // Calculate stats
   const stats = useMemo(() => {
-    const total = filteredProducts.length;
-    const myOffers = filteredProducts.filter(p => p.suppliers.some(s => s.isMe)).length;
-    const notAdded = filteredProducts.filter(p => !p.suppliers.some(s => s.isMe)).length;
+    const offers = offersData?.data || [];
+    const total = offersData?.total || 0;
+    const approved = offers.filter((o) => o.offer_status === 'Approved').length;
+    const pending = offers.filter((o) => o.offer_status === 'Pending').length;
+    const rejected = offers.filter((o) => o.offer_status === 'Rejected').length;
 
-    return { total, myOffers, notAdded };
-  }, [filteredProducts]);
+    return { total, approved, pending, rejected };
+  }, [offersData]);
 
   // Modal handlers
-  const handleAddOffer = (product: MasterProduct) => {
-    setSelectedProduct(product);
-    setShowAddModal(true);
-  };
-
-  const handleEditOffer = (product: MasterProduct, offer: SupplierOffer) => {
-    setSelectedProduct(product);
+  const handleEditOffer = (offer: SupplierOfferItem) => {
     setSelectedOffer(offer);
     setShowEditModal(true);
   };
@@ -25956,12 +27437,496 @@ const ProductManagement = () => {
   const clearFilters = () => {
     setLocalSearch('');
     setSearchQuery('');
-    setSelectedCategory(undefined);
-    setStatusFilter('all');
+    setSelectedProductType(undefined);
+    setStatusFilter(undefined);
+    setSortBy('created_at');
+    setSortOrder('desc');
     setPage(1);
   };
 
-  const hasFilters = searchQuery || selectedCategory || statusFilter !== 'all';
+  const toggleSortOrder = () => {
+    setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+  };
+
+  const hasFilters = searchQuery || selectedProductType || statusFilter;
+
+  const pagination = {
+    currentPage: offersData?.current_page || 1,
+    lastPage: offersData?.last_page || 1,
+    total: offersData?.total || 0,
+    perPage: offersData?.per_page || PER_PAGE,
+    from: offersData?.from || 0,
+    to: offersData?.to || 0,
+  };
+
+  return (
+    <DashboardLayout menuItems={supplierMenuItems}>
+      <div className="space-y-8 pb-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-bold text-secondary-900 mb-2">My Offers</h1>
+            <p className="text-secondary-600 text-lg">
+              View and manage your product offers
+            </p>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Total Offers */}
+          <div className="relative bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300" />
+            <div className="relative p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <Package size={28} className="text-white" />
+                </div>
+                <TrendingUp size={20} className="text-white/60" />
+              </div>
+              <p className="text-blue-100 text-sm font-medium mb-1">Total Offers</p>
+              <p className="text-white text-4xl font-bold">{stats.total}</p>
+            </div>
+          </div>
+
+          {/* Approved */}
+          <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300" />
+            <div className="relative p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <CheckCircle size={28} className="text-white" />
+                </div>
+                <TrendingUp size={20} className="text-white/60" />
+              </div>
+              <p className="text-green-100 text-sm font-medium mb-1">Approved</p>
+              <p className="text-white text-4xl font-bold">{stats.approved}</p>
+            </div>
+          </div>
+
+          {/* Pending */}
+          <div className="relative bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300" />
+            <div className="relative p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <Clock size={28} className="text-white" />
+                </div>
+                <TrendingUp size={20} className="text-white/60" />
+              </div>
+              <p className="text-amber-100 text-sm font-medium mb-1">Pending</p>
+              <p className="text-white text-4xl font-bold">{stats.pending}</p>
+            </div>
+          </div>
+
+          {/* Rejected */}
+          <div className="relative bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300" />
+            <div className="relative p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <XCircle size={28} className="text-white" />
+                </div>
+                <TrendingUp size={20} className="text-white/60" />
+              </div>
+              <p className="text-red-100 text-sm font-medium mb-1">Rejected</p>
+              <p className="text-white text-4xl font-bold">{stats.rejected}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters Section */}
+        <div className="bg-white rounded-2xl shadow-md border border-secondary-100">
+          <div className="p-6 space-y-6">
+            {/* Search, Product Type, and Sort */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Search */}
+              <div className="relative group">
+                <Search
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary-400 group-focus-within:text-primary-500 transition-colors"
+                  size={20}
+                />
+                <input
+                  type="text"
+                  placeholder="Search by product name..."
+                  value={localSearch}
+                  onChange={(e) => setLocalSearch(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-secondary-50 border-2 border-transparent rounded-xl focus:outline-none focus:border-primary-500 focus:bg-white transition-all text-secondary-900 placeholder-secondary-400"
+                />
+              </div>
+
+              {/* Product Type Filter */}
+              <div className="relative">
+                <Filter
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none"
+                  size={20}
+                />
+                <select
+                  value={selectedProductType || ''}
+                  onChange={(e) => {
+                    setSelectedProductType(e.target.value || undefined);
+                    setPage(1);
+                  }}
+                  className="w-full pl-12 pr-4 py-3.5 bg-secondary-50 border-2 border-transparent rounded-xl focus:outline-none focus:border-primary-500 focus:bg-white transition-all text-secondary-900 appearance-none cursor-pointer"
+                >
+                  <option value="">All Product Types</option>
+                  {productTypesData?.data?.map((productType) => (
+                    <option key={productType.product_type} value={productType.product_type}>
+                      {productType.product_type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sort By */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <DollarSign
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none"
+                    size={20}
+                  />
+                  <select
+                    value={sortBy}
+                    onChange={(e) => {
+                      setSortBy(e.target.value as 'price' | 'created_at' | 'updated_at');
+                      setPage(1);
+                    }}
+                    className="w-full pl-12 pr-4 py-3.5 bg-secondary-50 border-2 border-transparent rounded-xl focus:outline-none focus:border-primary-500 focus:bg-white transition-all text-secondary-900 appearance-none cursor-pointer"
+                  >
+                    <option value="created_at">Sort by Date</option>
+                    <option value="price">Sort by Price</option>
+                    <option value="updated_at">Sort by Updated</option>
+                  </select>
+                </div>
+                <button
+                  onClick={toggleSortOrder}
+                  className={`px-4 py-3.5 rounded-xl border-2 border-transparent bg-secondary-50 hover:bg-secondary-100 transition-all ${
+                    sortOrder === 'desc' ? 'text-primary-600' : 'text-secondary-600'
+                  }`}
+                  title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                >
+                  <ArrowUpDown size={20} className={sortOrder === 'asc' ? 'rotate-180' : ''} />
+                </button>
+              </div>
+            </div>
+
+            {/* Status Filter Pills */}
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium text-secondary-700">Status:</span>
+
+              <button
+                onClick={() => {
+                  setStatusFilter(undefined);
+                  setPage(1);
+                }}
+                className={`px-6 py-2.5 rounded-full font-medium transition-all duration-200 ${
+                  !statusFilter
+                    ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30 scale-105'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                All Status
+              </button>
+
+              <button
+                onClick={() => {
+                  setStatusFilter('Approved');
+                  setPage(1);
+                }}
+                className={`px-6 py-2.5 rounded-full font-medium transition-all duration-200 ${
+                  statusFilter === 'Approved'
+                    ? 'bg-green-500 text-white shadow-lg shadow-green-500/30 scale-105'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                Approved
+              </button>
+
+              <button
+                onClick={() => {
+                  setStatusFilter('Pending');
+                  setPage(1);
+                }}
+                className={`px-6 py-2.5 rounded-full font-medium transition-all duration-200 ${
+                  statusFilter === 'Pending'
+                    ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30 scale-105'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                Pending
+              </button>
+
+              <button
+                onClick={() => {
+                  setStatusFilter('Rejected');
+                  setPage(1);
+                }}
+                className={`px-6 py-2.5 rounded-full font-medium transition-all duration-200 ${
+                  statusFilter === 'Rejected'
+                    ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 scale-105'
+                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
+                }`}
+              >
+                Rejected
+              </button>
+
+              {hasFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="px-6 py-2.5 rounded-full font-medium bg-error-100 text-error-700 hover:bg-error-200 transition-all duration-200 flex items-center gap-2"
+                >
+                  <X size={16} />
+                  Clear All
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Offers Grid */}
+        <div className="bg-white rounded-2xl shadow-md border border-secondary-100 p-6">
+          {isLoadingOffers ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <Loader2 className="animate-spin text-primary-500 mx-auto mb-4" size={48} />
+                <p className="text-secondary-600 font-medium">Loading your offers...</p>
+              </div>
+            </div>
+          ) : !offersData?.data || offersData.data.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="w-24 h-24 bg-secondary-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="text-secondary-400" size={48} />
+              </div>
+              <h3 className="text-2xl font-bold text-secondary-900 mb-2">No offers found</h3>
+              <p className="text-secondary-600 text-lg mb-6">
+                {hasFilters
+                  ? 'Try adjusting your filters or search term'
+                  : "You haven't added any product offers yet"}
+              </p>
+              {hasFilters && (
+                <Button onClick={clearFilters} variant="outline">
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {offersData.data.map((offer) => (
+                  <OfferCard
+                    key={offer.offer_id}
+                    offer={offer}
+                    onEdit={handleEditOffer}
+                    onRemove={handleRemoveOffer}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {pagination.total > 0 && (
+                <div className="mt-8 pt-6 border-t border-secondary-200">
+                  <Pagination
+                    currentPage={pagination.currentPage}
+                    lastPage={pagination.lastPage}
+                    total={pagination.total}
+                    perPage={pagination.perPage}
+                    onPageChange={(newPage) => setPage(newPage)}
+                    loading={isLoadingOffers}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Edit Modal - Adapted to work with SupplierOfferItem */}
+      {selectedOffer && (
+        <EditOfferModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedOffer(null);
+            queryClient.invalidateQueries({ queryKey: ['my-offers'] });
+          }}
+          product={{
+            id: selectedOffer.master_product_id,
+            product_name: selectedOffer.product_name,
+            product_type: selectedOffer.product_type,
+            unit_of_measure: selectedOffer.unit || '',
+            specifications: selectedOffer.specifications || '',
+            photo: selectedOffer.image_url || selectedOffer.image || '',
+            category: selectedOffer.category || { id: 0, name: 'Uncategorized' },
+            is_approved: selectedOffer.is_approved ? 1 : 0,
+            suppliers: [],
+            supplierOffersCount: 1,
+            added_by: {
+              id: 0,
+              name: 'System',
+              email: '',
+              profile_image: null,
+            },
+            approved_by: selectedOffer.approved_by || null,
+            slug: selectedOffer.slug || '',
+            tech_doc: selectedOffer.tech_doc || null,
+            created_at: selectedOffer.created_at,
+            updated_at: selectedOffer.updated_at,
+          }}
+          offer={{
+            id: selectedOffer.offer_id,
+            supplier_id: 0,
+            master_product_id: selectedOffer.master_product_id,
+            price: String(selectedOffer.price),
+            availability_status: selectedOffer.availability_status,
+            status: selectedOffer.offer_status,
+            isMe: true,
+            created_at: selectedOffer.created_at,
+            updated_at: selectedOffer.updated_at,
+            supplier: {
+              id: 0,
+              name: '',
+              email: '',
+              profile_image: null,
+              delivery_zones: [],
+            },
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeleteTarget(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Remove Product Offer"
+        message={`Are you sure you want to remove "${deleteTarget?.name}" from your offers? This action cannot be undone.`}
+        confirmText="Remove"
+        loading={deleteMutation.isPending}
+      />
+    </DashboardLayout>
+  );
+};
+
+export default MyOffers;
+/* FILE: src/pages/supplier/ProductManagement.tsx */
+// FILE PATH: src/pages/supplier/ProductManagement.tsx
+import { useState, useMemo, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { 
+  Package, 
+  Search,
+  Plus,
+  Filter,
+  Loader2,
+  AlertCircle,
+  X,
+  TrendingUp,
+  Grid3X3,
+  Layers,
+} from 'lucide-react';
+
+import { 
+  supplierProductsAPI, 
+} from '../../api/handlers/supplierProducts.api';
+import type { MasterProduct } from '../../api/handlers/supplierProducts.api';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import ProductCard from '../../components/supplier/ProductCard';
+import AddOfferModal from '../../components/supplier/AddOfferModal';
+import RequestProductModal from '../../components/supplier/RequestProductModal';
+import Pagination from '../../components/common/Pagination';
+import Button from '../../components/common/Buttons';
+import { supplierMenuItems } from '../../utils/menuItems';
+
+const PER_PAGE = 12;
+
+const ProductManagement = () => {
+  const queryClient = useQueryClient();
+
+  // State
+  const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [localSearch, setLocalSearch] = useState('');
+  const [selectedProductType, setSelectedProductType] = useState<string | undefined>();
+  
+  // Modal states
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  
+  // Selected items
+  const [selectedProduct, setSelectedProduct] = useState<MasterProduct | null>(null);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(localSearch);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [localSearch]);
+
+  // Fetch products
+  const { data: productsData, isLoading: isLoadingProducts } = useQuery({
+    queryKey: ['supplier-products', page, searchQuery, selectedProductType],
+    queryFn: () => supplierProductsAPI.getProducts({
+      page,
+      per_page: PER_PAGE,
+      search: searchQuery || undefined,
+      product_type: selectedProductType,
+    }),
+  });
+
+  // Fetch categories
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: supplierProductsAPI.getCategories,
+  });
+
+  // Fetch product types
+  const { data: productTypesData } = useQuery({
+    queryKey: ['product-types'],
+    queryFn: supplierProductsAPI.getProductTypes,
+  });
+
+  // Filter products - ONLY show products NOT added by supplier
+  const filteredProducts = useMemo(() => {
+    if (!productsData?.data) return [];
+    return productsData.data.filter(p => !p.suppliers.some(s => s.isMe));
+  }, [productsData?.data]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    if (!productsData?.data) return { total: 0, available: 0, productTypes: 0 };
+    
+    const allProducts = productsData.data;
+    const available = allProducts.filter(p => !p.suppliers.some(s => s.isMe)).length;
+    
+    // Count unique product types
+    const uniqueTypes = new Set(allProducts.map(p => p.product_type));
+    
+    return { 
+      total: productsData.total || 0,
+      available,
+      productTypes: uniqueTypes.size,
+    };
+  }, [productsData]);
+
+  // Modal handlers
+  const handleAddOffer = (product: MasterProduct) => {
+    setSelectedProduct(product);
+    setShowAddModal(true);
+  };
+
+  const clearFilters = () => {
+    setLocalSearch('');
+    setSearchQuery('');
+    setSelectedProductType(undefined);
+    setPage(1);
+  };
+
+  const hasFilters = searchQuery || selectedProductType;
 
   const pagination = {
     currentPage: productsData?.current_page || 1,
@@ -25978,9 +27943,9 @@ const ProductManagement = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-secondary-900 mb-2">Product Management</h1>
+            <h1 className="text-4xl font-bold text-secondary-900 mb-2">Platform Products</h1>
             <p className="text-secondary-600 text-lg">
-              Manage your product offers and request new products
+              Browse available products and add them to your offers
             </p>
           </div>
           <Button
@@ -25990,14 +27955,29 @@ const ProductManagement = () => {
             className="shadow-lg hover:shadow-xl transition-shadow"
           >
             <Plus size={20} />
-            Request Product
+            Request New Product
           </Button>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Total Products */}
+          {/* Total Platform Products */}
           <div className="relative bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300" />
+            <div className="relative p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <Grid3X3 size={28} className="text-white" />
+                </div>
+                <TrendingUp size={20} className="text-white/60" />
+              </div>
+              <p className="text-blue-100 text-sm font-medium mb-1">Total Platform Products</p>
+              <p className="text-white text-4xl font-bold">{stats.total}</p>
+            </div>
+          </div>
+
+          {/* Available to Add */}
+          <div className="relative bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300" />
             <div className="relative p-6">
               <div className="flex items-start justify-between mb-4">
@@ -26006,38 +27986,23 @@ const ProductManagement = () => {
                 </div>
                 <TrendingUp size={20} className="text-white/60" />
               </div>
-              <p className="text-blue-100 text-sm font-medium mb-1">Total Products</p>
-              <p className="text-white text-4xl font-bold">{stats.total}</p>
+              <p className="text-emerald-100 text-sm font-medium mb-1">Available to Add</p>
+              <p className="text-white text-4xl font-bold">{stats.available}</p>
             </div>
           </div>
 
-          {/* My Offers */}
-          <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+          {/* Product Types */}
+          <div className="relative bg-gradient-to-br from-violet-500 to-violet-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300" />
             <div className="relative p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                  <CheckCircle size={28} className="text-white" />
+                  <Layers size={28} className="text-white" />
                 </div>
                 <TrendingUp size={20} className="text-white/60" />
               </div>
-              <p className="text-green-100 text-sm font-medium mb-1">My Active Offers</p>
-              <p className="text-white text-4xl font-bold">{stats.myOffers}</p>
-            </div>
-          </div>
-
-          {/* Not Added */}
-          <div className="relative bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300" />
-            <div className="relative p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                  <XCircle size={28} className="text-white" />
-                </div>
-                <TrendingUp size={20} className="text-white/60" />
-              </div>
-              <p className="text-orange-100 text-sm font-medium mb-1">Available to Add</p>
-              <p className="text-white text-4xl font-bold">{stats.notAdded}</p>
+              <p className="text-violet-100 text-sm font-medium mb-1">Product Types</p>
+              <p className="text-white text-4xl font-bold">{stats.productTypes}</p>
             </div>
           </div>
         </div>
@@ -26045,88 +28010,79 @@ const ProductManagement = () => {
         {/* Filters Section */}
         <div className="bg-white rounded-2xl shadow-md border border-secondary-100">
           <div className="p-6 space-y-6">
-            {/* Search and Category */}
+            {/* Search and Product Type Filter */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Search */}
               <div className="relative group">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary-400 group-focus-within:text-primary-500 transition-colors" size={20} />
                 <input
                   type="text"
-                  placeholder="Search products by name, type, or specifications..."
+                  placeholder="Search products by name or specifications..."
                   value={localSearch}
                   onChange={(e) => setLocalSearch(e.target.value)}
                   className="w-full pl-12 pr-4 py-3.5 bg-secondary-50 border-2 border-transparent rounded-xl focus:outline-none focus:border-primary-500 focus:bg-white transition-all text-secondary-900 placeholder-secondary-400"
                 />
               </div>
 
-              {/* Category Filter */}
+              {/* Product Type Filter */}
               <div className="relative">
                 <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none" size={20} />
                 <select
-                  value={selectedCategory || ''}
+                  value={selectedProductType || ''}
                   onChange={(e) => {
-                    setSelectedCategory(e.target.value ? Number(e.target.value) : undefined);
+                    setSelectedProductType(e.target.value || undefined);
                     setPage(1);
                   }}
                   className="w-full pl-12 pr-4 py-3.5 bg-secondary-50 border-2 border-transparent rounded-xl focus:outline-none focus:border-primary-500 focus:bg-white transition-all text-secondary-900 appearance-none cursor-pointer"
                 >
-                  <option value="">All Categories</option>
-                  {categoriesData?.data.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
+                  <option value="">All Product Types</option>
+                  {productTypesData?.data?.map((productType) => (
+                    <option key={productType.product_type} value={productType.product_type}>
+                      {productType.product_type}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
 
-            {/* Status Filter Pills */}
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-medium text-secondary-700">Filter by:</span>
-              
-              <button
-                onClick={() => { setStatusFilter('all'); setPage(1); }}
-                className={`px-6 py-2.5 rounded-full font-medium transition-all duration-200 ${
-                  statusFilter === 'all'
-                    ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30 scale-105'
-                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
-                }`}
-              >
-                All Products
-              </button>
-              
-              <button
-                onClick={() => { setStatusFilter('my_offers'); setPage(1); }}
-                className={`px-6 py-2.5 rounded-full font-medium transition-all duration-200 ${
-                  statusFilter === 'my_offers'
-                    ? 'bg-green-500 text-white shadow-lg shadow-green-500/30 scale-105'
-                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
-                }`}
-              >
-                My Offers
-              </button>
-              
-              <button
-                onClick={() => { setStatusFilter('not_added'); setPage(1); }}
-                className={`px-6 py-2.5 rounded-full font-medium transition-all duration-200 ${
-                  statusFilter === 'not_added'
-                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30 scale-105'
-                    : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
-                }`}
-              >
-                Not Added
-              </button>
-              
-              {hasFilters && (
+            {/* Active Filters Display */}
+            {hasFilters && (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-medium text-secondary-700">Active filters:</span>
+                
+                {searchQuery && (
+                  <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-100 text-primary-700 text-sm font-medium">
+                    Search: "{searchQuery}"
+                    <button
+                      onClick={() => { setLocalSearch(''); setSearchQuery(''); }}
+                      className="hover:text-primary-900"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                )}
+                
+                {selectedProductType && (
+                  <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-100 text-violet-700 text-sm font-medium">
+                    Type: {selectedProductType}
+                    <button
+                      onClick={() => setSelectedProductType(undefined)}
+                      className="hover:text-violet-900"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                )}
+                
                 <button
                   onClick={clearFilters}
-                  className="px-6 py-2.5 rounded-full font-medium bg-error-100 text-error-700 hover:bg-error-200 transition-all duration-200 flex items-center gap-2"
+                  className="px-4 py-2 rounded-full font-medium bg-error-100 text-error-700 hover:bg-error-200 transition-all duration-200 flex items-center gap-2 text-sm"
                 >
-                  <X size={16} />
+                  <X size={14} />
                   Clear All
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -26144,28 +28100,42 @@ const ProductManagement = () => {
               <div className="w-24 h-24 bg-secondary-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <AlertCircle className="text-secondary-400" size={48} />
               </div>
-              <h3 className="text-2xl font-bold text-secondary-900 mb-2">No products found</h3>
+              <h3 className="text-2xl font-bold text-secondary-900 mb-2">
+                {hasFilters ? 'No products found' : 'All products added!'}
+              </h3>
               <p className="text-secondary-600 text-lg mb-6">
                 {hasFilters 
                   ? 'Try adjusting your filters or search term'
-                  : 'No products available at the moment'}
+                  : "You've added all available products to your offers. Request a new product if you need something specific."}
               </p>
-              {hasFilters && (
+              {hasFilters ? (
                 <Button onClick={clearFilters} variant="outline">
                   Clear Filters
+                </Button>
+              ) : (
+                <Button onClick={() => setShowRequestModal(true)} variant="primary">
+                  <Plus size={18} />
+                  Request New Product
                 </Button>
               )}
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Results count */}
+              <div className="mb-6">
+                <p className="text-secondary-600">
+                  Showing <span className="font-semibold text-secondary-900">{filteredProducts.length}</span> products available to add
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
                     onAddOffer={handleAddOffer}
-                    onEditOffer={handleEditOffer}
-                    onRemoveOffer={handleRemoveOffer}
+                    onEditOffer={() => {}}  // Not used - products shown have no offers
+                    onRemoveOffer={() => {}} // Not used - products shown have no offers
                   />
                 ))}
               </div>
@@ -26194,38 +28164,15 @@ const ProductManagement = () => {
         onClose={() => {
           setShowAddModal(false);
           setSelectedProduct(null);
+          queryClient.invalidateQueries({ queryKey: ['supplier-products'] });
         }}
         product={selectedProduct}
-      />
-
-      <EditOfferModal
-        isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          setSelectedProduct(null);
-          setSelectedOffer(null);
-        }}
-        product={selectedProduct}
-        offer={selectedOffer}
       />
 
       <RequestProductModal
         isOpen={showRequestModal}
         onClose={() => setShowRequestModal(false)}
         categories={categoriesData?.data || []}
-      />
-
-      <ConfirmModal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setDeleteTarget(null);
-        }}
-        onConfirm={confirmDelete}
-        title="Remove Product from Offers"
-        message={`Are you sure you want to remove "${deleteTarget?.name}" from your offers? This action cannot be undone.`}
-        confirmText="Remove"
-        loading={deleteMutation.isPending}
       />
     </DashboardLayout>
   );
@@ -26766,7 +28713,7 @@ import ViewMasterProduct from '../pages/admin/MasterProducts/ViewMasterProduct';
 //Admin Orders
 import AdminOrdersList from '../pages/admin/Orders/AdminOrdersList';
 import AdminOrderView from '../pages/admin/Orders/AdminOrderView';
-
+import Archives from '../pages/admin/Archives';
 //Client Projects
 import ProjectsList from '../pages/client/projects/ProjectsList';
 import ProjectDetail from '../pages/client/projects/ProjectDetail';
@@ -26785,6 +28732,8 @@ import ProductManagement from '../pages/supplier/ProductManagement';
 //Supplier Orders
 import SupplierOrders from '../pages/supplier/SupplierOrders';
 import SupplierOrderDetail from '../pages/supplier/SupplierOrderDetail';
+
+import MyOffers from '../pages/supplier/MyOffers';
 
 // Shared
 import ProfileSettings from '../pages/shared/ProfileSettings';
@@ -26923,6 +28872,14 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/supplier/my-offers"
+          element={
+            <ProtectedRoute allowedRoles={['supplier']}>
+              <MyOffers />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Admin Routes - IMPORTANT: ORDER MATTERS! */}
         <Route
@@ -27040,6 +28997,14 @@ const AppRouter = () => {
           element={
             <ProtectedRoute allowedRoles={['admin','support','accountant']}>
               <AdminOrderView />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/archives"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Archives />
             </ProtectedRoute>
           }
         />
@@ -27389,6 +29354,18 @@ export interface DeliveryZone {
   radius: number;
 }
 
+
+// ==================== ORDER LOG ====================
+export interface OrderLog {
+  id: number;
+  action: string;
+  details: string;
+  order_id: number;
+  user_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // ==================== ELIGIBLE SUPPLIER ====================
 export interface EligibleSupplier {
   supplier_id: number;
@@ -27491,6 +29468,7 @@ export interface AdminOrderDetail {
   filters: {
     projects: ProjectFilter[];
   };
+  logs: OrderLog[];
 }
 
 // ==================== ORDER LIST ITEM (UPDATED) ====================
@@ -28430,6 +30408,8 @@ import {
   User,
   PlusCircle,
   CreditCard,
+  Archive,
+  Tags,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Role } from '../config/permissions';
@@ -28459,6 +30439,7 @@ export const adminMenuItems: MenuItem[] = [
   { label: 'Products', path: '/admin/master-products', icon: <Package size={20} /> },
   { label: 'Supplier Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
   { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
+  { label: 'Archives', path: '/admin/archives', icon: <Archive size={20} /> },
   // { label: 'Payments', path: '/admin/payments', icon: <CreditCard size={20} /> },
   // { label: 'Reports', path: '/admin/reports', icon: <BarChart3 size={20} /> },
   // { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
@@ -28468,7 +30449,8 @@ export const adminMenuItems: MenuItem[] = [
 
 export const supplierMenuItems: MenuItem[] = [
   { label: 'Dashboard', path: '/supplier/dashboard', icon: <Home size={20} /> },
-  { label: 'My Products', path: '/supplier/products', icon: <Package size={20} /> },
+  { label: 'Platform Products', path: '/supplier/products', icon: <Package size={20} /> },
+  { label: 'My Offers', icon: <Tags size={20} />, path: '/supplier/my-offers'},
   { label: 'Orders', path: '/supplier/orders', icon: <DollarSign size={20} /> },
   { label: 'Delivery Zones', path: '/supplier/zones', icon: <MapPin size={20} /> },
   { label: 'Profile', path: '/supplier/profile', icon: <User size={20} /> },
@@ -29076,7 +31058,7 @@ export const requestProductSchema = z
       .min(1, "Product type is required")
       .max(255, "Product type must not exceed 255 characters"),
 
-    category_id: z.number().positive("Please select a valid category"),
+    // category_id: z.number().positive("Please select a valid category"),
 
     unit_of_measure: z
       .string()
@@ -29094,15 +31076,7 @@ export const requestProductSchema = z
 
     availability_status: AvailabilityEnum,
   })
-  .superRefine((val, ctx) => {
-    if (val.category_id === undefined || val.category_id === null) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["category_id"],
-        message: "Category is required",
-      });
-    }
-  });
+  
 
 // ==================== ORDER SCHEMAS ====================
 
