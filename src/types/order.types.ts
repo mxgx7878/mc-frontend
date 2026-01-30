@@ -1,117 +1,152 @@
-/* FILE: src/types/order.types.ts */
-// FILE PATH: src/types/order.types.ts
-
+// src/types/order.types.ts
 /**
- * Order Module Type Definitions
+ * ORDER SYSTEM TYPES
  * 
- * Defines TypeScript interfaces for:
- * - Product listings and details
- * - Shopping cart items
- * - Projects
- * - Order creation and responses
+ * CRITICAL FIX: Project interface must match API's ProjectDTO
+ * - delivery_lat and delivery_long are NUMBERS (not strings)
+ * - This is what the API returns, so types must match
+ * 
+ * Updated to support:
+ * - Split deliveries (delivery_slots per item)
+ * - Contact person fields
+ * - Removed: delivery_time, special_equipment, special_notes from order level
  */
 
-// ==================== PRODUCT TYPES ====================
-
-export interface Product {
-  id: number;
-  added_by: number;
-  is_approved: number;
-  approved_by: number;
-  slug: string;
-  category: {
-    id: number;
-    name: string;
-  };
-  product_name: string;
-  product_type: string;
-  specifications: string;
-  unit_of_measure: string;
-  tech_doc: string | null;
-  photo: string;
-  created_at: string;
-  updated_at: string;
-  price_min?: string;
-  price_max?: string;
-  price?: string;
+// ==================== DELIVERY SLOT ====================
+/**
+ * Represents a single delivery slot for a product
+ * Multiple slots can exist for the same product to split deliveries
+ */
+export interface DeliverySlot {
+  slot_id: string; // UUID for frontend tracking (not sent to backend)
+  quantity: number;
+  delivery_date: string; // YYYY-MM-DD format
+  delivery_time: string; // HH:mm format (24-hour)
 }
 
-export interface ProductsResponse {
-  data: Product[];
-  meta: {
-    current_page: number;
-    per_page: number;
-    total: number;
-    last_page: number;
-  };
-}
-
-// ==================== CART TYPES ====================
-
+// ==================== CART ITEM ====================
+/**
+ * Product in the shopping cart with delivery scheduling
+ */
 export interface CartItem {
   product_id: number;
   product_name: string;
   product_photo: string | null;
   product_type: string;
-  quantity: number;
   unit_of_measure: string;
-  custom_blend_mix?: string;
+  quantity: number; // Total quantity ordered
+  custom_blend_mix?: string | null;
+  delivery_slots: DeliverySlot[]; // How the quantity is split across deliveries
 }
 
-// ==================== PROJECT TYPES ====================
-
+// ==================== PRODUCT ====================
 /**
- * Project interface matching Laravel API response
- * FIXED: Using 'name' instead of 'project_name' to match API
+ * Master product with supplier offers
+ */
+export interface Product {
+  id: number;
+  product_name: string;
+  photo: string | null;
+  product_type: string;
+  unit_of_measure: string;
+  tech_doc: string | null;
+  specifications: string;
+  price: string | null;
+}
+
+// ==================== PROJECT ====================
+/**
+ * Project interface - MUST MATCH API's ProjectDTO
+ * 
+ * CRITICAL: delivery_lat and delivery_long are NUMBERS from API
+ * Your API returns ProjectDTO with these as numbers, not strings
  */
 export interface Project {
   id: number;
-  name: string; // ✅ Fixed: was 'project_name'
+  name: string;
+  delivery_address: string | null;
+  delivery_lat: number | null | undefined;       // Added | undefined
+  delivery_long: number | null | undefined;    // Added | undefined
   site_contact_name?: string | null;
   site_contact_phone?: string | null;
   site_instructions?: string | null;
-  delivery_address?: string;
-  delivery_lat?: number;
-  delivery_long?: number;
-  added_by: number;
-  created_at: string;
-  updated_at: string;
 }
 
-// ==================== ORDER TYPES ====================
-
-export interface OrderFormData {
-  po_number?: string;
+// ==================== ORDER FORM VALUES ====================
+/**
+ * Form data structure for order creation
+ * 
+ * CHANGES FROM ORIGINAL:
+ * - Removed: delivery_time, special_equipment, special_notes
+ * - Added: contact_person_name, contact_person_number
+ * - items now include delivery_slots array
+ */
+export interface OrderFormValues {
   project_id: number;
+  po_number?: string;
   delivery_address: string;
   delivery_lat: number;
   delivery_long: number;
-  delivery_date: string;
-  delivery_time?: string;
+  delivery_date: string; // Primary/default delivery date
   load_size?: string;
-  special_equipment?: string;
-  special_notes?: string;
+  
+  // NEW: Contact person for this order
+  contact_person_name: string;
+  contact_person_number: string;
+  
   repeat_order?: boolean;
-  items: {
+  
+  // Items with delivery slots
+  items: Array<{
     product_id: number;
     quantity: number;
     custom_blend_mix?: string | null;
-  }[];
+    delivery_slots: Array<{
+      quantity: number;
+      delivery_date: string;
+      delivery_time: string;
+    }>;
+  }>;
+}
+
+// ==================== API RESPONSES ====================
+
+export interface ProductsResponse {
+  data: Product[];
+  meta: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  };
 }
 
 export interface OrderResponse {
   message: string;
   order: {
     id: number;
-    po_number: string;
+    po_number: string | null;
+    client_id: number;
     project_id: number;
     delivery_address: string;
+    delivery_lat: number;
+    delivery_long: number;
     delivery_date: string;
-    delivery_method: string;
+    load_size: string | null;
+    contact_person_name: string;
+    contact_person_number: string;
     order_status: string;
     payment_status: string;
-    workflow: string;
-    created_at: string;
-    items_count: number;
+    items: Array<{
+      id: number;
+      product_id: number;
+      quantity: number;
+      supplier_id: number | null;
+      custom_blend_mix: string | null;
+      delivery_slots: string; // JSON string from backend
+      product: Product;
+    }>;
   };
 }
+
+export type OrderFormData = OrderFormValues;

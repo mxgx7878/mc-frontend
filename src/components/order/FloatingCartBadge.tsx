@@ -1,6 +1,6 @@
 // src/components/order/FloatingCartBadge.tsx
 import React, { useState } from 'react';
-import { ShoppingCart, X, Plus, Minus, Trash2, Package } from 'lucide-react';
+import { ShoppingCart, X, Trash2, Package } from 'lucide-react';
 import type { CartItem } from '../../types/order.types';
 import Button from '../common/Buttons';
 
@@ -15,7 +15,6 @@ interface FloatingCartBadgeProps {
 const FloatingCartBadge: React.FC<FloatingCartBadgeProps> = ({
   itemCount,
   cartItems,
-  onUpdateQuantity,
   onRemoveItem,
   onProceedToCheckout,
 }) => {
@@ -126,7 +125,7 @@ const FloatingCartBadge: React.FC<FloatingCartBadgeProps> = ({
 
                           {/* Quantity Controls */}
                           <div className="flex items-center gap-2 mt-2">
-                            <button
+                            {/* <button
                               onClick={() => onUpdateQuantity(item.product_id, item.quantity - 1)}
                               className="w-7 h-7 rounded-lg bg-secondary-100 hover:bg-secondary-200 flex items-center justify-center transition-colors"
                               disabled={item.quantity <= 1}
@@ -141,7 +140,7 @@ const FloatingCartBadge: React.FC<FloatingCartBadgeProps> = ({
                               className="w-7 h-7 rounded-lg bg-primary-100 hover:bg-primary-200 flex items-center justify-center transition-colors text-primary-700"
                             >
                               <Plus size={14} />
-                            </button>
+                            </button> */}
                             <button
                               onClick={() => onRemoveItem(item.product_id)}
                               className="ml-auto w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors text-red-600"

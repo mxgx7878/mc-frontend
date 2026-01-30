@@ -240,7 +240,7 @@ const AdminOrderView: React.FC = () => {
         <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm min-h-[400px]">
           {activeTab === 'overview' && <OrderOverviewTab order={order} />}
           {activeTab === 'items' && (
-            <OrderItemsTab items={order.items} workflow={order.workflow} orderId={order.id} />
+            <OrderItemsTab items={order.items} workflow={order.workflow} orderId={order.id} paymentStatus={order.payment_status} />
           )}
           {activeTab === 'costing' && <OrderCostingTab order={order} />}
           {activeTab === 'map' && (

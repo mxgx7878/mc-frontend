@@ -1,8 +1,8 @@
 // FILE PATH: src/components/admin/Orders/OrderItemsTab.tsx
 
 /**
- * Order Items Tab Component - WITH PERMISSION-BASED VISIBILITY
- * Displays items with supplier assignment, quoted price, payment status
+ * Order Items Tab Component - WITH DELIVERY SCHEDULES
+ * Displays items with supplier assignment, quoted price, payment status, and split deliveries
  * HIDES cost columns based on user permissions
  * HIDES edit actions for read-only users (Accountant)
  */
@@ -22,7 +22,12 @@ import {
   Edit,
   Lock,
   Eye,
+  ChevronDown,
+  ChevronUp,
+  Truck,
+  Calendar,
 } from 'lucide-react';
+import { format } from 'date-fns';
 import type { AdminOrderItem, WorkflowStatus } from '../../../types/adminOrder.types';
 import { formatCurrency } from '../../../features/adminOrders/utils';
 import {
@@ -31,6 +36,7 @@ import {
   useMarkItemAsPaid,
 } from '../../../features/adminOrders/hooks';
 import AdminOrderItemEditModal from './AdminOrderItemEditModal';
+import AdminChangeSupplierModal from './AdminChangeSupplierModal';
 import { usePermissions } from '../../../hooks/usePermissions';
 import PermissionGate from '../../common/PermissionGate';
 
@@ -38,37 +44,93 @@ interface OrderItemsTabProps {
   items: AdminOrderItem[];
   workflow: WorkflowStatus;
   orderId: number;
+  paymentStatus: string;
 }
 
-const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId }) => {
+const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId, paymentStatus }) => {
   const [editingQuotedPrice, setEditingQuotedPrice] = useState<number | null>(null);
   const [quotedPriceValue, setQuotedPriceValue] = useState<string>('');
   const [editingItem, setEditingItem] = useState<AdminOrderItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
+
+  // Inside the component, add these state variables after existing useState declarations:
+const [changeSupplierItem, setChangeSupplierItem] = useState<AdminOrderItem | null>(null);
+const [isChangeSupplierModalOpen, setIsChangeSupplierModalOpen] = useState(false);
+
+
+// Add these handler functions after existing handlers:
+const handleOpenChangeSupplierModal = (item: AdminOrderItem) => {
+  if (isReadOnly) return;
+  setChangeSupplierItem(item);
+  setIsChangeSupplierModalOpen(true);
+};
+
+const handleCloseChangeSupplierModal = () => {
+  setChangeSupplierItem(null);
+  setIsChangeSupplierModalOpen(false);
+};
+
+// Add this helper function to check if supplier can be changed
+const canChangeSupplier = (item: AdminOrderItem, paymentStatus: string) => {
+  if (isReadOnly || !canAssignSupplier) return false;
+  if (paymentStatus !== 'Pending') return false;
+  if (!item.eligible_suppliers || item.eligible_suppliers.length <= 1) return false;
+  return true;
+};
 
   // Get permissions
   const {
     canViewCostPrice,
-
     canEnterQuotedRates,
     canEditOrders,
     canAssignSupplier,
-  
     isReadOnly,
-
   } = usePermissions();
 
   const assignSupplierMutation = useAssignSupplier();
   const setQuotedPriceMutation = useSetQuotedPrice();
   const markAsPaidMutation = useMarkItemAsPaid();
 
+  // Toggle delivery schedule expansion
+  const toggleItemExpansion = (itemId: number) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  // Date formatting helpers
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      return format(date, 'MMM dd, yyyy');
+    } catch {
+      return '-';
+    }
+  };
+
+  const formatTime = (timeString: string) => {
+    if (!timeString) return '-';
+    try {
+      return timeString.includes('T') 
+        ? format(new Date(timeString), 'hh:mm a')
+        : timeString;
+    } catch {
+      return timeString;
+    }
+  };
+
   // Check if admin can edit item pricing
   const canEditItemPricing = (item: AdminOrderItem) => {
-    // If user is read-only, they can't edit anything
     if (isReadOnly) return false;
-    // Check if user has edit permission
     if (!canEditOrders) return false;
-
     const hasSupplier = item.supplier_id || item.supplier;
     const allowedWorkflows: WorkflowStatus[] = ['Supplier Assigned', 'Payment Requested'];
     return hasSupplier && allowedWorkflows.includes(workflow);
@@ -136,6 +198,118 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
     });
   };
 
+  // Render Delivery Schedule Component
+  const renderDeliverySchedule = (item: AdminOrderItem) => {
+    const hasDeliveries = item.deliveries && item.deliveries.length > 0;
+    if (!hasDeliveries) return null;
+
+    const isExpanded = expandedItems.has(item.id);
+
+    return (
+      <div className="mt-4">
+        {/* Toggle Button */}
+        <button
+          onClick={() => toggleItemExpansion(item.id)}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors font-medium border-2 border-blue-200"
+        >
+          <Truck className="w-4 h-4" />
+          <span>
+            {isExpanded ? 'Hide' : 'Show'} Delivery Schedule 
+            ({item.deliveries?.length} {item.deliveries?.length === 1 ? 'delivery' : 'deliveries'})
+          </span>
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4" />
+          ) : (
+            <ChevronDown className="w-4 h-4" />
+          )}
+        </button>
+
+        {/* Expanded Delivery Details */}
+        {isExpanded && (
+          <div className="mt-3 bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+            <h5 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-blue-600" />
+              Delivery Schedule Breakdown
+            </h5>
+            <div className="space-y-3">
+              {item.deliveries?.map((delivery, deliveryIndex) => (
+                <div
+                  key={delivery.id}
+                  className="bg-white rounded-lg p-4 border-2 border-gray-200 hover:border-blue-300 transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded border border-blue-300">
+                          Delivery #{deliveryIndex + 1}
+                        </span>
+                        {item.supplier_confirms ? (
+                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-300 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            Confirmed
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full border border-yellow-300 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            Pending
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                        <div>
+                          <span className="text-xs text-gray-600 block mb-1">Quantity</span>
+                          <span className="text-sm font-bold text-gray-900">
+                            {delivery.quantity}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-gray-600 block mb-1">Delivery Date</span>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-gray-500" />
+                            <span className="text-sm font-bold text-gray-900">
+                              {formatDate(delivery.delivery_date)}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-xs text-gray-600 block mb-1">Delivery Time</span>
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-gray-500" />
+                            <span className="text-sm font-bold text-gray-900">
+                              {formatTime(delivery.delivery_time)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Delivery Summary */}
+            <div className="mt-4 pt-4 border-t-2 border-blue-200 bg-blue-100 rounded-lg p-3">
+              <div className="flex justify-between items-center text-sm">
+                <span className="font-medium text-gray-700">Total Deliveries:</span>
+                <span className="font-bold text-gray-900">{item.deliveries?.length || 0}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm mt-1">
+                <span className="font-medium text-gray-700">Total Quantity:</span>
+                <span className="font-bold text-gray-900">{item.quantity}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm mt-1">
+                <span className="font-medium text-gray-700">Confirmed Deliveries:</span>
+                <span className="font-bold text-green-700">
+                  {item.deliveries?.filter(d => d.supplier_confirms).length || 0} / {item.deliveries?.length || 0}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Render item for "Supplier Missing" workflow
   const renderSupplierMissingItem = (item: AdminOrderItem) => (
     <div
@@ -194,7 +368,6 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             {item.eligible_suppliers?.map((supplier) => (
               <option key={supplier.supplier_id} value={supplier.supplier_id}>
                 {supplier.name}
-                {/* Only show cost if user can view cost price */}
                 {canViewCostPrice && ` - ${formatCurrency(supplier.unit_cost as number)}`}
               </option>
             ))}
@@ -207,6 +380,9 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
           )}
         </div>
       </PermissionGate>
+
+      {/* Delivery Schedule */}
+      {renderDeliverySchedule(item)}
     </div>
   );
 
@@ -245,7 +421,6 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             </span>
           )}
           
-          {/* Read-Only Badge */}
           {isReadOnly && (
             <span className="px-3 py-1.5 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full border-2 border-yellow-300 flex items-center gap-1.5">
               <Eye size={14} />
@@ -253,7 +428,18 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             </span>
           )}
           
-          {/* Admin Edit Button - Only if can edit */}
+          {/* ADD THIS CHANGE SUPPLIER BUTTON */}
+          {canChangeSupplier(item, paymentStatus) && (
+            <button
+              onClick={() => handleOpenChangeSupplierModal(item)}
+              className="px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-blue-500 text-white text-xs font-bold rounded-full hover:from-indigo-600 hover:to-blue-600 transition-all shadow-md hover:shadow-lg flex items-center gap-1.5"
+              title="Change Supplier"
+            >
+              <User size={14} />
+              Change Supplier
+            </button>
+          )}
+          
           {canEditItemPricing(item) && !isReadOnly && (
             <button
               onClick={() => handleOpenEditModal(item)}
@@ -267,7 +453,7 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
         </div>
       </div>
 
-      {/* Pricing Details - Only show if user can view cost price */}
+      {/* Pricing Details */}
       <PermissionGate
         permission="pricing.view_cost_price"
         fallback={
@@ -307,7 +493,7 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
         </div>
       </PermissionGate>
 
-      {/* Quoted Price Section - Only if can enter quoted rates */}
+      {/* Quoted Price Section */}
       <PermissionGate permission="pricing.enter_quoted_rates">
         <div className="mt-4 bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
           <div className="flex items-center justify-between">
@@ -412,6 +598,9 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
           )}
         </div>
       </div>
+
+      {/* Delivery Schedule */}
+      {renderDeliverySchedule(item)}
     </div>
   );
 
@@ -443,7 +632,6 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             {workflow === 'Delivered' ? 'Delivered' : 'Ready'}
           </span>
           
-          {/* Read-Only Badge */}
           {isReadOnly && (
             <span className="px-3 py-1.5 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full border-2 border-yellow-300 flex items-center gap-1.5">
               <Eye size={14} />
@@ -451,7 +639,18 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             </span>
           )}
           
-          {/* Admin Edit Button - only for Payment Requested and if can edit */}
+          {/* ADD THIS CHANGE SUPPLIER BUTTON */}
+          {canChangeSupplier(item, paymentStatus) && (
+            <button
+              onClick={() => handleOpenChangeSupplierModal(item)}
+              className="px-3 py-1.5 bg-gradient-to-r from-indigo-500 to-blue-500 text-white text-xs font-bold rounded-full hover:from-indigo-600 hover:to-blue-600 transition-all shadow-md hover:shadow-lg flex items-center gap-1.5"
+              title="Change Supplier"
+            >
+              <User size={14} />
+              Change Supplier
+            </button>
+          )}
+          
           {workflow === 'Payment Requested' && canEditItemPricing(item) && !isReadOnly && (
             <button
               onClick={() => handleOpenEditModal(item)}
@@ -467,7 +666,7 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
 
       {/* Full Pricing Breakdown */}
       <div className="space-y-4">
-        {/* Supplier Costs - Only show if can view cost price */}
+        {/* Supplier Costs */}
         <PermissionGate
           permission="pricing.view_cost_price"
           fallback={
@@ -554,6 +753,9 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
           </div>
         </div>
       </div>
+
+      {/* Delivery Schedule */}
+      {renderDeliverySchedule(item)}
     </div>
   );
 
@@ -569,7 +771,6 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Permission Indicators */}
             {!canViewCostPrice && (
               <span className="px-3 py-1.5 bg-white/20 rounded-lg text-sm font-medium flex items-center gap-2">
                 <Lock size={14} />
@@ -602,9 +803,11 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
             return renderSupplierAssignedItem(item);
           }
         })}
+
+        
       </div>
 
-      {/* Admin Edit Modal - Only render if not read-only */}
+      {/* Admin Edit Modal */}
       {!isReadOnly && (
         <AdminOrderItemEditModal
           item={editingItem}
@@ -615,6 +818,16 @@ const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId 
           }}
         />
       )}
+
+      {/* ADD THIS CHANGE SUPPLIER MODAL */}
+    {!isReadOnly && (
+      <AdminChangeSupplierModal
+        item={changeSupplierItem}
+        orderId={orderId}
+        isOpen={isChangeSupplierModalOpen}
+        onClose={handleCloseChangeSupplierModal}
+      />
+    )}
     </div>
   );
 };

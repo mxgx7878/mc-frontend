@@ -49,10 +49,9 @@ import ProductManagement from '../pages/supplier/ProductManagement';
 import SupplierOrders from '../pages/supplier/SupplierOrders';
 import SupplierOrderDetail from '../pages/supplier/SupplierOrderDetail';
 
-import MyOffers from '../pages/supplier/MyOffers';
-
 // Shared
 import ProfileSettings from '../pages/shared/ProfileSettings';
+import MyProducts from '../pages/supplier/MyProducts';
 const basePath = import.meta.env.VITE_BASE_PATH || '/';
 
 const AppRouter = () => {
@@ -189,10 +188,10 @@ const AppRouter = () => {
           }
         />
         <Route
-          path="/supplier/my-offers"
+          path="/supplier/my-products"
           element={
             <ProtectedRoute allowedRoles={['supplier']}>
-              <MyOffers />
+              <MyProducts />
             </ProtectedRoute>
           }
         />

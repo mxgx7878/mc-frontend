@@ -1,5 +1,5 @@
 // src/pages/client/ClientOrderView.tsx
-// Updated with Cancel Order functionality
+// Updated with split delivery schedules display
 
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -19,6 +19,10 @@ import {
   ClipboardList,
   AlertCircle,
   XCircle,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  CheckCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -43,6 +47,7 @@ const ClientOrderView = () => {
   
   const [repeatOrderModalOpen, setRepeatOrderModalOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
@@ -61,6 +66,19 @@ const ClientOrderView = () => {
       return timeString ? `${date} at ${timeString}` : date;
     } catch {
       return '-';
+    }
+  };
+
+  const formatTime = (timeString: string) => {
+    if (!timeString) return '-';
+    try {
+      // Handle both full datetime and time-only strings
+      const time = timeString.includes('T') 
+        ? format(new Date(timeString), 'hh:mm a')
+        : timeString;
+      return time;
+    } catch {
+      return timeString;
     }
   };
 
@@ -94,6 +112,18 @@ const ClientOrderView = () => {
     return colors[paymentStatus] || 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
+  const toggleItemExpansion = (itemId: number) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
   const handleRefresh = () => {
     refetch();
     toast.success('Order refreshed');
@@ -105,38 +135,22 @@ const ClientOrderView = () => {
     }
   };
 
-  // const handleRepeatOrderSubmit = async (items: any[]) => {
-  //   if (!orderId) return;
-
-  //   try {
-  //     await repeatOrderMutation.mutateAsync({
-  //       orderId: Number(orderId),
-  //       payload: { items },
-  //     });
-  //     toast.success('Order repeated successfully!');
-  //     setRepeatOrderModalOpen(false);
-  //     navigate('/client/orders');
-  //   } catch (error: any) {
-  //     toast.error(error.message || 'Failed to repeat order');
-  //   }
-  // };
   const handleRepeatOrderSubmit = async (payload: { delivery_date: string; items: any[] }) => {
-  if (!orderId) return;
+    if (!orderId) return;
 
-  try {
-    await repeatOrderMutation.mutateAsync({
-      orderId: Number(orderId),
-      payload: payload, // Pass the complete payload with delivery_date and items
-    });
-    toast.success('Order repeated successfully!');
-    setRepeatOrderModalOpen(false);
-    navigate('/client/orders');
-  } catch (error: any) {
-    toast.error(error.message || 'Failed to repeat order');
-  }
-};
+    try {
+      await repeatOrderMutation.mutateAsync({
+        orderId: Number(orderId),
+        payload: payload,
+      });
+      toast.success('Order repeated successfully!');
+      setRepeatOrderModalOpen(false);
+      navigate('/client/orders');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to repeat order');
+    }
+  };
 
-  // Cancel order handlers
   const handleCancelClick = () => {
     setCancelModalOpen(true);
   };
@@ -147,7 +161,6 @@ const ClientOrderView = () => {
     try {
       await cancelOrderMutation.mutateAsync(Number(orderId));
       setCancelModalOpen(false);
-      // Stay on page - data will refresh automatically via query invalidation
     } catch (error) {
       // Error is handled by the mutation
     }
@@ -198,6 +211,7 @@ const ClientOrderView = () => {
 
   const { order, items } = data.data;
   const showPayment = order.workflow === 'Payment Requested';
+  // console.log(showPayment, order.workflow);
   const showCancelButton = canCancelOrder(order.order_status);
 
   return (
@@ -246,7 +260,6 @@ const ClientOrderView = () => {
               Refresh
             </button>
             
-            {/* Cancel Order Button - Only shown for cancellable statuses */}
             {showCancelButton && (
               <button
                 onClick={handleCancelClick}
@@ -374,7 +387,7 @@ const ClientOrderView = () => {
               </div>
             </div>
             <div>
-              <span className="text-sm text-gray-600 block mb-2">Delivery Date & Time</span>
+              <span className="text-sm text-gray-600 block mb-2">Primary Delivery Date & Time</span>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-blue-600" />
                 <span className="text-sm font-semibold text-gray-900">
@@ -405,9 +418,17 @@ const ClientOrderView = () => {
               <p className="text-sm text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">{order.reason}</p>
             </div>
           )}
+          {(order.contact_person_name && order.contact_person_number) && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <span className="text-sm text-gray-600 block mb-2">Contact Person</span>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">
+                {order.contact_person_name} - {order.contact_person_number}
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Order Items */}
+        {/* Order Items with Delivery Schedules */}
         <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Package className="w-5 h-5 text-blue-600" />
@@ -420,80 +441,195 @@ const ClientOrderView = () => {
                   ? parseFloat(item.quoted_price) || 0
                   : parseFloat(item.supplier_unit_cost || 0) || 0;
 
-                const itemTotal = displayPrice * (parseInt(item.quantity || 0) || 0);
+                const itemTotal = displayPrice * (parseFloat(item.quantity || 0) || 0);
+                const isExpanded = expandedItems.has(item.id);
+                const hasDeliveries = item.deliveries && item.deliveries.length > 0;
 
                 return (
                   <div
                     key={index}
-                    className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors bg-gray-50"
+                    className="border-2 border-gray-200 rounded-lg overflow-hidden hover:border-blue-300 transition-colors"
                   >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className="font-bold text-gray-900 mb-2">
-                          {item.product?.product_name || 'Product'}
-                        </h3>
-                        {item.product?.specifications && (
-                          <p className="text-xs text-gray-600 mb-2">{item.product.specifications}</p>
-                        )}
-                        {item.supplier && (
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            {item.supplier_confirms === 1 && (
-                              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border-2 border-green-300">
-                                ✓ Confirmed
+                    {/* Item Header */}
+                    <div className="bg-gray-50 p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-gray-900 mb-2">
+                            {item.product?.product_name || 'Product'}
+                          </h3>
+                          {item.product?.specifications && (
+                            <p className="text-xs text-gray-600 mb-2">{item.product.specifications}</p>
+                          )}
+                          {item.supplier && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <span className="font-medium text-gray-700">
+                                Supplier: {item.supplier.company_name}
+                              </span>
+                              {item.supplier_confirms === 1 && (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border-2 border-green-300 flex items-center gap-1">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Confirmed
+                                </span>
+                              )}
+                              {item.supplier_confirms === 0 && (
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full border-2 border-yellow-300 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  Pending
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {!item.supplier && (
+                            <div className="flex items-center gap-2 text-sm text-red-600">
+                              <AlertCircle className="w-4 h-4" />
+                              <span className="font-medium">Awaiting for confirmation</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right bg-white rounded-lg p-3 border-2 border-gray-200">
+                          <div className="text-xs text-gray-600 mb-1">Total Quantity</div>
+                          <div className="text-xl font-bold text-gray-900">{item.quantity}</div>
+                          <div className="text-xs text-gray-500 mt-1">{item.product?.unit_of_measure || 'units'}</div>
+                        </div>
+                      </div>
+
+                      {/* Pricing Summary */}
+                      <div className="border-t border-gray-300 pt-3 space-y-2 bg-white rounded-lg p-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600 font-medium">
+                            {item.is_quoted === 1 ? 'Quoted Price:' : 'Unit Price:'}
+                          </span>
+                          <span className="font-bold text-gray-900">
+                            {formatCurrency(displayPrice)}
+                            {item.is_quoted === 1 && (
+                              <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded border-2 border-blue-300">
+                                Custom Quote
                               </span>
                             )}
-                            {item.supplier_confirms === 0 && (
-                              <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full border-2 border-yellow-300">
-                                ⏱ Pending Confirmation
-                              </span>
-                            )}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-base font-bold border-t pt-2">
+                          <span className="text-gray-700">Item Total:</span>
+                          <span className="text-blue-600">{formatCurrency(itemTotal)}</span>
+                        </div>
+                        {item.supplier_discount && parseFloat(item.supplier_discount) > 0 && (
+                          <div className="flex justify-between text-sm text-green-600 font-semibold">
+                            <span>Discount Applied:</span>
+                            <span>-{formatCurrency(item.supplier_discount)}</span>
                           </div>
                         )}
-                        {!item.supplier && (
-                          <div className="flex items-center gap-2 text-sm text-red-600">
-                            <AlertCircle className="w-4 h-4" />
-                            <span className="font-medium">Awaiting for confirmation</span>
+                        {item.delivery_type && (
+                          <div className="flex justify-between text-sm text-gray-600">
+                            <span>Delivery Type:</span>
+                            <span className="font-semibold">{item.delivery_type}</span>
                           </div>
                         )}
                       </div>
-                      <div className="text-right bg-white rounded-lg p-3 border-2 border-gray-200">
-                        <div className="text-xs text-gray-600 mb-1">Quantity</div>
-                        <div className="text-xl font-bold text-gray-900">{item.quantity}</div>
-                        <div className="text-xs text-gray-500 mt-1">{item.product?.unit_of_measure || 'units'}</div>
-                      </div>
+
+                      {/* Delivery Schedule Toggle Button */}
+                      {hasDeliveries && (
+                        <button
+                          onClick={() => toggleItemExpansion(item.id)}
+                          className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors font-medium border border-blue-200"
+                        >
+                          <Truck className="w-4 h-4" />
+                          <span>
+                            {isExpanded ? 'Hide' : 'Show'} Delivery Schedule 
+                            ({item.deliveries.length} {item.deliveries.length === 1 ? 'delivery' : 'deliveries'})
+                          </span>
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
                     </div>
 
-                    <div className="border-t border-gray-300 pt-3 space-y-2 bg-white rounded-lg p-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600 font-medium">
-                          {item.is_quoted === 1 ? 'Quoted Price:' : 'Unit Price:'}
-                        </span>
-                        <span className="font-bold text-gray-900">
-                          {formatCurrency(displayPrice)}
-                          {item.is_quoted === 1 && (
-                            <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded border-2 border-blue-300">
-                              Custom Quote
+                    {/* Delivery Schedule Details - Expandable */}
+                    {hasDeliveries && isExpanded && (
+                      <div className="bg-blue-50 border-t-2 border-blue-200 p-4">
+                        <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-blue-600" />
+                          Delivery Schedule Breakdown
+                        </h4>
+                        <div className="space-y-3">
+                          {item.deliveries.map((delivery: any, deliveryIndex: number) => (
+                            <div
+                              key={delivery.id}
+                              className="bg-white rounded-lg p-4 border-2 border-gray-200 hover:border-blue-300 transition-colors"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded border border-blue-300">
+                                      Delivery #{deliveryIndex + 1}
+                                    </span>
+                                    {delivery.supplier_confirms ? (
+                                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-300 flex items-center gap-1">
+                                        <CheckCircle className="w-3 h-3" />
+                                        Confirmed by Supplier
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full border border-yellow-300 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        Awaiting Confirmation
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                                    <div>
+                                      <span className="text-xs text-gray-600 block mb-1">Quantity</span>
+                                      <span className="text-sm font-bold text-gray-900">
+                                        {delivery.quantity} {item.product?.unit_of_measure || 'units'}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-600 block mb-1">Delivery Date</span>
+                                      <div className="flex items-center gap-1">
+                                        <Calendar className="w-3 h-3 text-gray-500" />
+                                        <span className="text-sm font-bold text-gray-900">
+                                          {formatDate(delivery.delivery_date)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-600 block mb-1">Delivery Time</span>
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3 text-gray-500" />
+                                        <span className="text-sm font-bold text-gray-900">
+                                          {formatTime(delivery.delivery_time)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* Delivery Summary */}
+                        <div className="mt-4 pt-4 border-t border-blue-200 bg-blue-100 rounded-lg p-3">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="font-medium text-gray-700">Total Deliveries:</span>
+                            <span className="font-bold text-gray-900">{item.deliveries.length}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm mt-1">
+                            <span className="font-medium text-gray-700">Total Quantity:</span>
+                            <span className="font-bold text-gray-900">
+                              {item.quantity} {item.product?.unit_of_measure || 'units'}
                             </span>
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-base font-bold border-t pt-2">
-                        <span className="text-gray-700">Item Total:</span>
-                        <span className="text-blue-600">{formatCurrency(itemTotal)}</span>
-                      </div>
-                      {item.supplier_discount && parseFloat(item.supplier_discount) > 0 && (
-                        <div className="flex justify-between text-sm text-green-600 font-semibold">
-                          <span>Discount Applied:</span>
-                          <span>-{formatCurrency(item.supplier_discount)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm mt-1">
+                            <span className="font-medium text-gray-700">Confirmed Deliveries:</span>
+                            <span className="font-bold text-green-700">
+                              {item.deliveries.filter((d: any) => d.supplier_confirms).length} / {item.deliveries.length}
+                            </span>
+                          </div>
                         </div>
-                      )}
-                      {item.delivery_type && (
-                        <div className="flex justify-between text-sm text-gray-600">
-                          <span>Delivery Type:</span>
-                          <span className="font-semibold">{item.delivery_type}</span>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -555,7 +691,7 @@ const ClientOrderView = () => {
           </div>
         )}
 
-        {/* Repeat Order Modal */}
+        {/* Modals */}
         <RepeatOrderModal
           isOpen={repeatOrderModalOpen}
           onClose={() => setRepeatOrderModalOpen(false)}
@@ -564,7 +700,6 @@ const ClientOrderView = () => {
           isSubmitting={repeatOrderMutation.isPending}
         />
 
-        {/* Cancel Order Confirmation Modal */}
         <ConfirmationModal
           isOpen={cancelModalOpen}
           onClose={handleCancelModalClose}

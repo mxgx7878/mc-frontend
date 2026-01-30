@@ -33,10 +33,23 @@ export interface EligibleSupplier {
   name: string;
   offer_id: number;
   distance: number | null;
+  selected: boolean | null;
   unit_cost: number | null;
 }
 
 // ==================== ORDER ITEM (UPDATED) ====================
+export interface ItemDelivery {
+  id: number;
+  order_id: number;
+  order_item_id: number;
+  supplier_id: number;
+  quantity: string | number;
+  delivery_date: string;
+  delivery_time: string;
+  supplier_confirms: boolean;
+  created_at: string;
+  updated_at: string;
+}
 export interface AdminOrderItem {
   id: number;
   product_id: number;
@@ -55,7 +68,7 @@ export interface AdminOrderItem {
   
   // Supplier Costs
   supplier_unit_cost?: number | null;
-  supplier_delivery_cost?: number | null;  // NEW
+  supplier_delivery_cost?: number | null;
   supplier_discount?: number | null;
   delivery_cost?: number | null;
   delivery_type?: string | null;
@@ -65,14 +78,17 @@ export interface AdminOrderItem {
   // Status Fields
   supplier_confirms?: number; // 0 or 1
   is_quoted: number; // 0 or 1
-  is_paid: number; // 0 or 1 - NEW usage
-  supplier_status?: string; // 'Paid' | 'Unpaid' - NEW
+  is_paid: number; // 0 or 1
+  supplier_status?: string; // 'Paid' | 'Unpaid'
   
   // Quoted Price
   quoted_price?: number | null;
   
   // Eligible Suppliers (for assignment)
   eligible_suppliers?: EligibleSupplier[];
+  
+  // ✨ NEW: Delivery Schedules
+  deliveries?: ItemDelivery[];
 }
 
 // ==================== ORDER DETAIL (UPDATED) ====================
@@ -88,6 +104,14 @@ export interface AdminOrderDetail {
   delivery_time: string;
   workflow: WorkflowStatus;
   payment_status: PaymentStatus;
+  order_process?: string;
+  contact_person_name?: string | null;
+  contact_person_number?: string | null;
+  repeat_order: boolean;
+  order_info?: string | null;
+  created_at: string;
+  updated_at: string;
+  load_size?: string;
   
   // NEW: Supplier Costs Breakdown
   supplier_item_cost: number;

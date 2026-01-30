@@ -15,7 +15,6 @@ import {
   Package, 
   MapPin, 
   Calendar, 
-  Clock, 
   Truck, 
   FileText, 
   Building2,
@@ -226,7 +225,7 @@ const Step3_ReviewOrder: React.FC<Step3Props> = ({
                   </div>
                 </div>
 
-                {orderDetails.delivery_time && (
+                {/* {orderDetails.delivery_time && (
                   <div className="flex items-start gap-3">
                     <Clock className="text-secondary-500 flex-shrink-0 mt-0.5" size={18} />
                     <div>
@@ -234,7 +233,7 @@ const Step3_ReviewOrder: React.FC<Step3Props> = ({
                       <p className="text-base font-semibold text-secondary-900">{orderDetails.delivery_time}</p>
                     </div>
                   </div>
-                )}
+                )} */}
               </div>
 
               {/* Delivery Method
@@ -260,7 +259,7 @@ const Step3_ReviewOrder: React.FC<Step3Props> = ({
               )}
 
               {/* Special Equipment */}
-              {orderDetails.special_equipment && (
+              {/* {orderDetails.special_equipment && (
                 <div className="flex items-start gap-3">
                   <FileText className="text-secondary-500 flex-shrink-0 mt-0.5" size={18} />
                   <div>
@@ -268,15 +267,15 @@ const Step3_ReviewOrder: React.FC<Step3Props> = ({
                     <p className="text-base text-secondary-900">{orderDetails.special_equipment}</p>
                   </div>
                 </div>
-              )}
+              )} */}
 
               {/* Special Notes */}
-              {orderDetails.special_notes && (
+              {/* {orderDetails.special_notes && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <p className="text-sm font-semibold text-amber-900 mb-1">Special Instructions:</p>
                   <p className="text-sm text-amber-800">{orderDetails.special_notes}</p>
                 </div>
-              )}
+              )} */}
 
               {/* Repeat Order Flag */}
               {orderDetails.repeat_order && (

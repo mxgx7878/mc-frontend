@@ -1,18 +1,16 @@
 // FILE PATH: src/components/order/MapPinModal.tsx
 
 /**
- * MapPinModal Component - UPDATED VERSION
+ * MapPinModal Component - FIXED VERSION
  * 
  * Fixed Issues:
- * - Improved LoadScript configuration
- * - Better error handling for map loading
- * - Added loading state display
- * - Fixed map container height
+ * - Removed LoadScript wrapper (API already loaded globally)
+ * - Google Maps API now loads without conflicts
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, MapPin, Loader2, Navigation, Search, CheckCircle, AlertCircle } from 'lucide-react';
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import { GoogleMap, Marker } from '@react-google-maps/api';
 
 interface MapPinModalProps {
   isOpen: boolean;
@@ -29,14 +27,11 @@ const DEFAULT_CENTER = {
   lng: 151.2093,
 };
 
-// Map container style - FIXED: Added explicit height
+// Map container style
 const mapContainerStyle = {
   width: '100%',
-  height: '500px', // Explicit height instead of 100%
+  height: '500px',
 };
-
-// Map libraries to load
-const libraries: ("places" | "geometry")[] = ['places'];
 
 const MapPinModal: React.FC<MapPinModalProps> = ({
   isOpen,
@@ -56,7 +51,7 @@ const MapPinModal: React.FC<MapPinModalProps> = ({
   const [geocodingError, setGeocodingError] = useState('');
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [searchValue, setSearchValue] = useState('');
-  const [mapLoadError, setMapLoadError] = useState('');
+  const [isMapReady, setIsMapReady] = useState(false);
 
   // Refs
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -75,7 +70,7 @@ const MapPinModal: React.FC<MapPinModalProps> = ({
       if (!window.google || !window.google.maps) {
         throw new Error('Google Maps not loaded');
       }
-
+  
       const geocoder = new google.maps.Geocoder();
       const response = await geocoder.geocode({
         location: { lat, lng },
@@ -191,6 +186,7 @@ const MapPinModal: React.FC<MapPinModalProps> = ({
    */
   const onMapLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
+    setIsMapReady(true);
 
     // Initialize autocomplete if search input exists
     if (searchInputRef.current && !autocompleteRef.current && window.google) {
@@ -226,8 +222,22 @@ const MapPinModal: React.FC<MapPinModalProps> = ({
     }
   }, [isOpen, initialLat, initialLng, address, reverseGeocode]);
 
+  /**
+   * Reset state when modal closes
+   */
+  useEffect(() => {
+    if (!isOpen) {
+      setIsMapReady(false);
+      setGeocodingError('');
+      setSearchValue('');
+    }
+  }, [isOpen]);
+
   // Don't render if modal is closed
   if (!isOpen) return null;
+
+  // Check if Google Maps is available
+  const isGoogleMapsLoaded = typeof window !== 'undefined' && window.google && window.google.maps;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -275,7 +285,7 @@ const MapPinModal: React.FC<MapPinModalProps> = ({
               </div>
               <button
                 onClick={handleGetCurrentLocation}
-                disabled={isLoadingLocation}
+                disabled={isLoadingLocation || !isMapReady}
                 className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
                 title="Use my current location"
               >
@@ -291,45 +301,36 @@ const MapPinModal: React.FC<MapPinModalProps> = ({
 
           {/* Map Container */}
           <div className="relative" style={{ height: '500px' }}>
-            <LoadScript
-              googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
-              libraries={libraries}
-              onError={(error) => {
-                console.error('Error loading Google Maps:', error);
-                setMapLoadError('Failed to load Google Maps. Please check your API key.');
-              }}
-            >
-              {mapLoadError ? (
-                <div className="flex items-center justify-center h-full bg-gray-100">
-                  <div className="text-center p-6">
-                    <AlertCircle size={48} className="mx-auto mb-4 text-red-500" />
-                    <p className="text-red-600 font-medium">{mapLoadError}</p>
-                    <p className="text-sm text-gray-600 mt-2">Please refresh the page and try again.</p>
-                  </div>
+            {!isGoogleMapsLoaded ? (
+              <div className="flex items-center justify-center h-full bg-gray-100">
+                <div className="text-center p-6">
+                  <Loader2 size={48} className="mx-auto mb-4 text-primary-600 animate-spin" />
+                  <p className="text-gray-700 font-medium">Loading Google Maps...</p>
+                  <p className="text-sm text-gray-600 mt-2">Please wait a moment</p>
                 </div>
-              ) : (
-                <GoogleMap
-                  mapContainerStyle={mapContainerStyle}
-                  center={markerPosition}
-                  zoom={15}
-                  onClick={handleMapClick}
-                  onLoad={onMapLoad}
-                  options={{
-                    streetViewControl: false,
-                    mapTypeControl: true,
-                    fullscreenControl: false,
-                    zoomControl: true,
-                  }}
-                >
-                  <Marker
-                    position={markerPosition}
-                    draggable={true}
-                    onDragEnd={handleMarkerDragEnd}
-                    animation={google.maps.Animation.DROP}
-                  />
-                </GoogleMap>
-              )}
-            </LoadScript>
+              </div>
+            ) : (
+              <GoogleMap
+                mapContainerStyle={mapContainerStyle}
+                center={markerPosition}
+                zoom={15}
+                onClick={handleMapClick}
+                onLoad={onMapLoad}
+                options={{
+                  streetViewControl: false,
+                  mapTypeControl: true,
+                  fullscreenControl: false,
+                  zoomControl: true,
+                }}
+              >
+                <Marker
+                  position={markerPosition}
+                  draggable={true}
+                  onDragEnd={handleMarkerDragEnd}
+                  animation={window.google?.maps?.Animation?.DROP}
+                />
+              </GoogleMap>
+            )}
 
             {/* Geocoding Loader Overlay */}
             {isGeocoding && (

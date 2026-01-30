@@ -5,7 +5,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   MapPin,
   Calendar,
-  Clock,
   FileText,
   Building2,
   Plus,
@@ -494,7 +493,7 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                 </div>
 
                 {/* Delivery Time */}
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
                     Delivery Time *
                   </label>
@@ -509,7 +508,7 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                   {errors.delivery_time && (
                     <p className="mt-2 text-sm text-red-600">{errors.delivery_time.message}</p>
                   )}
-                </div>
+                </div> */}
               </div>
 
               {/* Load Size */}
@@ -521,12 +520,12 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
               />
 
               {/* Special Equipment */}
-              <Input
+              {/* <Input
                 label="Special Equipment (Optional)"
                 placeholder="Any special equipment required"
                 {...register('special_equipment')}
                 error={errors.special_equipment?.message}
-              />
+              /> */}
 
               {/* Special Notes */}
               <div>
@@ -534,14 +533,14 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                   Special Notes (Optional)
                 </label>
                 <textarea
-                  {...register('special_notes')}
+                  // {...register('special_notes')}
                   rows={3}
                   className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   placeholder="Any special instructions or notes..."
                 />
-                {errors.special_notes && (
+                {/* {errors.special_notes && (
                   <p className="mt-2 text-sm text-red-600">{errors.special_notes.message}</p>
-                )}
+                )} */}
               </div>
             </div>
           </div>

@@ -1,122 +1,155 @@
-// src/components/order/OrderWizard.tsx
-import React from 'react';
-import { ShoppingCart, MapPin, CheckCircle } from 'lucide-react';
+// FILE PATH: src/components/order/OrderWizard.tsx
 
+/**
+ * ORDER WIZARD - PROGRESS INDICATOR
+ * 
+ * UPDATED TO SUPPORT 4 STEPS:
+ * 1. Products
+ * 2. Delivery Details
+ * 3. Schedule (NEW)
+ * 4. Review
+ * 
+ * FEATURES:
+ * - Visual progress bar
+ * - Step numbers with icons
+ * - Click to navigate (only to completed steps)
+ * - Responsive design
+ */
+
+import React from 'react';
+import { Check, ShoppingCart, MapPin, Calendar, FileCheck } from 'lucide-react';
+
+interface Step {
+  number: number;
+  title: string;
+}
 
 interface OrderWizardProps {
   currentStep: number;
   onStepChange: (step: number) => void;
+  steps?: Step[];
   children: React.ReactNode;
 }
 
-const steps = [
-  { number: 1, title: 'Products', icon: ShoppingCart, description: 'Select items' },
-  { number: 2, title: 'Details', icon: MapPin, description: 'Project & delivery' },
-  { number: 3, title: 'Review', icon: CheckCircle, description: 'Confirm order' },
-];
+const OrderWizard: React.FC<OrderWizardProps> = ({
+  currentStep,
+  onStepChange,
+  steps,
+  children,
+}) => {
+  /**
+   * Default steps configuration
+   * 
+   * WHY: Allow parent component to customize steps if needed
+   * WHAT: Default 4-step configuration for order creation
+   */
+  const defaultSteps: Step[] = [
+    { number: 1, title: 'Products' },
+    { number: 2, title: 'Delivery' },
+    { number: 3, title: 'Schedule' },
+    { number: 4, title: 'Review' },
+  ];
 
-const OrderWizard: React.FC<OrderWizardProps> = ({ currentStep, onStepChange, children }) => {
+  const wizardSteps = steps || defaultSteps;
+
+  /**
+   * Get icon for each step
+   * 
+   * WHY: Visual representation of step purpose
+   * WHAT: Map step number to icon component
+   */
+  const getStepIcon = (stepNumber: number) => {
+    const iconProps = { size: 20 };
+    const icons: Record<number, React.ReactNode> = {
+      1: <ShoppingCart {...iconProps} />,
+      2: <MapPin {...iconProps} />,
+      3: <Calendar {...iconProps} />,
+      4: <FileCheck {...iconProps} />,
+    };
+    return icons[stepNumber] || <Check {...iconProps} />;
+  };
+
+  /**
+   * Handle step click
+   * 
+   * WHAT: Allow navigation to previous steps only
+   * WHY: Users should be able to go back and edit, but not skip ahead
+   */
+  const handleStepClick = (stepNumber: number) => {
+    if (stepNumber < currentStep) {
+      onStepChange(stepNumber);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Progress Steps - Mobile & Desktop */}
+    <div className="space-y-8">
+      {/* Wizard Steps */}
       <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
-        {/* Desktop: Horizontal Steps */}
-        <div className="hidden md:flex items-center justify-between">
-          {steps.map((step, index) => {
-            const isActive = currentStep === step.number;
-            const isCompleted = currentStep > step.number;
-            const Icon = step.icon;
+        <div className="relative">
+          {/* Progress Bar Background */}
+          <div className="absolute top-6 left-0 right-0 h-1 bg-secondary-200" />
 
-            return (
-              <React.Fragment key={step.number}>
-                {/* Step Circle */}
-                <div className="flex flex-col items-center flex-1">
+          {/* Active Progress Bar */}
+          <div
+            className="absolute top-6 left-0 h-1 bg-primary-600 transition-all duration-500"
+            style={{
+              width: `${((currentStep - 1) / (wizardSteps.length - 1)) * 100}%`,
+            }}
+          />
+
+          {/* Steps */}
+          <div className="relative flex justify-between">
+            {wizardSteps.map((step) => {
+              const isCompleted = step.number < currentStep;
+              const isActive = step.number === currentStep;
+              const isClickable = step.number < currentStep;
+
+              return (
+                <div key={step.number} className="flex flex-col items-center">
+                  {/* Step Circle */}
                   <button
-                    onClick={() => {
-                      // Only allow going back to previous steps
-                      if (step.number < currentStep) {
-                        onStepChange(step.number);
-                      }
-                    }}
-                    disabled={step.number > currentStep}
+                    onClick={() => handleStepClick(step.number)}
+                    disabled={!isClickable}
                     className={`
-                      flex items-center justify-center w-14 h-14 rounded-full border-2 transition-all
-                      ${isActive 
-                        ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-200' 
-                        : isCompleted 
-                        ? 'bg-green-500 border-green-500 text-white' 
-                        : 'bg-white border-secondary-300 text-secondary-400'
+                      relative z-10 w-12 h-12 rounded-full flex items-center justify-center
+                      transition-all duration-300 
+                      ${
+                        isCompleted
+                          ? 'bg-green-500 text-white cursor-pointer hover:bg-green-600'
+                          : isActive
+                          ? 'bg-primary-600 text-white shadow-lg'
+                          : 'bg-white border-2 border-secondary-300 text-secondary-400'
                       }
-                      ${step.number < currentStep ? 'cursor-pointer hover:scale-110' : 'cursor-not-allowed'}
+                      ${isClickable ? 'cursor-pointer' : 'cursor-default'}
                     `}
                   >
-                    <Icon size={24} />
+                    {isCompleted ? <Check size={24} /> : getStepIcon(step.number)}
                   </button>
+
+                  {/* Step Label */}
                   <div className="mt-3 text-center">
-                    <p className={`text-sm font-semibold ${isActive ? 'text-primary-600' : 'text-secondary-600'}`}>
+                    <p
+                      className={`text-sm font-semibold ${
+                        isActive
+                          ? 'text-primary-700'
+                          : isCompleted
+                          ? 'text-green-600'
+                          : 'text-secondary-500'
+                      }`}
+                    >
                       {step.title}
                     </p>
-                    <p className="text-xs text-secondary-500">{step.description}</p>
+                    <p className="text-xs text-secondary-400 mt-1">Step {step.number}</p>
                   </div>
                 </div>
-
-                {/* Connector Line */}
-                {index < steps.length - 1 && (
-                  <div className={`h-0.5 flex-1 mx-4 transition-all ${
-                    currentStep > step.number ? 'bg-green-500' : 'bg-secondary-200'
-                  }`} />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
-
-        {/* Mobile: Vertical Steps */}
-        <div className="md:hidden space-y-4">
-          {steps.map((step) => {
-            const isActive = currentStep === step.number;
-            const isCompleted = currentStep > step.number;
-            const Icon = step.icon;
-
-            return (
-              <div
-                key={step.number}
-                className={`flex items-center gap-4 p-3 rounded-lg transition-all ${
-                  isActive ? 'bg-primary-50 border-2 border-primary-300' : 'bg-secondary-50'
-                }`}
-              >
-                <div
-                  className={`
-                    flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all
-                    ${isActive 
-                      ? 'bg-primary-600 border-primary-600 text-white' 
-                      : isCompleted 
-                      ? 'bg-green-500 border-green-500 text-white' 
-                      : 'bg-white border-secondary-300 text-secondary-400'
-                    }
-                  `}
-                >
-                  <Icon size={20} />
-                </div>
-                <div className="flex-1">
-                  <p className={`font-semibold ${isActive ? 'text-primary-600' : 'text-secondary-900'}`}>
-                    Step {step.number}: {step.title}
-                  </p>
-                  <p className="text-xs text-secondary-600">{step.description}</p>
-                </div>
-                {isCompleted && (
-                  <CheckCircle className="text-green-500" size={20} />
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* Step Content */}
-      <div className="animate-fadeIn">
-        {children}
-      </div>
+      <div>{children}</div>
     </div>
   );
 };

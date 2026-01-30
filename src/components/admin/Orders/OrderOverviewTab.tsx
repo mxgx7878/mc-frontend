@@ -2,7 +2,7 @@
 
 /**
  * Order Overview Tab Component
- * Displays basic order information
+ * Displays basic order information including contact person details
  */
 
 import React from 'react';
@@ -15,6 +15,8 @@ import {
   Briefcase,
   Clock,
   Package,
+  Phone,
+  UserCircle,
 } from 'lucide-react';
 import type { AdminOrderDetail } from '../../../types/adminOrder.types';
 import { formatDate } from '../../../features/adminOrders/utils';
@@ -63,6 +65,12 @@ const OrderOverviewTab: React.FC<OrderOverviewTabProps> = ({ order }) => {
     },
     {
       icon: Package,
+      label: 'Load Size',
+      value: order.load_size || 'Not specified',
+      color: 'teal',
+    },
+    {
+      icon: Package,
       label: 'Total Items',
       value: `${order.items.length} item${order.items.length !== 1 ? 's' : ''}`,
       color: 'indigo',
@@ -84,6 +92,7 @@ const OrderOverviewTab: React.FC<OrderOverviewTabProps> = ({ order }) => {
     yellow: { bg: 'bg-yellow-50', icon: 'text-yellow-600', border: 'border-yellow-200' },
     indigo: { bg: 'bg-indigo-50', icon: 'text-indigo-600', border: 'border-indigo-200' },
     cyan: { bg: 'bg-cyan-50', icon: 'text-cyan-600', border: 'border-cyan-200' },
+    teal: { bg: 'bg-teal-50', icon: 'text-teal-600', border: 'border-teal-200' },
   };
 
   return (
@@ -111,6 +120,45 @@ const OrderOverviewTab: React.FC<OrderOverviewTabProps> = ({ order }) => {
           );
         })}
       </div>
+
+      {/* Contact Person Information */}
+      {(order.contact_person_name || order.contact_person_number) && (
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-6">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg border border-blue-300">
+              <UserCircle className="text-blue-600" size={24} />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-lg font-bold text-blue-900 mb-3">Site Contact Person</h4>
+              <div className="space-y-3">
+                {order.contact_person_name && (
+                  <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-blue-200">
+                    <User className="text-blue-600" size={18} />
+                    <div>
+                      <p className="text-xs text-gray-600 font-medium">Name</p>
+                      <p className="text-sm font-bold text-gray-900">{order.contact_person_name}</p>
+                    </div>
+                  </div>
+                )}
+                {order.contact_person_number && (
+                  <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-blue-200">
+                    <Phone className="text-blue-600" size={18} />
+                    <div>
+                      <p className="text-xs text-gray-600 font-medium">Phone Number</p>
+                      <a
+                        href={`tel:${order.contact_person_number}`}
+                        className="text-sm font-bold text-blue-600 hover:text-blue-700 hover:underline"
+                      >
+                        {order.contact_person_number}
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Special Notes */}
       {order.special_notes && (

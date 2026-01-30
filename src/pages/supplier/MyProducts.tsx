@@ -15,6 +15,7 @@ import {
   XCircle,
   DollarSign,
   ArrowUpDown,
+  Plus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -29,11 +30,12 @@ import EditOfferModal from '../../components/supplier/EditOfferModal';
 import Pagination from '../../components/common/Pagination';
 import Button from '../../components/common/Buttons';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import RequestProductModal from '../../components/supplier/RequestProductModal';
 import { supplierMenuItems } from '../../utils/menuItems';
 
 const PER_PAGE = 12;
 
-const MyOffers = () => {
+const MyProducts = () => {
   const queryClient = useQueryClient();
 
   // State
@@ -48,6 +50,11 @@ const MyOffers = () => {
   // Modal states
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Modal states
+  // const [showAddModal, setShowAddModal] = useState(false);
+  const [showRequestModal, setShowRequestModal] = useState(false);
+
 
   // Selected items
   const [selectedOffer, setSelectedOffer] = useState<SupplierOfferItem | null>(null);
@@ -83,6 +90,11 @@ const MyOffers = () => {
     queryFn: supplierProductsAPI.getProductTypes,
   });
 
+   // Fetch categories
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: supplierProductsAPI.getCategories,
+  });
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: supplierProductsAPI.deleteSupplierOffer,
@@ -156,12 +168,22 @@ const MyOffers = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-secondary-900 mb-2">My Offers</h1>
+            <h1 className="text-4xl font-bold text-secondary-900 mb-2">My Products</h1>
             <p className="text-secondary-600 text-lg">
-              View and manage your product offers
+              View and manage your product & offers
             </p>
           </div>
+          <Button
+            onClick={() => setShowRequestModal(true)}
+            variant="primary"
+            fullWidth={false}
+            className="shadow-lg hover:shadow-xl transition-shadow"
+          >
+            <Plus size={20} />
+            Request New Product
+        </Button>
         </div>
+        
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -497,8 +519,14 @@ const MyOffers = () => {
         confirmText="Remove"
         loading={deleteMutation.isPending}
       />
+
+      <RequestProductModal
+        isOpen={showRequestModal}
+        onClose={() => setShowRequestModal(false)}
+        categories={categoriesData?.data || []}
+      />
     </DashboardLayout>
   );
 };
 
-export default MyOffers;
+export default MyProducts;

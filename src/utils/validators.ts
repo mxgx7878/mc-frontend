@@ -138,6 +138,14 @@ export const requestProductSchema = z
 
 /**
  * Schema for order creation form
+ * 
+ * CHANGES FROM ORIGINAL:
+ * - REMOVED: delivery_time (now handled per-slot in Step 3)
+ * - REMOVED: special_equipment
+ * - REMOVED: special_notes
+ * - ADDED: contact_person_name (required)
+ * - ADDED: contact_person_number (required)
+ * - CHANGED: load_size is now optional (was required)
  */
 export const orderFormSchema = z.object({
   // Optional PO number
@@ -155,7 +163,7 @@ export const orderFormSchema = z.object({
   // Required longitude
   delivery_long: z.number().min(-180, 'Invalid longitude').max(180, 'Invalid longitude'),
   
-  // Required delivery date (cannot be in past)
+  // Required delivery date (primary date for delivery scheduling)
   delivery_date: z
     .string()
     .min(1, 'Delivery date is required')
@@ -166,18 +174,21 @@ export const orderFormSchema = z.object({
       return selectedDate >= today;
     }, 'Delivery date cannot be in the past'),
   
-  // Required delivery time
-  delivery_time: z.string().min(1, 'Delivery time is required'),
+  // Optional load size (was required, now optional)
+  load_size: z.string().max(50, 'Load size is too long').optional(),
   
+  // NEW: Required contact person name
+  contact_person_name: z
+    .string()
+    .min(2, 'Contact person name is required')
+    .max(100, 'Name is too long'),
   
-  // Required load size
-  load_size: z.string().min(1, 'Load size is required').max(50, 'Load size is too long'),
-  
-  // Optional special equipment
-  special_equipment: z.string().max(255).optional(),
-  
-  // Optional special notes
-  special_notes: z.string().max(1000).optional(),
+  // NEW: Required contact person number
+  contact_person_number: z
+    .string()
+    .min(10, 'Contact number must be at least 10 digits')
+    .max(20, 'Contact number is too long')
+    .regex(/^[\d\s\+\-\(\)]+$/, 'Please enter a valid phone number'),
   
   // Optional repeat order flag
   repeat_order: z.boolean().optional(),

@@ -297,6 +297,7 @@ const AdminOrderView: React.FC = () => {
               items={order.items} 
               workflow={order.workflow} 
               orderId={order.id}
+              paymentStatus={order.payment_status}
             />
           )}
           {activeTab === 'costing' && (canViewCostPrice || canViewProfitMargin) && (

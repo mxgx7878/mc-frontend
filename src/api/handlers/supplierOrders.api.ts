@@ -8,6 +8,20 @@ import api from '../axios.config';
 
 export type DeliveryType = 'Included' | 'Supplier' | 'ThirdParty' | 'Fleet' | 'None';
 
+
+export interface OrderItemDelivery {
+  id: number;
+  order_id: number;
+  order_item_id: number;
+  supplier_id: number | null;
+  quantity: string;             // API returns "3.00"
+  delivery_date: string;        // ISO string e.g. "2026-02-07T00:00:00.000000Z"
+  delivery_time: string | null; // "08:00:00"
+  supplier_confirms: boolean;
+  created_at: string;
+  updated_at: string;
+} 
+
 export interface SupplierOrderItem {
   id: number;
   order_id: number;
@@ -43,6 +57,7 @@ export interface SupplierOrderItem {
     availability_status: string;
     status: string;
   };
+  deliveries?: OrderItemDelivery[];
 }
 
 export interface SupplierOrder {
@@ -105,6 +120,8 @@ export interface OrderDetailResponse {
       special_notes: string;
       created_at: string;
       updated_at: string;
+      contact_person_name?: string | null;
+      contact_person_number?: string | null;
       client: {
         id: number;
         name: string;

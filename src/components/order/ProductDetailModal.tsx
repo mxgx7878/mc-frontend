@@ -1,6 +1,6 @@
 // src/components/order/ProductDetailModal.tsx
 import React from 'react';
-import { X, Tag, Ruler, FileText, Info, Download, ShoppingCart, Check  } from 'lucide-react';
+import { X, Ruler, FileText, Info, Download, ShoppingCart, Check  } from 'lucide-react';
 import type { Product } from '../../types/order.types';
 import Button from '../common/Buttons';
 
@@ -99,12 +99,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
 
               {/* Category Badge */}
-              <div className="flex items-center gap-2 bg-primary-50 px-4 py-2 rounded-lg">
+              {/* <div className="flex items-center gap-2 bg-primary-50 px-4 py-2 rounded-lg">
                 <Tag className="text-primary-600" size={18} />
                 <span className="text-sm font-semibold text-primary-700">
                   {product.category.name}
                 </span>
-              </div>
+              </div> */}
             </div>
 
             {/* Right: Details */}

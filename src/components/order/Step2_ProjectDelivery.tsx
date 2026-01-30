@@ -1,23 +1,24 @@
 // FILE PATH: src/components/order/Step2_ProjectDelivery.tsx
 
 /**
- * Step2_ProjectDelivery Component
+ * STEP 2: PROJECT & DELIVERY DETAILS
  * 
- * UPDATED: Added Pin Location on Map feature
+ * UPDATED CHANGES:
+ * - REMOVED: delivery_time, special_equipment, special_notes
+ * - ADDED: contact_person_name, contact_person_number
+ * - KEPT: delivery_date (as primary/default delivery date)
  * 
- * Changes Made:
- * 1. Imported MapPinModal component
- * 2. Added state for modal visibility (isMapModalOpen)
- * 3. Added handleMapPinConfirm callback to receive pinned location data
- * 4. Added "Pin on Map" button next to address field (when editing)
- * 5. Integrated MapPinModal with existing address flow
+ * WHY THESE CHANGES:
+ * - Delivery time is now per-slot (configured in Step 3)
+ * - Contact person is order-specific (not project-specific)
+ * - Special equipment/notes removed per requirements
  * 
- * User Flow:
- * - Project selected → Address auto-filled from project
- * - User clicks Edit → Can use autocomplete OR pin on map
- * - User clicks "Pin on Map" → Modal opens with interactive map
- * - User pins location → Address auto-fetched and applied
- * - Reset button restores project's original address
+ * USER FLOW:
+ * 1. Select project (auto-fills address)
+ * 2. Enter/edit delivery address
+ * 3. Set primary delivery date (default for all slots)
+ * 4. Enter contact person details for this order
+ * 5. Proceed to Step 3 (Split Delivery Scheduling)
  */
 
 import React, { useState, useEffect } from 'react';
@@ -26,8 +27,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   MapPin,
   Calendar,
-  Clock,
-  FileText,
   Building2,
   Plus,
   ChevronDown,
@@ -76,8 +75,6 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   const [projectSearchTerm, setProjectSearchTerm] = useState('');
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [addressKey, setAddressKey] = useState(0);
-  
-  // NEW: State for MapPinModal
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
 
   const {
@@ -95,10 +92,10 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   const watchDeliveryLong = watch('delivery_long');
 
   /**
-   * Get image URL with fallback
+   * Get image URL with fallback for product photos
    * 
-   * Why: Product photos might be null or invalid
-   * What: Returns fallback SVG if photo is missing
+   * WHY: Product photos might be null or invalid URLs
+   * WHAT: Returns a base64 SVG placeholder if photo is missing
    */
   const getImageUrl = (photo: string | null | undefined): string => {
     if (!photo) {
@@ -113,7 +110,7 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   /**
    * Auto-select project if only one exists
    * 
-   * Why: Better UX - no need to manually select if there's only one option
+   * WHY: Better UX - skip dropdown if there's only one option
    */
   useEffect(() => {
     if (projects.length === 1 && !selectedProject) {
@@ -124,19 +121,21 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   /**
    * Handle project selection
    * 
-   * What: Sets project and auto-fills delivery address from project
-   * Why: Projects have default delivery locations
+   * WHAT: Sets project and auto-fills delivery address from project data
+   * WHY: Projects have default delivery locations saved
+   * HOW: Updates form values with project's delivery_address, lat, lng
    */
   const handleProjectSelect = (project: Project) => {
     setSelectedProject(project);
     setValue('project_id', project.id, { shouldValidate: true });
     
+    // Auto-fill address if project has one
     if (project.delivery_address && project.delivery_lat && project.delivery_long) {
       setValue('delivery_address', project.delivery_address, { shouldValidate: true });
       setValue('delivery_lat', Number(project.delivery_lat), { shouldValidate: true });
       setValue('delivery_long', Number(project.delivery_long), { shouldValidate: true });
       setIsEditingAddress(false);
-      setAddressKey(prev => prev + 1);
+      setAddressKey(prev => prev + 1); // Force re-render of autocomplete
     }
     
     setShowProjectDropdown(false);
@@ -146,8 +145,9 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   /**
    * Handle Google Autocomplete place selection
    * 
-   * What: Gets address and coordinates from selected place
-   * Why: Primary method for address input
+   * WHAT: Extracts address string and coordinates from Google Place object
+   * WHY: Primary method for address input with automatic geocoding
+   * HOW: Uses Google's formatted_address and geometry.location
    */
   const handlePlaceSelected = (place: any) => {
     if (place.formatted_address) {
@@ -162,18 +162,18 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   };
 
   /**
-   * NEW: Handle map pin confirmation
+   * Handle map pin confirmation
    * 
-   * What: Receives address, lat, lng from MapPinModal and applies to form
-   * Why: Alternative method when autocomplete doesn't find the address
-   * Flow:
-   * 1. User pins location on map
-   * 2. Modal performs reverse geocoding
-   * 3. User confirms selection
-   * 4. This callback receives the data
-   * 5. Form values are updated
-   * 6. Address editing mode is disabled
-   * 7. Modal is closed
+   * WHAT: Receives address + coordinates from MapPinModal component
+   * WHY: Alternative address input method when autocomplete doesn't work
+   * HOW: User pins location on interactive map, modal performs reverse geocoding
+   * FLOW:
+   * 1. User clicks "Pin on Map"
+   * 2. Modal opens with Google Map
+   * 3. User clicks to pin location
+   * 4. Modal fetches address via reverse geocoding
+   * 5. User confirms
+   * 6. This function updates form values
    */
   const handleMapPinConfirm = (address: string, lat: number, lng: number) => {
     setValue('delivery_address', address, { shouldValidate: true });
@@ -181,14 +181,14 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
     setValue('delivery_long', lng, { shouldValidate: true });
     setIsEditingAddress(false);
     setIsMapModalOpen(false);
-    setAddressKey(prev => prev + 1); // Force re-render of autocomplete
+    setAddressKey(prev => prev + 1);
   };
 
   /**
    * Reset address to project's default
    * 
-   * What: Restores project's original delivery address
-   * Why: User might want to undo manual changes
+   * WHAT: Restores project's saved delivery address
+   * WHY: User might want to undo manual address changes
    */
   const handleResetToProjectAddress = () => {
     if (selectedProject?.delivery_address && selectedProject?.delivery_lat && selectedProject?.delivery_long) {
@@ -201,7 +201,7 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   };
 
   /**
-   * Filter projects based on search term
+   * Filter projects by search term
    */
   const filteredProjects = projects.filter((project) =>
     project.name.toLowerCase().includes(projectSearchTerm.toLowerCase())
@@ -209,6 +209,9 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
 
   /**
    * Handle quantity changes for cart items
+   * 
+   * WHY: User might realize they need more/less of a product
+   * WHAT: Updates cart item quantity (also scales delivery slots proportionally)
    */
   const handleQuantityChange = (productId: number, value: string) => {
     const quantity = parseInt(value);
@@ -233,11 +236,12 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
     <>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* LEFT: Order Summary with EDITABLE QUANTITIES */}
+          
+          {/* LEFT COLUMN: Order Summary (Editable) */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-5 lg:sticky lg:top-6">
               <h3 className="font-bold text-secondary-900 mb-4 flex items-center gap-2">
-                <FileText size={20} className="text-primary-600" />
+                <Building2 size={20} className="text-primary-600" />
                 Order Summary
               </h3>
 
@@ -340,8 +344,9 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
             </div>
           </div>
 
-          {/* RIGHT: Project & Delivery Details */}
+          {/* RIGHT COLUMN: Project & Delivery Details */}
           <div className="lg:col-span-2 space-y-6">
+            
             {/* Section 1: Project Selection */}
             <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
               <div className="flex items-center gap-2 mb-4">
@@ -525,13 +530,14 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                         placeholder="Start typing to search address..."
                       />
                       
-                      {/* NEW: Pin on Map Button */}
+                      {/* OR Divider */}
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-px bg-secondary-200" />
                         <span className="text-xs text-secondary-500 font-medium">OR</span>
                         <div className="flex-1 h-px bg-secondary-200" />
                       </div>
                       
+                      {/* Pin on Map Button */}
                       <button
                         type="button"
                         onClick={() => setIsMapModalOpen(true)}
@@ -554,94 +560,84 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                       {errors.delivery_lat.message}
                     </p>
                   )}
-                  {errors.delivery_long && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
-                      {errors.delivery_long.message}
-                    </p>
-                  )}
                   
                   {/* Hidden inputs for lat/long */}
                   <input type="hidden" {...register('delivery_lat')} />
                   <input type="hidden" {...register('delivery_long')} />
                 </div>
 
-                {/* Date and Time */}
-                <div className="grid md:grid-cols-2 gap-4">
-                  {/* Delivery Date */}
-                  <div>
-                    <label className="block text-sm font-medium text-secondary-700 mb-2">
-                      Delivery Date *
-                    </label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
-                      <input
-                        type="date"
-                        {...register('delivery_date')}
-                        className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      />
-                    </div>
-                    {errors.delivery_date && (
-                      <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle size={14} />
-                        {errors.delivery_date.message}
-                      </p>
-                    )}
+                {/* Primary Delivery Date */}
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Primary Delivery Date *
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                    <input
+                      type="date"
+                      {...register('delivery_date')}
+                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
                   </div>
-
-                  {/* Delivery Time */}
-                  <div>
-                    <label className="block text-sm font-medium text-secondary-700 mb-2">
-                      Delivery Time *
-                    </label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
-                      <input
-                        type="time"
-                        {...register('delivery_time')}
-                        className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      />
-                    </div>
-                    {errors.delivery_time && (
-                      <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle size={14} />
-                        {errors.delivery_time.message}
-                      </p>
-                    )}
-                  </div>
+                  <p className="mt-1 text-xs text-secondary-500">
+                    This will be used as the default date for delivery scheduling (configurable in next step)
+                  </p>
+                  {errors.delivery_date && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.delivery_date.message}
+                    </p>
+                  )}
                 </div>
 
                 {/* Load Size */}
                 <Input
-                  label="Load Size *"
+                  label="Load Size (Optional)"
                   placeholder="e.g., 6 cubic meters"
                   {...register('load_size')}
                   error={errors.load_size?.message}
                 />
 
-                {/* Special Equipment */}
-                <Input
-                  label="Special Equipment (Optional)"
-                  placeholder="Any special equipment required"
-                  {...register('special_equipment')}
-                  error={errors.special_equipment?.message}
-                />
-
-                {/* Special Notes */}
+                {/* Contact Person Name */}
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    Special Notes (Optional)
+                    Contact Person Name *
                   </label>
-                  <textarea
-                    {...register('special_notes')}
-                    rows={3}
-                    className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Any special instructions or notes..."
-                  />
-                  {errors.special_notes && (
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                    <input
+                      type="text"
+                      {...register('contact_person_name')}
+                      placeholder="Name of person receiving delivery"
+                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  {errors.contact_person_name && (
                     <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
                       <AlertCircle size={14} />
-                      {errors.special_notes.message}
+                      {errors.contact_person_name.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Contact Person Number */}
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Contact Person Number *
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                    <input
+                      type="tel"
+                      {...register('contact_person_number')}
+                      placeholder="Phone number for delivery coordination"
+                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  {errors.contact_person_number && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.contact_person_number.message}
                     </p>
                   )}
                 </div>
@@ -663,14 +659,14 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                 disabled={isSubmitting || cartItems.length === 0}
                 className="flex-1"
               >
-                {isSubmitting ? 'Processing...' : 'Continue to Review →'}
+                {isSubmitting ? 'Processing...' : 'Continue to Schedule Deliveries →'}
               </Button>
             </div>
           </div>
         </div>
       </form>
 
-      {/* NEW: MapPinModal Component */}
+      {/* MapPinModal Component */}
       <MapPinModal
         isOpen={isMapModalOpen}
         onClose={() => setIsMapModalOpen(false)}

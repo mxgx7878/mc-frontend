@@ -1,8 +1,9 @@
 // src/components/supplier/OrderItemEditModal.tsx
 
 import { useState, useEffect } from 'react';
-import { X, Save, Truck, Info } from 'lucide-react';
+import { X, Save, Truck, Info, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { format } from 'date-fns';
 import { useUpdateOrderItem } from '../../features/supplierOrders/hooks';
 import type { SupplierOrderItem, DeliveryType } from '../../api/handlers/supplierOrders.api';
 
@@ -37,12 +38,17 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
 
   useEffect(() => {
     if (item) {
+      // Get the first delivery date if deliveries exist
+      const firstDeliveryDate = item.deliveries && item.deliveries.length > 0
+        ? item.deliveries[0].delivery_date?.split('T')[0]
+        : item.supplier_delivery_date?.split('T')[0];
+
       setFormData({
         supplier_unit_cost: item.supplier_unit_cost || '',
         delivery_cost: item.delivery_cost || '',
         delivery_type: item.delivery_type || 'Supplier',
         supplier_discount: item.supplier_discount || '0',
-        supplier_delivery_date: item.supplier_delivery_date?.split('T')[0] || '',
+        supplier_delivery_date: firstDeliveryDate || '',
         supplier_notes: item.supplier_notes || '',
         supplier_confirms: item.supplier_confirms || false,
       });
@@ -53,7 +59,6 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     
-    // If delivery type changes to None or Included, reset delivery cost
     if (name === 'delivery_type' && (value === 'None' || value === 'Included')) {
       setFormData((prev) => ({
         ...prev,
@@ -67,7 +72,6 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
       }));
     }
     
-    // Clear error for this field
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
@@ -75,6 +79,27 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
 
   const shouldShowDeliveryCost = () => {
     return formData.delivery_type !== 'None' && formData.delivery_type !== 'Included';
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      return format(date, 'MMM dd, yyyy');
+    } catch {
+      return '-';
+    }
+  };
+
+  const formatTime = (timeString: string) => {
+    if (!timeString) return '-';
+    try {
+      return timeString.includes('T') 
+        ? format(new Date(timeString), 'hh:mm a')
+        : timeString;
+    } catch {
+      return timeString;
+    }
   };
 
   const validate = () => {
@@ -96,7 +121,6 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
       newErrors.delivery_type = 'Delivery type is required';
     }
 
-    // Only validate delivery cost if it should be shown
     if (shouldShowDeliveryCost()) {
       if (!formData.delivery_cost || parseFloat(formData.delivery_cost) < 0) {
         newErrors.delivery_cost = 'Delivery cost must be a positive number';
@@ -117,7 +141,6 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
 
     if (!item) return;
 
-    // Prepare payload - set delivery_cost to 0 if delivery type is None or Included
     const deliveryCost = shouldShowDeliveryCost() ? parseFloat(formData.delivery_cost) : 0;
 
     updateMutation.mutate(
@@ -155,11 +178,13 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
     return unitCost * parseFloat(item.quantity) - discount + deliveryCost;
   };
 
+  const hasDeliveries = item.deliveries && item.deliveries.length > 0;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
           <h2 className="text-2xl font-bold text-gray-900">Edit Order Item</h2>
           <button
             onClick={onClose}
@@ -184,11 +209,53 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
                 {item.product?.product_name}
               </h3>
               <p className="text-sm text-gray-600">
-                Quantity: {item.quantity} {item.product?.unit_of_measure}
+                Total Quantity: {item.quantity} {item.product?.unit_of_measure}
               </p>
             </div>
           </div>
         </div>
+
+        {/* Delivery Schedule Information */}
+        {hasDeliveries && (
+          <div className="p-6 bg-blue-50 border-b border-blue-200">
+            <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-blue-600" />
+              Delivery Schedule ({item.deliveries?.length} {item.deliveries?.length === 1 ? 'delivery' : 'deliveries'})
+            </h3>
+            <div className="space-y-2">
+              {item.deliveries?.map((delivery: any, index: number) => (
+                <div key={delivery.id} className="bg-white rounded-lg p-3 border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded">
+                        #{index + 1}
+                      </span>
+                      <div className="text-sm">
+                        <span className="font-semibold text-gray-900">
+                          {delivery.quantity} {item.product?.unit_of_measure}
+                        </span>
+                        <span className="text-gray-500 mx-2">•</span>
+                        <span className="text-gray-700">
+                          {formatDate(delivery.delivery_date)}
+                        </span>
+                        <span className="text-gray-500 mx-2">at</span>
+                        <span className="text-gray-700">
+                          {formatTime(delivery.delivery_time)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 p-3 bg-blue-100 rounded-lg">
+              <p className="text-xs text-blue-800">
+                <Info className="w-3 h-3 inline mr-1" />
+                Confirming this item will apply to all {item.deliveries?.length} delivery schedules above.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -237,7 +304,6 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
               <p className="text-red-500 text-sm mt-1">{errors.delivery_type}</p>
             )}
             
-            {/* Delivery Type Info */}
             <div className="mt-2 flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
               <p className="text-sm text-blue-800">
@@ -312,6 +378,12 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
             {errors.supplier_delivery_date && (
               <p className="text-red-500 text-sm mt-1">{errors.supplier_delivery_date}</p>
             )}
+            {hasDeliveries && (
+              <p className="text-xs text-gray-600 mt-1">
+                <Info className="w-3 h-3 inline mr-1" />
+                Pre-filled with the first delivery date. This will be used as the primary delivery date.
+              </p>
+            )}
           </div>
 
           {/* Notes */}
@@ -363,7 +435,9 @@ const OrderItemEditModal: React.FC<OrderItemEditModalProps> = ({ item, isOpen, o
               <p className="text-gray-500 mt-1">
                 {item.supplier_confirms
                   ? 'This item has been confirmed and cannot be unconfirmed.'
-                  : 'Once confirmed, you will not be able to unconfirm this item.'}
+                  : hasDeliveries 
+                    ? `Confirming will apply to all ${item.deliveries?.length} delivery schedules. Once confirmed, you will not be able to make changes.`
+                    : 'Once confirmed, you will not be able to unconfirm this item.'}
               </p>
             </label>
           </div>
