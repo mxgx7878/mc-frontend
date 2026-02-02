@@ -164,18 +164,18 @@ export const orderFormSchema = z.object({
   delivery_long: z.number().min(-180, 'Invalid longitude').max(180, 'Invalid longitude'),
   
   // Required delivery date (primary date for delivery scheduling)
-  delivery_date: z
-    .string()
-    .min(1, 'Delivery date is required')
-    .refine((date) => {
-      const selectedDate = new Date(date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return selectedDate >= today;
-    }, 'Delivery date cannot be in the past'),
+  // delivery_date: z
+  //   .string()
+  //   .min(1, 'Delivery date is required')
+  //   .refine((date) => {
+  //     const selectedDate = new Date(date);
+  //     const today = new Date();
+  //     today.setHours(0, 0, 0, 0);
+  //     return selectedDate >= today;
+  //   }, 'Delivery date cannot be in the past'),
   
   // Optional load size (was required, now optional)
-  load_size: z.string().max(50, 'Load size is too long').optional(),
+  // load_size: z.string().max(50, 'Load size is too long').optional(),
   
   // NEW: Required contact person name
   contact_person_name: z

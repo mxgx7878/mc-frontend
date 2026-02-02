@@ -22,6 +22,7 @@ export interface DeliverySlot {
   quantity: number;
   delivery_date: string; // YYYY-MM-DD format
   delivery_time: string; // HH:mm format (24-hour)
+  truck_type: string;
 }
 
 // ==================== CART ITEM ====================

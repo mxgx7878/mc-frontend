@@ -477,6 +477,49 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
               </div>
 
               <div className="space-y-4">
+                {/* Contact Person Name */}
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Contact Person Name *
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                    <input
+                      type="text"
+                      {...register('contact_person_name')}
+                      placeholder="Name of person receiving delivery"
+                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  {errors.contact_person_name && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.contact_person_name.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Contact Person Number */}
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-2">
+                    Contact Person Number *
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
+                    <input
+                      type="tel"
+                      {...register('contact_person_number')}
+                      placeholder="Phone number for delivery coordination"
+                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                  {errors.contact_person_number && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {errors.contact_person_number.message}
+                    </p>
+                  )}
+                </div>
                 {/* PO Number */}
                 <Input
                   label="PO Number (Optional)"
@@ -567,7 +610,7 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                 </div>
 
                 {/* Primary Delivery Date */}
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
                     Primary Delivery Date *
                   </label>
@@ -588,59 +631,17 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                       {errors.delivery_date.message}
                     </p>
                   )}
-                </div>
+                </div> */}
 
                 {/* Load Size */}
-                <Input
+                {/* <Input
                   label="Load Size (Optional)"
                   placeholder="e.g., 6 cubic meters"
                   {...register('load_size')}
                   error={errors.load_size?.message}
-                />
+                /> */}
 
-                {/* Contact Person Name */}
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    Contact Person Name *
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
-                    <input
-                      type="text"
-                      {...register('contact_person_name')}
-                      placeholder="Name of person receiving delivery"
-                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                  {errors.contact_person_name && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
-                      {errors.contact_person_name.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Contact Person Number */}
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    Contact Person Number *
-                  </label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
-                    <input
-                      type="tel"
-                      {...register('contact_person_number')}
-                      placeholder="Phone number for delivery coordination"
-                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                  {errors.contact_person_number && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
-                      {errors.contact_person_number.message}
-                    </p>
-                  )}
-                </div>
+                
               </div>
             </div>
 

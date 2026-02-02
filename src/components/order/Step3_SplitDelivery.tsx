@@ -1,29 +1,38 @@
-// FILE PATH: src/components/order/Step3_SplitDelivery.tsx
-
 /**
- * STEP 3: SPLIT DELIVERY SCHEDULE
+ * STEP 3: SPLIT DELIVERY SCHEDULE WITH TRUCK TYPE
  * 
  * PURPOSE:
  * Allow users to split product quantities across multiple delivery time slots
+ * and select appropriate truck type for each delivery
  * 
  * KEY FEATURES:
  * - Each product can have 1+ delivery slots
- * - Each slot has: quantity, date, time
+ * - Each slot has: quantity, truck type, date, time
  * - Total allocated must equal ordered quantity
  * - Visual progress bar shows allocation status
  * - Pre-filled with default slot using primary delivery date from Step 2
+ * - Truck type dropdown with 11 vehicle options
  * 
  * USER FLOW:
  * 1. See all cart items with default single slot
  * 2. Click "Add Another Delivery Slot" to split
- * 3. Configure quantity, date, time per slot
- * 4. System validates total allocation
+ * 3. Configure quantity, truck type, date, time per slot
+ * 4. System validates total allocation and truck type selection
  * 5. Proceed to Review (Step 4)
  * 
- * WHY THIS MATTERS:
- * - Construction sites can't always receive full order at once
- * - Different products may need different delivery times
- * - Better logistics coordination
+ * WHY TRUCK TYPE MATTERS:
+ * - Different quantities require different truck capacities
+ * - Construction sites need to plan for vehicle access
+ * - Suppliers need to dispatch appropriate vehicles
+ * - Helps with logistics coordination and costing
+ * 
+ * CHANGES FROM ORIGINAL:
+ * - Added TRUCK_TYPES constant with 11 vehicle options
+ * - Added truck_type field to DeliverySlot initialization
+ * - Added truck type dropdown in slot grid (between quantity and date)
+ * - Added truck type validation (must be selected)
+ * - Updated grid layout to accommodate new field
+ * - Added Truck icon for visual clarity
  */
 
 import React, { useState, useEffect } from 'react';
@@ -31,6 +40,27 @@ import { Truck, Plus, Trash2, Calendar, Clock, AlertCircle, CheckCircle2 } from 
 import type { CartItem, DeliverySlot } from '../../types/order.types';
 import Button from '../common/Buttons';
 import { v4 as uuidv4 } from 'uuid';
+
+/**
+ * TRUCK TYPE OPTIONS
+ * 
+ * WHY: Standardized list of available vehicles for delivery
+ * WHAT: 11 truck types ranging from 3 tonnes to 38 tonnes capacity
+ * HOW: Used in dropdown, stored in database, used for supplier matching
+ */
+const TRUCK_TYPES = [
+  { value: 'tipper_light', label: 'Tipper Truck Light (3-6 tonnes)' },
+  { value: 'tipper_medium', label: 'Tipper Truck Medium (6-11 tonnes)' },
+  { value: 'tipper_heavy', label: 'Tipper Truck Heavy (11-14 tonnes)' },
+  { value: 'light_rigid', label: 'Light Rigid Truck (3.5 tonnes)' },
+  { value: 'medium_rigid', label: 'Medium Rigid Trucks (7 tonnes)' },
+  { value: 'heavy_rigid', label: 'Heavy Rigid Trucks (16-49 tonnes)' },
+  { value: 'mini_body', label: 'Mini Body Truck (8 tonnes)' },
+  { value: 'body_truck', label: 'Body Truck (12 tonnes)' },
+  { value: 'eight_wheeler', label: 'Eight-Wheeler Body Truck (16 tonnes)' },
+  { value: 'semi', label: 'Semi (28 tonnes)' },
+  { value: 'truck_dog', label: 'Truck and Dog (38 tonnes)' },
+];
 
 interface Step3Props {
   cartItems: CartItem[];
@@ -59,10 +89,13 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
    * 
    * WHAT: Create one slot per product with:
    * - Full quantity
+   * - Default truck type (tipper_light - safest default)
    * - Primary delivery date from Step 2
    * - Default time (08:00)
    * 
    * WHY: Most orders don't need splitting - this provides sensible defaults
+   * 
+   * CHANGE: Added truck_type: 'tipper_light' as default
    */
   useEffect(() => {
     const initialSlots: Record<number, DeliverySlot[]> = {};
@@ -72,6 +105,7 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
         {
           slot_id: uuidv4(),
           quantity: item.quantity,
+          truck_type: 'tipper_light', // Default truck type
           delivery_date: primaryDeliveryDate,
           delivery_time: '08:00',
         }
@@ -83,6 +117,9 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
 
   /**
    * Get image URL with fallback
+   * 
+   * WHAT: Handles null/undefined photos and relative paths
+   * WHY: Prevents broken images in UI
    */
   const getImageUrl = (photo: string | null | undefined): string => {
     if (!photo) {
@@ -98,10 +135,13 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
    * 
    * WHAT: Creates new slot with:
    * - Remaining unallocated quantity (or 1.0 if none)
+   * - Default truck type
    * - Primary delivery date
    * - Default time
    * 
-   * WHY: User wants to split delivery across multiple dates/times
+   * WHY: User wants to split delivery across multiple dates/times/trucks
+   * 
+   * CHANGE: Added truck_type: 'tipper_light' to new slots
    */
   const handleAddSlot = (productId: number, totalQuantity: number) => {
     const currentSlots = productSlots[productId] || [];
@@ -111,6 +151,7 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
     const newSlot: DeliverySlot = {
       slot_id: uuidv4(),
       quantity: remainingQty > 0 ? Math.min(remainingQty, 1) : 1,
+      truck_type: 'tipper_light', // Default truck type
       delivery_date: primaryDeliveryDate,
       delivery_time: '08:00',
     };
@@ -150,8 +191,10 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
   /**
    * Update a specific slot's field
    * 
-   * WHAT: Updates quantity, date, or time for a slot
+   * WHAT: Updates quantity, truck_type, date, or time for a slot
    * HOW: Find slot by ID, update field, replace in array
+   * 
+   * CHANGE: Now handles truck_type field updates
    */
   const handleUpdateSlot = (
     productId: number,
@@ -181,6 +224,7 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
    * 
    * WHAT: Returns { allocated, remaining, percentage, isValid }
    * WHY: Display progress bars and validation status
+   * HOW: Sum all slot quantities, compare to total, calculate percentage
    */
   const getProductAllocation = (productId: number, totalQuantity: number) => {
     const slots = productSlots[productId] || [];
@@ -195,9 +239,15 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
   /**
    * Validate all products before proceeding
    * 
-   * WHAT: Check each product has slots that sum to total quantity
+   * WHAT: Check each product has:
+   * 1. Slots that sum to total quantity
+   * 2. All slots have truck type selected
+   * 3. All slots have date and time filled
+   * 
    * WHY: Prevent incomplete or over-allocated deliveries
-   * HOW: Use floating point tolerance (0.01) for comparison
+   * HOW: Use floating point tolerance (0.01) for quantity comparison
+   * 
+   * CHANGE: Added validation for truck_type field
    */
   const validateAllProducts = (): boolean => {
     const newErrors: Record<number, string> = {};
@@ -206,6 +256,7 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
     cartItems.forEach((item) => {
       const { remaining, isValid: productValid } = getProductAllocation(item.product_id, item.quantity);
       
+      // Check quantity allocation
       if (!productValid) {
         if (remaining > 0) {
           newErrors[item.product_id] = `You have ${remaining.toFixed(2)} ${item.unit_of_measure} unallocated. Please distribute all quantity.`;
@@ -215,11 +266,16 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
         isValid = false;
       }
       
-      // Check for empty dates/times
+      // Check for empty fields (date, time, truck_type)
       const slots = productSlots[item.product_id] || [];
-      const hasEmptyFields = slots.some(slot => !slot.delivery_date || !slot.delivery_time);
+      const hasEmptyFields = slots.some(slot => 
+        !slot.delivery_date || 
+        !slot.delivery_time || 
+        !slot.truck_type
+      );
+      
       if (hasEmptyFields) {
-        newErrors[item.product_id] = 'Please fill in date and time for all delivery slots.';
+        newErrors[item.product_id] = 'Please fill in truck type, date and time for all delivery slots.';
         isValid = false;
       }
     });
@@ -233,6 +289,7 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
    * 
    * WHAT: Validate, update cart items with slots, proceed to review
    * WHY: User has finished configuring delivery schedule
+   * HOW: Merge delivery_slots array into each cart item
    */
   const handleContinue = () => {
     if (!validateAllProducts()) {
@@ -258,7 +315,7 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
           </div>
           <div>
             <h2 className="text-2xl font-bold text-secondary-900">Schedule Deliveries</h2>
-            <p className="text-secondary-600">Split your order into multiple delivery time slots if needed</p>
+            <p className="text-secondary-600">Split your order into multiple delivery time slots and select truck type</p>
           </div>
         </div>
       </div>
@@ -355,74 +412,99 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                 {slots.map((slot, index) => (
                   <div
                     key={slot.slot_id}
-                    className="grid grid-cols-12 gap-3 items-center p-4 bg-secondary-50 rounded-lg border border-secondary-200"
+                    className="p-4 bg-secondary-50 rounded-lg border border-secondary-200"
                   >
-                    {/* Slot Number */}
-                    <div className="col-span-12 md:col-span-1 flex items-center justify-center">
-                      <div className="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                        {index + 1}
+                    {/* Mobile: Stacked Layout, Desktop: Grid Layout */}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                      
+                      {/* Slot Number */}
+                      <div className="md:col-span-1 flex items-center justify-center md:justify-start">
+                        <div className="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                          {index + 1}
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Quantity */}
-                    <div className="col-span-6 md:col-span-3">
-                      <label className="text-xs text-secondary-600 font-medium mb-1 block">
-                        Quantity ({item.unit_of_measure})
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        value={slot.quantity}
-                        onChange={(e) => handleUpdateSlot(item.product_id, slot.slot_id, 'quantity', parseFloat(e.target.value))}
-                        className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                      />
-                    </div>
-
-                    {/* Date */}
-                    <div className="col-span-6 md:col-span-3">
-                      <label className="text-xs text-secondary-600 font-medium mb-1 block">
-                        Delivery Date
-                      </label>
-                      <div className="relative">
-                        <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 text-secondary-400" size={16} />
+                      {/* Quantity */}
+                      <div className="md:col-span-2">
+                        <label className="text-xs text-secondary-600 font-medium mb-1 block">
+                          Quantity ({item.unit_of_measure})
+                        </label>
                         <input
-                          type="date"
-                          value={slot.delivery_date}
-                          onChange={(e) => handleUpdateSlot(item.product_id, slot.slot_id, 'delivery_date', e.target.value)}
-                          className="w-full pl-8 pr-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={slot.quantity}
+                          onChange={(e) => handleUpdateSlot(item.product_id, slot.slot_id, 'quantity', parseFloat(e.target.value))}
+                          className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                         />
                       </div>
-                    </div>
 
-                    {/* Time */}
-                    <div className="col-span-10 md:col-span-4">
-                      <label className="text-xs text-secondary-600 font-medium mb-1 block">
-                        Delivery Time
-                      </label>
-                      <div className="relative">
-                        <Clock className="absolute left-2 top-1/2 -translate-y-1/2 text-secondary-400" size={16} />
-                        <input
-                          type="time"
-                          value={slot.delivery_time}
-                          onChange={(e) => handleUpdateSlot(item.product_id, slot.slot_id, 'delivery_time', e.target.value)}
-                          className="w-full pl-8 pr-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                        />
+                      {/* Truck Type - NEW FIELD */}
+                      <div className="md:col-span-3">
+                        <label className="text-xs text-secondary-600 font-medium mb-1 block">
+                          Truck Type
+                        </label>
+                        <div className="relative">
+                          <Truck className="absolute left-2 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none" size={16} />
+                          <select
+                            value={slot.truck_type}
+                            onChange={(e) => handleUpdateSlot(item.product_id, slot.slot_id, 'truck_type', e.target.value)}
+                            className="w-full pl-8 pr-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none bg-white"
+                          >
+                            {TRUCK_TYPES.map((truck) => (
+                              <option key={truck.value} value={truck.value}>
+                                {truck.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Remove Button */}
-                    <div className="col-span-2 md:col-span-1 flex justify-center">
-                      {slots.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSlot(item.product_id, slot.slot_id)}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Remove slot"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
+                      {/* Date */}
+                      <div className="md:col-span-3">
+                        <label className="text-xs text-secondary-600 font-medium mb-1 block">
+                          Delivery Date
+                        </label>
+                        <div className="relative">
+                          <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none" size={16} />
+                          <input
+                            type="date"
+                            value={slot.delivery_date}
+                            onChange={(e) => handleUpdateSlot(item.product_id, slot.slot_id, 'delivery_date', e.target.value)}
+                            className="w-full pl-8 pr-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Time */}
+                      <div className="md:col-span-2">
+                        <label className="text-xs text-secondary-600 font-medium mb-1 block">
+                          Time
+                        </label>
+                        <div className="relative">
+                          <Clock className="absolute left-2 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none" size={16} />
+                          <input
+                            type="time"
+                            value={slot.delivery_time}
+                            onChange={(e) => handleUpdateSlot(item.product_id, slot.slot_id, 'delivery_time', e.target.value)}
+                            className="w-full pl-8 pr-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Remove Button */}
+                      <div className="md:col-span-1 flex items-end justify-center md:justify-end">
+                        {slots.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSlot(item.product_id, slot.slot_id)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Remove slot"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
