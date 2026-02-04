@@ -43,6 +43,7 @@ export const cartUtils = {
             quantity: item.quantity,
             delivery_date: '',
             delivery_time: '',
+            truck_type: '',
           }
         ]
       }));
@@ -88,6 +89,7 @@ export const cartUtils = {
             quantity: 1,
             delivery_date: '',
             delivery_time: '',
+            truck_type: '',
           }
         ]
       };

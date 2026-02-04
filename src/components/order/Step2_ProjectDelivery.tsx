@@ -26,7 +26,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   MapPin,
-  Calendar,
   Building2,
   Plus,
   ChevronDown,

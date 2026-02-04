@@ -2,13 +2,12 @@
 // Updated with Delete (Archive) functionality
 
 import React, { useState } from 'react';
-import { Eye, Package, Calendar, RefreshCw, Trash2 } from 'lucide-react';
+import { Eye, Package, RefreshCw, Trash2 } from 'lucide-react';
 import type { ClientOrderListItem } from '../../types/clientOrder.types';
 import { 
   getOrderStatusBadgeClass, 
   getPaymentStatusBadgeClass, 
-  formatCurrency, 
-  formatDate 
+  formatCurrency
 } from '../../features/clientOrders/utils';
 import { useArchiveOrder } from '../../features/clientOrders/hooks';
 import ConfirmationModal from '../common/ConfirmationModal';
@@ -97,7 +96,7 @@ const ClientOrdersTable: React.FC<ClientOrdersTableProps> = ({
               <tr>
                 <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">PO Number</th>
                 <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Project</th>
-                <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Delivery</th>
+                {/* <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Delivery</th> */}
                 <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Status</th>
                 <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Payment</th>
                 <th className="px-6 py-4 text-left text-sm font-bold text-gray-900">Items</th>
@@ -123,7 +122,7 @@ const ClientOrdersTable: React.FC<ClientOrdersTableProps> = ({
                   <td className="px-6 py-4">
                     <span className="font-medium text-gray-900">{order.project?.name || 'N/A'}</span>
                   </td>
-                  <td className="px-6 py-4">
+                  {/* <td className="px-6 py-4">
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2 text-sm">
                         <Calendar size={14} className="text-gray-400" />
@@ -133,7 +132,7 @@ const ClientOrdersTable: React.FC<ClientOrdersTableProps> = ({
                         <span className="text-xs text-gray-600">{order.delivery_time}</span>
                       )}
                     </div>
-                  </td>
+                  </td> */}
                   <td className="px-6 py-4">
                     <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getOrderStatusBadgeClass(order.order_status)}`}>
                       {order.order_status}

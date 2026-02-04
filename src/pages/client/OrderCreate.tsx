@@ -309,6 +309,7 @@ const OrderCreate = () => {
     ? productTypesData
     : productTypesData?.data || [];
   const totalCartItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const today = new Date().toISOString().split('T')[0];
 
   // ==================== RENDER ====================
 
@@ -545,7 +546,7 @@ const OrderCreate = () => {
           {currentStep === 3 && orderFormData && (
             <Step3_SplitDelivery
               cartItems={cartItems}
-              primaryDeliveryDate={orderFormData.delivery_date}
+              primaryDeliveryDate={today}
               onBack={handleBackToStep2}
               onContinue={handleStep3Continue}
             />

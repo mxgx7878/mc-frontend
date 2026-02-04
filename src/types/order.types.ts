@@ -88,7 +88,7 @@ export interface OrderFormValues {
   delivery_address: string;
   delivery_lat: number;
   delivery_long: number;
-  delivery_date: string; // Primary/default delivery date
+  // delivery_date: string; // Primary/default delivery date
   load_size?: string;
   
   // NEW: Contact person for this order

@@ -18,7 +18,6 @@
 
 import React from 'react';
 import {
-  Package,
   MapPin,
   Calendar,
   Clock,
@@ -366,7 +365,7 @@ const Step4_ReviewOrder: React.FC<Step4Props> = ({
               </div>
 
               {/* Load Size */}
-              {orderDetails.load_size && (
+              {/* {orderDetails.load_size && (
                 <div className="flex items-start gap-3">
                   <Package className="text-secondary-500 flex-shrink-0 mt-0.5" size={18} />
                   <div>
@@ -374,7 +373,7 @@ const Step4_ReviewOrder: React.FC<Step4Props> = ({
                     <p className="text-base text-secondary-900">{orderDetails.load_size}</p>
                   </div>
                 </div>
-              )}
+              )} */}
 
               {/* Contact Person */}
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">

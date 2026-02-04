@@ -23,6 +23,7 @@ import {
   ChevronUp,
   Clock,
   CheckCircle,
+  Edit,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -276,6 +277,13 @@ const ClientOrderView = () => {
             >
               <RotateCcw className="w-4 h-4" />
               Repeat Order
+            </button>
+            <button
+              onClick={() => navigate(`/client/orders/${orderId}/edit`)}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 border-2 border-amber-200 rounded-lg hover:bg-amber-100 hover:border-amber-300 transition-colors font-medium"
+            >
+              <Edit className="w-4 h-4" />
+              Edit Order
             </button>
           </div>
         </div>

@@ -52,6 +52,7 @@ import SupplierOrderDetail from '../pages/supplier/SupplierOrderDetail';
 // Shared
 import ProfileSettings from '../pages/shared/ProfileSettings';
 import MyProducts from '../pages/supplier/MyProducts';
+import ClientOrderEdit from '../pages/client/ClientOrderEdit';
 const basePath = import.meta.env.VITE_BASE_PATH || '/';
 
 const AppRouter = () => {
@@ -136,6 +137,13 @@ const AppRouter = () => {
             </ProtectedRoute>
           } 
         />
+        <Route
+         path="/client/orders/:orderId/edit" 
+         element={
+            <ProtectedRoute allowedRoles={['client']}>
+              <ClientOrderEdit />
+            </ProtectedRoute>
+          } />
 
 
         {/* Supplier Routes */}
