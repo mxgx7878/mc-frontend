@@ -13,9 +13,8 @@ import {
   Pie,
   Cell,
   Legend,
-  BarChart,
-  Bar,
 } from 'recharts';
+import type { Formatter } from 'recharts/types/component/DefaultTooltipContent';
 import {
   Package,
   Clock,
@@ -25,7 +24,6 @@ import {
   RefreshCw,
   ChevronDown,
   MapPin,
-  Eye,
 } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { clientMenuItems } from '../../utils/menuItems';
@@ -84,6 +82,12 @@ const formatTime = (timeStr: string | null) => {
   const ampm = hour >= 12 ? 'PM' : 'AM';
   const hour12 = hour % 12 || 12;
   return `${hour12}:${m} ${ampm}`;
+};
+
+const pieTooltipFormatter: Formatter<number, string> = (value, name) => {
+  const v = value ?? 0;
+  const n = name ?? '';
+  return [String(v), String(n)];
 };
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace(/[_-]/g, ' ');
@@ -466,7 +470,7 @@ const ClientDashboard = () => {
                       )}
                     />
                     <Tooltip
-                      formatter={(value: number, name: string) => [`${value}`, name]}
+                      formatter={pieTooltipFormatter}
                       contentStyle={{
                         borderRadius: '8px',
                         border: '1px solid #e5e7eb',

@@ -31,7 +31,7 @@ import {
   Info,
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import type { OrderEditItem, OrderDelivery, EditDeliveryPayload } from '../../../types/orderEdit.types';
+import type { OrderEditItem, EditDeliveryPayload } from '../../../types/orderEdit.types';
 import {
   getDeliveredQuantity,
   getScheduledDeliveries,

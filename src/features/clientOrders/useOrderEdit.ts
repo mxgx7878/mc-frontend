@@ -106,6 +106,7 @@ export const useUpdateContactInfo = () => {
       queryClient.invalidateQueries({ 
         queryKey: clientOrdersKeys.detail(variables.orderId) 
       });
+      console.log(data) 
       queryClient.invalidateQueries({ 
         queryKey: clientOrdersKeys.lists() 
       });
