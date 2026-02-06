@@ -32,7 +32,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Repeat,
-  Eye,
 } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { clientMenuItems } from '../../utils/menuItems';

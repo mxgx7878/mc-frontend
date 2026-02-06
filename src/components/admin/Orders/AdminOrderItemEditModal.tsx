@@ -1,7 +1,7 @@
 // FILE PATH: src/components/admin/Orders/AdminOrderItemEditModal.tsx
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertCircle, Truck, Package, DollarSign, Calendar } from 'lucide-react';
+import { X, Save, AlertCircle, Truck, Package, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { AdminOrderItem } from '../../../types/adminOrder.types';
 import { useAdminUpdateOrderItem } from '../../../features/adminOrders/hooks';
