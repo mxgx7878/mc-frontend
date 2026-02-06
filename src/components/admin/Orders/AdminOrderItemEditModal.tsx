@@ -34,7 +34,7 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
     supplier_discount: '',
     delivery_cost: '',
     delivery_type: 'Supplier' as DeliveryType,
-    supplier_delivery_date: '',
+    // supplier_delivery_date: '',
     supplier_notes: '',
     supplier_confirms: false,
     quantity: '', // NEW: Add quantity field
@@ -50,7 +50,7 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
         delivery_cost: item.delivery_cost?.toString() || '',
         delivery_type: (item.delivery_type as DeliveryType) || 'Supplier',
         supplier_discount: item.supplier_discount?.toString() || '0',
-        supplier_delivery_date: item.supplier_delivery_date?.split('T')[0] || '',
+        // supplier_delivery_date: item.supplier_delivery_date?.split('T')[0] || '',
         supplier_notes: item.supplier_notes || '',
         supplier_confirms: Boolean(item.supplier_confirms),
         quantity: item.quantity?.toString() || '1', // NEW: Set quantity from item
@@ -97,9 +97,6 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
       newErrors.supplier_discount = 'Discount cannot be negative';
     }
 
-    if (!formData.supplier_delivery_date) {
-      newErrors.supplier_delivery_date = 'Delivery date is required';
-    }
 
     if (!formData.delivery_type) {
       newErrors.delivery_type = 'Delivery type is required';
@@ -140,7 +137,6 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
           supplier_discount: parseFloat(formData.supplier_discount),
           delivery_cost: deliveryCost,
           delivery_type: formData.delivery_type,
-          supplier_delivery_date: formData.supplier_delivery_date,
           supplier_notes: formData.supplier_notes,
           supplier_confirms: formData.supplier_confirms,
           quantity: parseFloat(formData.quantity), // NEW: Include quantity in payload
@@ -369,30 +365,6 @@ const AdminOrderItemEditModal: React.FC<AdminOrderItemEditModalProps> = ({
                   )}
                 </div>
               )}
-
-              {/* Supplier Delivery Date */}
-              <div>
-                <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                  <Calendar size={16} className="text-teal-600" />
-                  Delivery Date *
-                </label>
-                <input
-                  type="date"
-                  name="supplier_delivery_date"
-                  value={formData.supplier_delivery_date}
-                  onChange={handleChange}
-                  required
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                    errors.supplier_delivery_date ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                  }`}
-                />
-                {errors.supplier_delivery_date && (
-                  <p className="text-red-600 text-sm mt-1 flex items-center gap-1">
-                    <AlertCircle size={14} />
-                    {errors.supplier_delivery_date}
-                  </p>
-                )}
-              </div>
 
               {/* Supplier Notes */}
               <div>

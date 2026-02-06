@@ -177,7 +177,7 @@ export const useAdminUpdateOrderItem = () => {
         supplier_discount?: number;
         delivery_cost?: number;
         delivery_type?: 'Included' | 'Supplier' | 'ThirdParty' | 'Fleet' | 'None';
-        supplier_delivery_date?: string;
+
         supplier_confirms?: boolean;
         supplier_notes?: string;
         quantity:number;
