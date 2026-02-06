@@ -407,7 +407,7 @@ const ClientOrderEdit = () => {
             <div>
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-bold text-gray-900">
-                  Edit Order #{order.po_number}
+                  Manage Order #{order.po_number}
                 </h1>
                 <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full border border-blue-200">
                   {order.order_status}
@@ -610,7 +610,7 @@ const ClientOrderEdit = () => {
               </div>
               <div className="text-left">
                 <h2 className="text-lg font-bold text-gray-900">
-                  Order Items ({orderItems.length + itemsToAdd.length})
+                  Order Products ({orderItems.length + itemsToAdd.length})
                 </h2>
                 <p className="text-sm text-gray-600">
                   {itemsChanged ? (
@@ -622,7 +622,7 @@ const ClientOrderEdit = () => {
                       {itemsToRemove.length > 0 && `${itemsToRemove.length} to remove`}
                     </span>
                   ) : (
-                    'Edit quantities and delivery schedules'
+                    'Manage quantities and delivery schedules'
                   )}
                 </p>
               </div>

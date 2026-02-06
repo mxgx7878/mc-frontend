@@ -129,11 +129,11 @@ const canChangeSupplier = (item: AdminOrderItem, paymentStatus: string) => {
 
   // Check if admin can edit item pricing
   const canEditItemPricing = (item: AdminOrderItem) => {
-    if (isReadOnly) return false;
-    if (!canEditOrders) return false;
-    const hasSupplier = item.supplier_id || item.supplier;
-    const allowedWorkflows: WorkflowStatus[] = ['Supplier Assigned', 'Payment Requested'];
-    return hasSupplier && allowedWorkflows.includes(workflow);
+      if (isReadOnly) return false;
+      if (!canEditOrders) return false;
+      if (workflow === 'Delivered') return false; // Lock delivered orders
+      const hasSupplier = item.supplier_id || item.supplier;
+      return !!hasSupplier;
   };
 
   // Handle admin edit

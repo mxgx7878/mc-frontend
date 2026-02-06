@@ -869,7 +869,7 @@ const ClientOrderView = () => {
               className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold shadow-sm"
             >
               <Edit className="w-4 h-4" />
-              Edit Order
+              Update Order
             </button>
             {showCancelButton && (
               <button
@@ -887,18 +887,15 @@ const ClientOrderView = () => {
               <RefreshCw className="w-3.5 h-3.5" />
               Refresh
             </button>
+              <button
+              onClick={() => setShowGuidelines(!showGuidelines)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm bg-yellow-50 text-yellow-700 border border-yellow-200 transition-colors ${showGuidelines ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-gray-500 border-gray-200 hover:bg-gray-50'}`}
+               
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              How to Manage Order
+            </button>
           </div>
-          <button
-            onClick={() => setShowGuidelines(!showGuidelines)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
-              showGuidelines
-                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                : 'text-gray-500 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            How to Edit
-          </button>
         </div>
 
         {/* ===== GUIDELINES ===== */}
