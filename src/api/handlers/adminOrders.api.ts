@@ -12,6 +12,7 @@ import type {
   AdminOrdersQueryParams,
   AdminOrderUpdatePayload,
 } from '../../types/adminOrder.types';
+import type { EditOrderPayload, EditOrderResponse } from '../../types/orderEdit.types';
 
 export const adminOrdersAPI = {
   /**
@@ -167,6 +168,23 @@ export const adminOrdersAPI = {
       return response.data;
     } catch (error: any) {
       throw new Error(error?.message || 'Failed to update payment status');
+    }
+  },
+
+
+   editOrderAdmin: async (
+    orderId: number,
+    payload: EditOrderPayload
+  ): Promise<EditOrderResponse> => {
+    try {
+      const response = await api.post(`/admin/orders/${orderId}/edit`, payload);
+      return response.data;
+    } catch (error: any) {
+      const message = error?.message || 'Failed to update order';
+      const errors = error?.errors || null;
+      const err = new Error(message) as Error & { errors?: Record<string, string[]> };
+      err.errors = errors;
+      throw err;
     }
   },
 };

@@ -6,6 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminOrdersAPI } from '../../api/handlers/adminOrders.api';
+import type { EditOrderPayload, EditOrderResponse } from '../../types/orderEdit.types';
 import type {
   AdminOrdersQueryParams,
   AdminOrderUpdatePayload,
@@ -217,6 +218,40 @@ export const useUpdatePaymentStatus = () => {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update payment status');
+    },
+  });
+};
+
+
+
+export const useAdminEditOrder = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    EditOrderResponse,
+    Error & { errors?: Record<string, string[]> },
+    { orderId: number; payload: EditOrderPayload }
+  >({
+    mutationFn: ({ orderId, payload }) =>
+      adminOrdersAPI.editOrderAdmin(orderId, payload),
+
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: adminOrdersKeys.detail(variables.orderId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: adminOrdersKeys.lists(),
+      });
+      toast.success(data.message || 'Order updated successfully');
+    },
+
+    onError: (error) => {
+      if (error.errors) {
+        const firstError = Object.values(error.errors)[0]?.[0];
+        toast.error(firstError || error.message || 'Failed to update order');
+      } else {
+        toast.error(error.message || 'Failed to update order');
+      }
     },
   });
 };

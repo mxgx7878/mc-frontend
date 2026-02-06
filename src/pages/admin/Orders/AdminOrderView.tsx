@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Eye,
   History,
+  Edit 
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import OrderOverviewTab from '../../../components/admin/Orders/OrderOverviewTab';
@@ -206,6 +207,18 @@ const AdminOrderView: React.FC = () => {
               </span>
             )}
             
+
+            {/* Edit Order Button — only for admin/support, not accountant */}
+            {!isReadOnly && (
+              <button
+                onClick={() => navigate(`/admin/orders/${id}/edit`)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg border-2 border-blue-700 hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                <Edit size={16} />
+                Edit Order
+              </button>
+            )}
+
             {/* Status Badges */}
             <span className={`px-4 py-2 text-sm font-bold rounded-lg border-2 ${getWorkflowColor(order.workflow)} transition-colors`}>
               {order.workflow}
