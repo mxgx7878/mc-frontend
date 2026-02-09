@@ -1,9 +1,10 @@
 // FILE PATH: src/features/clientOrders/hooks.ts
-// Client Orders Hooks - With Archive and Cancel functionality
+// Client Orders Hooks - With Archive, Cancel, and Pay Invoice functionality
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { clientOrdersAPI } from '../../api/handlers/clientOrders.api';
+import { paymentAPI } from '../../api/handlers/payment.api';
 import type { ClientOrdersQueryParams } from '../../api/handlers/clientOrders.api';
 import type { RepeatOrderPayload } from '../../types/clientOrder.types';
 
@@ -23,7 +24,7 @@ export const useClientOrders = (params?: ClientOrdersQueryParams) => {
   return useQuery({
     queryKey: clientOrdersKeys.list(params || {}),
     queryFn: () => clientOrdersAPI.getOrders(params),
-    staleTime: 30000, // 30 seconds
+    staleTime: 30000,
   });
 };
 
@@ -35,7 +36,7 @@ export const useClientOrderDetail = (orderId: number) => {
     queryKey: clientOrdersKeys.detail(orderId),
     queryFn: () => clientOrdersAPI.getOrderDetail(orderId),
     enabled: !!orderId,
-    staleTime: 30000, // 30 seconds
+    staleTime: 30000,
   });
 };
 
@@ -49,7 +50,6 @@ export const useRepeatOrder = () => {
     mutationFn: ({ orderId, payload }: { orderId: number; payload: RepeatOrderPayload }) =>
       clientOrdersAPI.repeatOrder(orderId, payload),
     onSuccess: () => {
-      // Invalidate orders list to show new order
       queryClient.invalidateQueries({ queryKey: clientOrdersKeys.lists() });
       toast.success('Order repeated successfully!');
     },
@@ -68,7 +68,6 @@ export const useMarkRepeatOrder = () => {
   return useMutation({
     mutationFn: (orderId: number) => clientOrdersAPI.markRepeatOrder(orderId),
     onSuccess: (_, orderId) => {
-      // Update both list and detail cache
       queryClient.invalidateQueries({ queryKey: clientOrdersKeys.lists() });
       queryClient.invalidateQueries({ queryKey: clientOrdersKeys.detail(orderId) });
       toast.success('Order marked as repeat');
@@ -81,7 +80,6 @@ export const useMarkRepeatOrder = () => {
 
 /**
  * Hook to archive (soft delete) an order
- * Used in order listing table
  */
 export const useArchiveOrder = () => {
   const queryClient = useQueryClient();
@@ -89,9 +87,7 @@ export const useArchiveOrder = () => {
   return useMutation({
     mutationFn: (orderId: number) => clientOrdersAPI.archiveOrder(orderId),
     onSuccess: (_, orderId) => {
-      // Invalidate orders list to remove archived order
       queryClient.invalidateQueries({ queryKey: clientOrdersKeys.lists() });
-      // Also invalidate the detail cache if it exists
       queryClient.invalidateQueries({ queryKey: clientOrdersKeys.detail(orderId) });
       toast.success('Order deleted successfully');
     },
@@ -103,8 +99,6 @@ export const useArchiveOrder = () => {
 
 /**
  * Hook to cancel an order
- * Only works for orders with status: Draft, Confirmed, Scheduled, In Transit
- * Used in order detail view
  */
 export const useCancelOrder = () => {
   const queryClient = useQueryClient();
@@ -112,13 +106,33 @@ export const useCancelOrder = () => {
   return useMutation({
     mutationFn: (orderId: number) => clientOrdersAPI.cancelOrder(orderId),
     onSuccess: (_, orderId) => {
-      // Invalidate both list and detail to reflect new status
       queryClient.invalidateQueries({ queryKey: clientOrdersKeys.lists() });
       queryClient.invalidateQueries({ queryKey: clientOrdersKeys.detail(orderId) });
       toast.success('Order cancelled successfully');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to cancel order');
+    },
+  });
+};
+
+/**
+ * Hook to mark an invoice as paid
+ * Invalidates the order detail cache to refresh invoices + payment status
+ */
+export const usePayInvoice = (orderId: number) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (invoiceId: number) => paymentAPI.payInvoice(invoiceId),
+    onSuccess: (data) => {
+      // Invalidate order detail to refresh invoices list and order payment_status
+      queryClient.invalidateQueries({ queryKey: clientOrdersKeys.detail(orderId) });
+      queryClient.invalidateQueries({ queryKey: clientOrdersKeys.lists() });
+      toast.success(data.message || 'Invoice marked as paid');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to pay invoice');
     },
   });
 };

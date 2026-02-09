@@ -1,25 +1,14 @@
 // FILE PATH: src/api/handlers/payment.api.ts
 
 import api from '../axios.config';
+import type { PayInvoiceResponse } from '../../types/clientOrder.types';
 
-export interface ProcessPaymentPayload {
-  payment_method_id: string;
-  order_id: number;
-}
-
-export interface ProcessPaymentResponse {
-  success: boolean;
-  message: string;
-  order?: {
-    id: number;
-    payment_status: string;
-    workflow: string;
-  };
-}
-
+/**
+ * Pay (mark as paid) a specific invoice
+ */
 export const paymentAPI = {
-  processPayment: async (payload: ProcessPaymentPayload): Promise<ProcessPaymentResponse> => {
-    const response = await api.post('/process-payment', payload);
+  payInvoice: async (invoiceId: number): Promise<PayInvoiceResponse> => {
+    const response = await api.post(`/client/invoices/${invoiceId}/pay`);
     return response.data;
   },
 };

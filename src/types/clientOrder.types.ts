@@ -5,6 +5,89 @@ import type { WorkflowStatus } from "./adminOrder.types";
 export type OrderStatus = 'Draft' | 'Confirmed' | 'Scheduled' | 'In Transit' | 'Delivered' | 'Completed' | 'Cancelled';
 export type PaymentStatus = 'Pending' | 'Partially Paid' | 'Paid' | 'Partial Refunded' | 'Refunded' | 'Requested';
 
+// ==================== INVOICE TYPES ====================
+
+export type InvoiceStatus = 'Draft' | 'Issued' | 'Sent' | 'Unpaid' | 'Paid' | 'Overdue' | 'Cancelled' | 'Void';
+
+export interface ClientInvoiceLineItem {
+  id: number;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  delivery_cost: number;
+  line_total: number;
+  unit_of_measure: string;
+  order_item_id: number;
+  order_item_delivery_id: number | null;
+  delivery_date: string | null;
+  delivery_time: string | null;
+  delivery_status: string | null;
+}
+
+export interface ClientInvoice {
+  id: number;
+  invoice_number: string;
+  status: InvoiceStatus;
+  issued_date: string | null;
+  due_date: string | null;
+  notes: string | null;
+
+  // Financial Summary
+  subtotal: number;
+  delivery_total: number;
+  gst_tax: number;
+  discount: number;
+  total_amount: number;
+
+  // Metadata
+  created_by: string;
+  created_at: string;
+
+  // Line Items
+  items: ClientInvoiceLineItem[];
+}
+
+// ==================== PAY INVOICE RESPONSE ====================
+
+export interface PayInvoiceResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    invoice: {
+      id: number;
+      invoice_number: string;
+      status: string;
+      paid_at: string;
+    };
+    order: {
+      id: number;
+      payment_status: string;
+    };
+  };
+}
+
+// ==================== CLIENT INFO (from order detail) ====================
+
+export interface ClientCompany {
+  id: number;
+  name: string;
+  abn: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+export interface ClientInfo {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  profile_image: string | null;
+  company: ClientCompany;
+}
+
+// ==================== CLIENT ORDER ====================
+
 export interface ClientOrder {
   id: number;
   po_number: string;
@@ -23,6 +106,8 @@ export interface ClientOrder {
     updated_at: string;
   };
 
+  // Client info (returned in detail API)
+  client?: ClientInfo;
 
   // Delivery
   delivery_address: string;
@@ -50,14 +135,13 @@ export interface ClientOrder {
   updated_at: string;
   reason?: string;
 
-  // Pricing breakdown (NEW)
+  // Pricing breakdown
   customer_item_cost?: number;
   customer_delivery_cost?: number;
   supplier_item_cost?: number;
   supplier_delivery_cost?: number;
   other_charges?: number;
 }
-
 
 export interface ClientOrderMetrics {
   total_orders_count: number;
@@ -139,7 +223,6 @@ export interface ClientOrdersResponse {
   delivery_methods?: string[];
 }
 
-
 export interface ClientOrderListItem {
   id: number;
   po_number: string;
@@ -189,10 +272,10 @@ export interface ClientOrderDetailResponse {
   data: ClientOrderDetail;
 }
 
-
 export interface ClientOrderDetail {
   order: ClientOrder;
   items: ClientOrderItem[];
+  invoices: ClientInvoice[];
 }
 
 export interface ClientOrderItem {
