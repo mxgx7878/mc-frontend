@@ -19,7 +19,8 @@ import {
   AlertCircle,
   Eye,
   History,
-  Edit 
+  Edit,
+  Receipt  
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import OrderOverviewTab from '../../../components/admin/Orders/OrderOverviewTab';
@@ -28,11 +29,12 @@ import OrderCostingTab from '../../../components/admin/Orders/OrderCostingTab';
 import OrderMapTab from '../../../components/admin/Orders/OrderMapTab';
 import OrderLogsTab from '../../../components/admin/Orders/OrderLogsTab';
 import OrderAdminUpdateTab from '../../../components/admin/Orders/OrderAdminUpdateTab';
+import OrderInvoicesTab from '../../../components/admin/Orders/OrderInvoicesTab';
 import { useAdminOrderDetail } from '../../../features/adminOrders/hooks';
 import { getMenuItemsByRole } from '../../../utils/menuItems';
 import { usePermissions } from '../../../hooks/usePermissions';
 
-type TabType = 'overview' | 'items' | 'costing' | 'map' | 'admin' | 'logs';
+type TabType = 'overview' | 'items' | 'costing' | 'map' | 'admin' | 'logs' | 'invoices';
 
 const AdminOrderView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -184,6 +186,13 @@ const AdminOrderView: React.FC = () => {
     activeClass: 'bg-slate-600 text-white border-slate-700 shadow-md',
     inactiveClass: 'text-slate-700 hover:bg-slate-50 border-slate-200',
   });
+  tabs.push({
+  id: 'invoices' as TabType,
+  label: 'Invoices',
+  icon: Receipt,  // import Receipt from lucide-react
+  activeClass: 'bg-emerald-600 text-white border-emerald-700 shadow-md',
+  inactiveClass: 'text-emerald-700 hover:bg-emerald-50 border-emerald-200',
+});
 
   return (
     <DashboardLayout menuItems={menuItems}>
@@ -328,6 +337,9 @@ const AdminOrderView: React.FC = () => {
           )}
           {activeTab === 'logs' && (
             <OrderLogsTab logs={order.logs || []} />
+          )}
+          {activeTab === 'invoices' && (
+            <OrderInvoicesTab orderId={order.id} />
           )}
         </div>
       </div>
