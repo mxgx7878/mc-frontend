@@ -13,9 +13,6 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
-  DollarSign,
-  X,
-  Check,
   User,
   Edit,
   Lock,
@@ -76,7 +73,6 @@ const canChangeSupplier = (item: AdminOrderItem, paymentStatus: string) => {
   // Get permissions
   const {
     canViewCostPrice,
-    canEnterQuotedRates,
     canEditOrders,
     canAssignSupplier,
     isReadOnly,

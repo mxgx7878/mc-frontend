@@ -454,7 +454,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                           </div>
                           {product.price && (
                             <span className="text-green-600 font-bold">
-                              ${product.price} / {product.unit_of_measure}
+                              {product.price} / {product.unit_of_measure}
                             </span>
                           )}
                           {isExisting && (

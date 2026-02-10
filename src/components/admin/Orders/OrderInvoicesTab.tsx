@@ -7,6 +7,9 @@
  * 2. Preview calculated totals
  * 3. Generate invoices
  * 4. View existing invoices with status management
+ *
+ * UPDATED: Shows unit_cost & delivery_cost per delivery row,
+ *          aggregated cost summary per item for selected deliveries
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -113,10 +116,6 @@ const OrderInvoicesTab: React.FC<OrderInvoicesTabProps> = ({ orderId }) => {
     }, 0);
   }, [items]);
 
-//   const totalDeliveryCount = useMemo(() => {
-//     return items.reduce((count, item) => count + item.deliveries.length, 0);
-//   }, [items]);
-
   // ==================== HANDLERS ====================
 
   const toggleDelivery = useCallback((deliveryId: number) => {
@@ -129,7 +128,7 @@ const OrderInvoicesTab: React.FC<OrderInvoicesTabProps> = ({ orderId }) => {
       }
       return next;
     });
-    setPreviewData(null); // Clear preview on selection change
+    setPreviewData(null);
   }, []);
 
   const toggleAllForItem = useCallback(
@@ -241,7 +240,6 @@ const OrderInvoicesTab: React.FC<OrderInvoicesTabProps> = ({ orderId }) => {
 
   const handleStartCreate = useCallback(() => {
     setActiveView('create');
-    // Auto-expand all items for easier selection
     setExpandedItems(new Set(items.map((i) => i.id)));
   }, [items]);
 
@@ -430,7 +428,6 @@ const InvoiceListView: React.FC<InvoiceListViewProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Status Dropdown */}
                 <select
                   value={invoice.status}
                   onChange={(e) => onStatusChange(invoice.id, e.target.value as InvoiceStatus)}
@@ -557,6 +554,19 @@ const InvoiceCreateView: React.FC<InvoiceCreateViewProps> = ({
             availableDeliveries.every((d) => selectedDeliveries.has(d.id));
           const someSelected = availableDeliveries.some((d) => selectedDeliveries.has(d.id));
 
+          // Calculate selected totals for this item
+          const selectedForItem = item.deliveries.filter((d) => selectedDeliveries.has(d.id));
+          const selectedQty = selectedForItem.reduce((sum, d) => sum + d.quantity, 0);
+          const selectedItemCost = selectedForItem.reduce(
+            (sum, d) => sum + d.quantity * d.unit_cost,
+            0
+          );
+          const selectedDeliveryCost = selectedForItem.reduce(
+            (sum, d) => sum + d.delivery_cost,
+            0
+          );
+          const selectedTotal = selectedItemCost + selectedDeliveryCost;
+
           return (
             <div
               key={item.id}
@@ -574,7 +584,7 @@ const InvoiceCreateView: React.FC<InvoiceCreateViewProps> = ({
                       e.stopPropagation();
                       onToggleAllForItem(item);
                     }}
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors flex-shrink-0 ${
                       allAvailableSelected
                         ? 'bg-emerald-600 border-emerald-600'
                         : someSelected
@@ -590,28 +600,32 @@ const InvoiceCreateView: React.FC<InvoiceCreateViewProps> = ({
                     )}
                   </div>
 
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <Package size={16} className="text-gray-500" />
-                      <h4 className="font-bold text-gray-900">{item.product_name}</h4>
+                      <Package size={16} className="text-gray-500 flex-shrink-0" />
+                      <h4 className="font-bold text-gray-900 truncate">{item.product_name}</h4>
                       {item.is_quoted === 1 && (
-                        <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-100 text-purple-700 rounded-full border border-purple-200">
+                        <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-100 text-purple-700 rounded-full border border-purple-200 flex-shrink-0">
                           QUOTED
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {item.supplier_name} · {item.quantity} {item.unit_of_measure} total ·{' '}
-                      {availableDeliveries.length} available, {invoicedDeliveries.length} invoiced
-                    </p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                      <p className="text-xs text-gray-500">
+                        {item.supplier_name} · {item.quantity} {item.unit_of_measure} total ·{' '}
+                        {availableDeliveries.length} available, {invoicedDeliveries.length} invoiced
+                      </p>
+                      <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        Unit: {formatCurrency(item.unit_cost)}/{item.unit_of_measure}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                   {someSelected && (
                     <span className="px-2 py-1 text-xs font-bold bg-emerald-100 text-emerald-700 rounded-full">
-                      {availableDeliveries.filter((d) => selectedDeliveries.has(d.id)).length}{' '}
-                      selected
+                      {selectedForItem.length} selected
                     </span>
                   )}
                   {isExpanded ? (
@@ -621,6 +635,29 @@ const InvoiceCreateView: React.FC<InvoiceCreateViewProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* Selected Cost Summary Bar - only when deliveries are selected */}
+              {selectedForItem.length > 0 && (
+                <div className="mx-4 mb-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-emerald-800">
+                      Selected Summary ({selectedForItem.length} delivery{selectedForItem.length !== 1 ? 'es' : ''}, {selectedQty} {item.unit_of_measure})
+                    </p>
+                    <p className="text-sm font-bold text-emerald-800">
+                      {formatCurrency(selectedTotal)}
+                    </p>
+                  </div>
+                  <div className="flex gap-4 mt-1 text-[11px] text-emerald-700">
+                    <span>
+                      Items: {formatCurrency(selectedItemCost)}
+                      <span className="text-emerald-500 ml-1">
+                        ({selectedQty} × {formatCurrency(item.unit_cost)})
+                      </span>
+                    </span>
+                    <span>Delivery: {formatCurrency(selectedDeliveryCost)}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Expanded Deliveries */}
               {isExpanded && (
@@ -633,6 +670,7 @@ const InvoiceCreateView: React.FC<InvoiceCreateViewProps> = ({
                         index={idx}
                         isSelected={selectedDeliveries.has(delivery.id)}
                         onToggle={() => onToggleDelivery(delivery.id)}
+                        unitOfMeasure={item.unit_of_measure}
                       />
                     ))}
                   </div>
@@ -692,6 +730,11 @@ const InvoiceCreateView: React.FC<InvoiceCreateViewProps> = ({
                       <p className="text-xs text-gray-500">
                         {line.quantity} units · {line.delivery_date || '—'}
                       </p>
+                      {line.delivery_cost > 0 && (
+                        <p className="text-[10px] text-gray-400">
+                          Item: {formatCurrency(line.unit_price * line.quantity)} + Del: {formatCurrency(line.delivery_cost)}
+                        </p>
+                      )}
                     </div>
                     <span className="font-bold text-gray-900 ml-3">
                       {formatCurrency(line.line_total)}
@@ -737,7 +780,6 @@ const InvoiceCreateView: React.FC<InvoiceCreateViewProps> = ({
             <div className="bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm space-y-4">
               <h4 className="font-bold text-gray-900 text-sm">Invoice Options</h4>
 
-              {/* Due Date */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Due Date</label>
                 <input
@@ -749,7 +791,6 @@ const InvoiceCreateView: React.FC<InvoiceCreateViewProps> = ({
                 />
               </div>
 
-              {/* Discount */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
                   Discount ($)
@@ -765,7 +806,6 @@ const InvoiceCreateView: React.FC<InvoiceCreateViewProps> = ({
                 />
               </div>
 
-              {/* Notes */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Notes</label>
                 <textarea
@@ -811,15 +851,18 @@ interface DeliveryRowProps {
   index: number;
   isSelected: boolean;
   onToggle: () => void;
+  unitOfMeasure: string;
 }
 
-const DeliveryRow: React.FC<DeliveryRowProps> = ({ delivery, index, isSelected, onToggle }) => {
+const DeliveryRow: React.FC<DeliveryRowProps> = ({ delivery, index, isSelected, onToggle, unitOfMeasure }) => {
   const isInvoiced = delivery.is_invoiced;
+  const itemSubtotal = delivery.quantity * delivery.unit_cost;
+  const rowTotal = itemSubtotal + delivery.delivery_cost;
 
   return (
     <div
       onClick={!isInvoiced ? onToggle : undefined}
-      className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
+      className={`flex flex-col gap-2 p-3 rounded-lg transition-all ${
         isInvoiced
           ? 'bg-gray-100 opacity-60 cursor-not-allowed'
           : isSelected
@@ -827,70 +870,100 @@ const DeliveryRow: React.FC<DeliveryRowProps> = ({ delivery, index, isSelected, 
           : 'bg-white border-2 border-gray-200 cursor-pointer hover:border-emerald-200'
       }`}
     >
-      {/* Checkbox */}
-      <div
-        className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-          isInvoiced
-            ? 'border-gray-300 bg-gray-200'
-            : isSelected
-            ? 'bg-emerald-600 border-emerald-600'
-            : 'border-gray-300'
-        }`}
-      >
-        {isInvoiced ? (
-          <Lock size={12} className="text-gray-400" />
-        ) : isSelected ? (
-          <CheckCircle size={14} className="text-white" />
-        ) : null}
-      </div>
-
-      {/* Delivery Info */}
-      <div className="flex-1 flex items-center gap-4">
-        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded border border-blue-200">
-          #{index + 1}
-        </span>
-
-        <div className="flex items-center gap-1.5 text-sm">
-          <Calendar size={13} className="text-gray-400" />
-          <span className="font-medium text-gray-900">
-            {delivery.delivery_date ? formatDate(delivery.delivery_date) : '—'}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5 text-sm">
-          <Clock size={13} className="text-gray-400" />
-          <span className="text-gray-600">{formatTime(delivery.delivery_time)}</span>
-        </div>
-
-        <div className="flex items-center gap-1.5 text-sm">
-          <Truck size={13} className="text-gray-400" />
-          <span className="font-medium text-gray-900">{delivery.quantity} units</span>
-        </div>
-
-        <span
-          className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
-            delivery.status === 'Delivered'
-              ? 'bg-green-100 text-green-700 border-green-200'
-              : delivery.status === 'Scheduled'
-              ? 'bg-blue-100 text-blue-700 border-blue-200'
-              : delivery.status === 'Cancelled'
-              ? 'bg-red-100 text-red-700 border-red-200'
-              : 'bg-gray-100 text-gray-700 border-gray-200'
+      {/* Top Row: Checkbox, Date, Time, Qty, Status */}
+      <div className="flex items-center gap-3">
+        {/* Checkbox */}
+        <div
+          className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+            isInvoiced
+              ? 'border-gray-300 bg-gray-200'
+              : isSelected
+              ? 'bg-emerald-600 border-emerald-600'
+              : 'border-gray-300'
           }`}
         >
-          {delivery.status}
-        </span>
+          {isInvoiced ? (
+            <Lock size={12} className="text-gray-400" />
+          ) : isSelected ? (
+            <CheckCircle size={14} className="text-white" />
+          ) : null}
+        </div>
 
-        {delivery.supplier_confirms && (
-          <CheckCircle size={14} className="text-green-500 flex-shrink-0" />
+        {/* Delivery Info */}
+        <div className="flex-1 flex items-center gap-4 flex-wrap">
+          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded border border-blue-200">
+            #{index + 1}
+          </span>
+
+          <div className="flex items-center gap-1.5 text-sm">
+            <Calendar size={13} className="text-gray-400" />
+            <span className="font-medium text-gray-900">
+              {delivery.delivery_date ? formatDate(delivery.delivery_date) : '—'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-sm">
+            <Clock size={13} className="text-gray-400" />
+            <span className="text-gray-600">{formatTime(delivery.delivery_time)}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-sm">
+            <Truck size={13} className="text-gray-400" />
+            <span className="font-medium text-gray-900">
+              {delivery.quantity} {unitOfMeasure}
+            </span>
+          </div>
+
+          <span
+            className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+              delivery.status === 'Delivered'
+                ? 'bg-green-100 text-green-700 border-green-200'
+                : delivery.status === 'Scheduled'
+                ? 'bg-blue-100 text-blue-700 border-blue-200'
+                : delivery.status === 'Cancelled'
+                ? 'bg-red-100 text-red-700 border-red-200'
+                : 'bg-gray-100 text-gray-700 border-gray-200'
+            }`}
+          >
+            {delivery.status}
+          </span>
+
+          {delivery.supplier_confirms && (
+            <CheckCircle size={14} className="text-green-500 flex-shrink-0" />
+          )}
+        </div>
+
+        {/* Invoiced Label */}
+        {isInvoiced && (
+          <span className="px-2 py-1 text-[10px] font-bold bg-amber-100 text-amber-700 rounded border border-amber-200 flex-shrink-0">
+            INVOICED
+          </span>
         )}
       </div>
 
-      {/* Invoiced Label */}
-      {isInvoiced && (
-        <span className="px-2 py-1 text-[10px] font-bold bg-amber-100 text-amber-700 rounded border border-amber-200">
-          INVOICED
-        </span>
+      {/* Bottom Row: Cost Breakdown */}
+      {!isInvoiced && (
+        <div className="flex items-center gap-4 ml-8 text-xs">
+          <span className="text-gray-500">
+            <DollarSign size={11} className="inline -mt-0.5" />
+            Unit: {formatCurrency(delivery.unit_cost)}/{unitOfMeasure}
+          </span>
+          <span className="text-gray-500">
+            Items: {formatCurrency(itemSubtotal)}
+            <span className="text-gray-400 ml-1">
+              ({delivery.quantity} × {formatCurrency(delivery.unit_cost)})
+            </span>
+          </span>
+          {delivery.delivery_cost > 0 && (
+            <span className="text-gray-500">
+              <Truck size={11} className="inline -mt-0.5 mr-0.5" />
+              Delivery: {formatCurrency(delivery.delivery_cost)}
+            </span>
+          )}
+          <span className="font-bold text-gray-700 ml-auto">
+            Total: {formatCurrency(rowTotal)}
+          </span>
+        </div>
       )}
     </div>
   );
@@ -944,7 +1017,6 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({ invoiceId, orderI
             <p className="text-sm text-gray-500">Created by {invoice.created_by}</p>
           </div>
 
-          {/* Status Update */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-bold text-gray-600">Change Status:</label>
             <select
@@ -1046,10 +1118,14 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({ invoiceId, orderI
                       {item.delivery_date ? formatDate(item.delivery_date) : '—'}
                     </div>
                     {item.delivery_time && (
-                      <p className="text-xs text-gray-400 mt-0.5">{formatTime(item.delivery_time)}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {formatTime(item.delivery_time)}
+                      </p>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-right font-medium text-gray-900">{item.quantity}</td>
+                  <td className="px-5 py-3 text-right font-medium text-gray-900">
+                    {item.quantity}
+                  </td>
                   <td className="px-5 py-3 text-right text-gray-600">
                     {formatCurrency(item.unit_price)}
                   </td>

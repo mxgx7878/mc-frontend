@@ -409,7 +409,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                 Delivered (Locked)
               </h3>
               <div className="space-y-2">
-                {deliveredDeliveries.map((d, i) => (
+                {deliveredDeliveries.map((d) => (
                   <div
                     key={d.id}
                     className="p-3 bg-gray-100 border-2 border-gray-200 rounded-lg opacity-60"

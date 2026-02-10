@@ -3,6 +3,10 @@
 /**
  * Invoice Type Definitions
  * TypeScript interfaces for invoice generation module
+ *
+ * UPDATED: Added unit_cost & delivery_cost to InvoiceableDelivery
+ *          Added unit_cost to InvoiceableItem
+ *          Each split delivery now carries its own delivery_cost
  */
 
 // ==================== INVOICE STATUS ====================
@@ -26,6 +30,8 @@ export interface InvoiceableDelivery {
   supplier_confirms: boolean;
   is_invoiced: boolean;
   invoice_id: number | null;
+  unit_cost: number;       // customer unit price
+  delivery_cost: number;   // delivery cost for this specific split delivery
 }
 
 export interface InvoiceableItem {
@@ -38,6 +44,7 @@ export interface InvoiceableItem {
   is_quoted: number;
   quoted_price: number | null;
   is_paid: number;
+  unit_cost: number;       // customer unit price for display reference
   deliveries: InvoiceableDelivery[];
 }
 
