@@ -46,6 +46,8 @@ export interface ItemDelivery {
   quantity: string | number;
   delivery_date: string;
   delivery_time: string;
+  truck_type?: string | null;              // ← ADD
+  delivery_cost?: number | string | null;
   supplier_confirms: boolean;
   created_at: string;
   updated_at: string;

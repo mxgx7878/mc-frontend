@@ -36,8 +36,8 @@ export interface OrderDelivery {
   quantity: number;
   delivery_date: string;
   delivery_time: string | null;
-  truck_type?: string | null;
-  delivery_cost?: number | string | null;
+  truck_type?: string | null;        // ← ADD
+  delivery_cost?: number | string | null;  // ← ADD (API may return string like "50.00")
   status: 'scheduled' | 'pending' | 'delivered' | 'completed' | 'cancelled';
   supplier_confirms?: boolean;
   created_at: string;
@@ -219,3 +219,12 @@ export interface EditOrderErrorResponse {
   message: string;
   errors?: Record<string, string[]>;
 }
+
+
+
+/**
+ * Check if an item can be removed (no delivered deliveries)
+ */
+export const canRemoveItem = (item: OrderEditItem): boolean => {
+  return !item.deliveries.some(d => d.status === 'delivered');
+};
