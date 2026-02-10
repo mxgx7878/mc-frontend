@@ -3,25 +3,20 @@
 /**
  * STEP 2: PROJECT & DELIVERY DETAILS
  * 
- * UPDATED CHANGES:
- * - REMOVED: delivery_time, special_equipment, special_notes
- * - ADDED: contact_person_name, contact_person_number
- * - KEPT: delivery_date (as primary/default delivery date)
- * 
- * WHY THESE CHANGES:
- * - Delivery time is now per-slot (configured in Step 3)
- * - Contact person is order-specific (not project-specific)
- * - Special equipment/notes removed per requirements
+ * UPDATED:
+ * - Added prefillProject and prefillLocation props
+ * - When user selected a project in Step 1, both project + address auto-fill
+ * - When user entered custom address in Step 1, only address auto-fills
  * 
  * USER FLOW:
- * 1. Select project (auto-fills address)
- * 2. Enter/edit delivery address
- * 3. Set primary delivery date (default for all slots)
+ * 1. (Auto-filled from Step 1 if location was set)
+ * 2. Select/confirm project
+ * 3. Enter/edit delivery address
  * 4. Enter contact person details for this order
  * 5. Proceed to Step 3 (Split Delivery Scheduling)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -56,6 +51,14 @@ interface Step2Props {
   onUpdateQuantity: (productId: number, quantity: number) => void;
   onRemoveItem: (productId: number) => void;
   onUpdateCustomBlend?: (productId: number, blend: string) => void;
+
+  // NEW: Pre-fill from Step 1 location selection
+  prefillProject?: Project | null;
+  prefillLocation?: {
+    address: string;
+    lat: number;
+    long: number;
+  } | null;
 }
 
 const Step2_ProjectDelivery: React.FC<Step2Props> = ({
@@ -68,6 +71,8 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   onUpdateQuantity,
   onRemoveItem,
   onUpdateCustomBlend,
+  prefillProject,
+  prefillLocation,
 }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
@@ -75,6 +80,9 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [addressKey, setAddressKey] = useState(0);
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+
+  // Track if we've already applied the prefill (prevent re-applying on re-renders)
+  const hasPrefilled = useRef(false);
 
   const {
     register,
@@ -92,9 +100,6 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
 
   /**
    * Get image URL with fallback for product photos
-   * 
-   * WHY: Product photos might be null or invalid URLs
-   * WHAT: Returns a base64 SVG placeholder if photo is missing
    */
   const getImageUrl = (photo: string | null | undefined): string => {
     if (!photo) {
@@ -107,15 +112,44 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   };
 
   /**
-   * Auto-select project if only one exists
+   * AUTO-PREFILL FROM STEP 1
    * 
-   * WHY: Better UX - skip dropdown if there's only one option
+   * WHAT: If user selected a location in Step 1, auto-fill Step 2 fields
+   * 
+   * CASES:
+   * 1. prefillProject is set → auto-select that project + fill address from project
+   * 2. prefillLocation is set (custom address) → fill only address fields
+   * 3. Neither → normal behavior (auto-select if only 1 project)
    */
   useEffect(() => {
+    if (hasPrefilled.current) return;
+
+    // Case 1: Project was selected in Step 1
+    if (prefillProject) {
+      const matchedProject = projects.find((p) => p.id === prefillProject.id);
+      if (matchedProject) {
+        handleProjectSelect(matchedProject);
+        hasPrefilled.current = true;
+        return;
+      }
+    }
+
+    // Case 2: Custom address was entered in Step 1
+    if (prefillLocation) {
+      setValue('delivery_address', prefillLocation.address, { shouldValidate: true });
+      setValue('delivery_lat', prefillLocation.lat, { shouldValidate: true });
+      setValue('delivery_long', prefillLocation.long, { shouldValidate: true });
+      setIsEditingAddress(false);
+      setAddressKey((prev) => prev + 1);
+      hasPrefilled.current = true;
+      return;
+    }
+
+    // Case 3: No prefill — auto-select if only one project exists
     if (projects.length === 1 && !selectedProject) {
       handleProjectSelect(projects[0]);
     }
-  }, [projects]);
+  }, [projects, prefillProject, prefillLocation]);
 
   /**
    * Handle project selection
@@ -127,26 +161,22 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
   const handleProjectSelect = (project: Project) => {
     setSelectedProject(project);
     setValue('project_id', project.id, { shouldValidate: true });
-    
+
     // Auto-fill address if project has one
     if (project.delivery_address && project.delivery_lat && project.delivery_long) {
       setValue('delivery_address', project.delivery_address, { shouldValidate: true });
       setValue('delivery_lat', Number(project.delivery_lat), { shouldValidate: true });
       setValue('delivery_long', Number(project.delivery_long), { shouldValidate: true });
       setIsEditingAddress(false);
-      setAddressKey(prev => prev + 1); // Force re-render of autocomplete
+      setAddressKey((prev) => prev + 1);
     }
-    
+
     setShowProjectDropdown(false);
     setProjectSearchTerm('');
   };
 
   /**
    * Handle Google Autocomplete place selection
-   * 
-   * WHAT: Extracts address string and coordinates from Google Place object
-   * WHY: Primary method for address input with automatic geocoding
-   * HOW: Uses Google's formatted_address and geometry.location
    */
   const handlePlaceSelected = (place: any) => {
     if (place.formatted_address) {
@@ -162,17 +192,6 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
 
   /**
    * Handle map pin confirmation
-   * 
-   * WHAT: Receives address + coordinates from MapPinModal component
-   * WHY: Alternative address input method when autocomplete doesn't work
-   * HOW: User pins location on interactive map, modal performs reverse geocoding
-   * FLOW:
-   * 1. User clicks "Pin on Map"
-   * 2. Modal opens with Google Map
-   * 3. User clicks to pin location
-   * 4. Modal fetches address via reverse geocoding
-   * 5. User confirms
-   * 6. This function updates form values
    */
   const handleMapPinConfirm = (address: string, lat: number, lng: number) => {
     setValue('delivery_address', address, { shouldValidate: true });
@@ -180,22 +199,23 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
     setValue('delivery_long', lng, { shouldValidate: true });
     setIsEditingAddress(false);
     setIsMapModalOpen(false);
-    setAddressKey(prev => prev + 1);
+    setAddressKey((prev) => prev + 1);
   };
 
   /**
    * Reset address to project's default
-   * 
-   * WHAT: Restores project's saved delivery address
-   * WHY: User might want to undo manual address changes
    */
   const handleResetToProjectAddress = () => {
-    if (selectedProject?.delivery_address && selectedProject?.delivery_lat && selectedProject?.delivery_long) {
+    if (
+      selectedProject?.delivery_address &&
+      selectedProject?.delivery_lat &&
+      selectedProject?.delivery_long
+    ) {
       setValue('delivery_address', selectedProject.delivery_address, { shouldValidate: true });
       setValue('delivery_lat', Number(selectedProject.delivery_lat), { shouldValidate: true });
       setValue('delivery_long', Number(selectedProject.delivery_long), { shouldValidate: true });
       setIsEditingAddress(false);
-      setAddressKey(prev => prev + 1);
+      setAddressKey((prev) => prev + 1);
     }
   };
 
@@ -208,9 +228,6 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
 
   /**
    * Handle quantity changes for cart items
-   * 
-   * WHY: User might realize they need more/less of a product
-   * WHAT: Updates cart item quantity (also scales delivery slots proportionally)
    */
   const handleQuantityChange = (productId: number, value: string) => {
     const quantity = parseInt(value);
@@ -233,33 +250,30 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
 
   return (
     <>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid lg:grid-cols-3 gap-6">
-          
-          {/* LEFT COLUMN: Order Summary (Editable) */}
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* LEFT COLUMN: Cart Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-5 lg:sticky lg:top-6">
-              <h3 className="font-bold text-secondary-900 mb-4 flex items-center gap-2">
-                <Building2 size={20} className="text-primary-600" />
-                Order Summary
-              </h3>
+            <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6 sticky top-6">
+              <h3 className="font-bold text-secondary-900 text-lg mb-4">🛒 Order Summary</h3>
 
-              <div className="space-y-4">
+              {/* Cart Items */}
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
                 {cartItems.map((item) => (
                   <div
                     key={item.product_id}
-                    className="pb-4 border-b border-secondary-100 last:border-0"
+                    className="bg-secondary-50 rounded-lg p-3 space-y-2"
                   >
-                    {/* Product Info */}
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="w-14 h-14 rounded-lg bg-secondary-100 flex-shrink-0 overflow-hidden">
+                    {/* Product Info Row */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-white border border-secondary-200 flex-shrink-0">
                         <img
                           src={getImageUrl(item.product_photo)}
                           alt={item.product_name}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZTVlN2ViIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+                            (e.target as HTMLImageElement).src =
+                              'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjZTVlN2ViIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzljYTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
                           }}
                         />
                       </div>
@@ -267,9 +281,7 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                         <p className="font-semibold text-secondary-900 text-sm">
                           {item.product_name}
                         </p>
-                        <p className="text-xs text-secondary-600 mt-1">
-                          {item.product_type}
-                        </p>
+                        <p className="text-xs text-secondary-600 mt-1">{item.product_type}</p>
                       </div>
                       <button
                         type="button"
@@ -293,7 +305,7 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                           type="button"
                           onClick={() => handleDecrement(item.product_id, item.quantity)}
                           disabled={item.quantity <= 1}
-                          className="px-2 py-1 bg-secondary-50 hover:bg-secondary-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          className="px-2 py-1 hover:bg-secondary-100 disabled:opacity-50"
                         >
                           <Minus size={14} />
                         </button>
@@ -301,31 +313,32 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                           type="number"
                           value={item.quantity}
                           onChange={(e) => handleQuantityChange(item.product_id, e.target.value)}
-                          className="w-12 text-center text-sm font-medium border-x border-secondary-300 py-1 focus:outline-none"
+                          className="w-16 text-center py-1 text-sm border-x border-secondary-300 focus:outline-none"
                           min="1"
                         />
                         <button
                           type="button"
                           onClick={() => handleIncrement(item.product_id, item.quantity)}
-                          className="px-2 py-1 bg-secondary-50 hover:bg-secondary-100 transition-colors"
+                          className="px-2 py-1 hover:bg-secondary-100"
                         >
                           <Plus size={14} />
                         </button>
                       </div>
+                      <span className="text-xs text-secondary-500">{item.unit_of_measure}</span>
                     </div>
 
-                    {/* Custom Blend (if applicable) */}
-                    {item.custom_blend_mix !== null && onUpdateCustomBlend && (
-                      <div className="mt-2">
-                        <label className="text-xs text-secondary-600 font-medium mb-1 block">
-                          Custom Blend:
+                    {/* Custom Blend (for concrete/special products) */}
+                    {item.product_type?.toLowerCase().includes('concrete') && onUpdateCustomBlend && (
+                      <div className="mt-1">
+                        <label className="text-xs text-secondary-600 font-medium">
+                          Custom Blend Mix:
                         </label>
                         <input
                           type="text"
                           value={item.custom_blend_mix || ''}
                           onChange={(e) => onUpdateCustomBlend(item.product_id, e.target.value)}
-                          placeholder="Enter custom blend details"
-                          className="w-full text-xs px-2 py-1 border border-secondary-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                          placeholder="e.g. 32 MPA with 10mm aggregate"
+                          className="w-full mt-1 px-2 py-1 text-xs border border-secondary-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                         />
                       </div>
                     )}
@@ -345,7 +358,6 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
 
           {/* RIGHT COLUMN: Project & Delivery Details */}
           <div className="lg:col-span-2 space-y-6">
-            
             {/* Section 1: Project Selection */}
             <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
               <div className="flex items-center gap-2 mb-4">
@@ -369,34 +381,44 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                           : 'border-secondary-300 hover:border-primary-500'
                       }`}
                     >
-                      <span className={selectedProject ? 'text-secondary-900' : 'text-secondary-400'}>
+                      <span
+                        className={
+                          selectedProject ? 'text-secondary-900' : 'text-secondary-400'
+                        }
+                      >
                         {selectedProject ? selectedProject.name : 'Select a project'}
                       </span>
                       <ChevronDown
                         size={20}
-                        className={`transition-transform ${showProjectDropdown ? 'rotate-180' : ''}`}
+                        className={`transition-transform ${
+                          showProjectDropdown ? 'rotate-180' : ''
+                        }`}
                       />
                     </button>
 
                     {/* Dropdown */}
                     {showProjectDropdown && (
-                      <div className="absolute z-10 mt-2 w-full bg-white border border-secondary-200 rounded-lg shadow-lg max-h-72 overflow-auto">
+                      <div className="absolute z-20 mt-1 w-full bg-white border border-secondary-200 rounded-lg shadow-lg max-h-60 overflow-hidden">
                         {/* Search */}
-                        <div className="p-3 border-b border-secondary-100 sticky top-0 bg-white">
+                        <div className="p-3 border-b border-secondary-100">
                           <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={18} />
+                            <Search
+                              className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400"
+                              size={16}
+                            />
                             <input
                               type="text"
+                              placeholder="Search projects..."
                               value={projectSearchTerm}
                               onChange={(e) => setProjectSearchTerm(e.target.value)}
-                              placeholder="Search projects..."
-                              className="w-full pl-10 pr-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                              className="w-full pl-9 pr-3 py-2 text-sm border border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500"
+                              autoFocus
                             />
                           </div>
                         </div>
 
-                        {/* Projects List */}
-                        <div className="py-2">
+                        {/* Project List */}
+                        <div className="max-h-40 overflow-y-auto">
                           {filteredProjects.length > 0 ? (
                             filteredProjects.map((project) => (
                               <button
@@ -405,7 +427,9 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                                 onClick={() => handleProjectSelect(project)}
                                 className="w-full px-4 py-3 text-left hover:bg-primary-50 transition-colors flex items-center justify-between"
                               >
-                                <span className="font-medium text-secondary-900">{project.name}</span>
+                                <span className="font-medium text-secondary-900">
+                                  {project.name}
+                                </span>
                                 {selectedProject?.id === project.id && (
                                   <div className="w-2 h-2 bg-primary-600 rounded-full" />
                                 )}
@@ -427,9 +451,9 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                                 setShowProjectDropdown(false);
                                 onCreateProject();
                               }}
-                              className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center gap-2"
+                              className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                             >
-                              <Plus size={18} />
+                              <Plus size={16} />
                               Create New Project
                             </button>
                           </div>
@@ -437,6 +461,7 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                       </div>
                     )}
                   </div>
+
                   {errors.project_id && (
                     <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
                       <AlertCircle size={14} />
@@ -444,95 +469,40 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                     </p>
                   )}
                 </div>
-              </div>
 
-              {/* Project Info Display */}
-              {selectedProject && (
-                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm font-medium text-blue-900 mb-2">
-                    {selectedProject.name}
-                  </p>
-                  {selectedProject.site_contact_name && (
-                    <div className="flex items-center gap-2 text-sm text-blue-800">
-                      <User size={14} />
-                      <span>{selectedProject.site_contact_name}</span>
-                    </div>
-                  )}
-                  {selectedProject.site_contact_phone && (
-                    <div className="flex items-center gap-2 text-sm text-blue-800 mt-1">
-                      <Phone size={14} />
-                      <span>{selectedProject.site_contact_phone}</span>
-                    </div>
-                  )}
-                </div>
-              )}
+                {/* Selected Project Info */}
+                {selectedProject && (
+                  <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
+                    <p className="font-semibold text-primary-900">{selectedProject.name}</p>
+                    {selectedProject.site_contact_name && (
+                      <p className="text-sm text-primary-700 mt-1">
+                        Contact: {selectedProject.site_contact_name}
+                      </p>
+                    )}
+                    {selectedProject.site_instructions && (
+                      <p className="text-sm text-primary-700 mt-1">
+                        Instructions: {selectedProject.site_instructions}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Section 2: Delivery Details */}
+            {/* Section 2: Delivery Address */}
             <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
               <div className="flex items-center gap-2 mb-4">
                 <MapPin className="text-primary-600" size={22} />
-                <h3 className="font-bold text-secondary-900">Delivery Details</h3>
+                <h3 className="font-bold text-secondary-900">Delivery Address</h3>
               </div>
 
               <div className="space-y-4">
-                {/* Contact Person Name */}
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    Contact Person Name *
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
-                    <input
-                      type="text"
-                      {...register('contact_person_name')}
-                      placeholder="Name of person receiving delivery"
-                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                  {errors.contact_person_name && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
-                      {errors.contact_person_name.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Contact Person Number */}
-                <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    Contact Person Number *
-                  </label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
-                    <input
-                      type="tel"
-                      {...register('contact_person_number')}
-                      placeholder="Phone number for delivery coordination"
-                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                  {errors.contact_person_number && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
-                      {errors.contact_person_number.message}
-                    </p>
-                  )}
-                </div>
-                {/* PO Number */}
-                <Input
-                  label="PO Number (Optional)"
-                  placeholder="Enter PO number if you have one"
-                  {...register('po_number')}
-                  error={errors.po_number?.message}
-                />
-
-                {/* Delivery Address */}
                 <div>
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
                     Delivery Address *
                   </label>
-                  {!isEditingAddress && watchDeliveryAddress ? (
+
+                  {watchDeliveryAddress && !isEditingAddress ? (
                     <div className="flex items-start gap-2">
                       <div className="flex-1 px-4 py-3 bg-secondary-50 border border-secondary-200 rounded-lg">
                         <p className="text-sm text-secondary-900">{watchDeliveryAddress}</p>
@@ -545,16 +515,17 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                       >
                         <Edit2 size={18} />
                       </button>
-                      {selectedProject?.delivery_address && watchDeliveryAddress !== selectedProject.delivery_address && (
-                        <button
-                          type="button"
-                          onClick={handleResetToProjectAddress}
-                          className="p-3 border border-secondary-300 rounded-lg hover:bg-secondary-50 transition-colors"
-                          title="Reset to project address"
-                        >
-                          <RotateCcw size={18} />
-                        </button>
-                      )}
+                      {selectedProject?.delivery_address &&
+                        watchDeliveryAddress !== selectedProject.delivery_address && (
+                          <button
+                            type="button"
+                            onClick={handleResetToProjectAddress}
+                            className="p-3 border border-secondary-300 rounded-lg hover:bg-secondary-50 transition-colors"
+                            title="Reset to project address"
+                          >
+                            <RotateCcw size={18} />
+                          </button>
+                        )}
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -569,89 +540,70 @@ const Step2_ProjectDelivery: React.FC<Step2Props> = ({
                         }}
                         defaultValue={watchDeliveryAddress || ''}
                         className="w-full px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                        placeholder="Start typing to search address..."
+                        placeholder="Start typing delivery address..."
                       />
-                      
-                      {/* OR Divider */}
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-px bg-secondary-200" />
-                        <span className="text-xs text-secondary-500 font-medium">OR</span>
-                        <div className="flex-1 h-px bg-secondary-200" />
-                      </div>
-                      
-                      {/* Pin on Map Button */}
+
+                      {/* Pin on Map button */}
                       <button
                         type="button"
                         onClick={() => setIsMapModalOpen(true)}
-                        className="w-full px-4 py-3 border-2 border-primary-500 bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100 transition-colors flex items-center justify-center gap-2 font-medium"
+                        className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
                       >
-                        <MapPin size={18} />
-                        Pin Location on Map
+                        <MapPin size={14} />
+                        Pin location on map
                       </button>
                     </div>
                   )}
+
                   {errors.delivery_address && (
                     <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
                       <AlertCircle size={14} />
                       {errors.delivery_address.message}
                     </p>
                   )}
-                  {errors.delivery_lat && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
-                      {errors.delivery_lat.message}
-                    </p>
-                  )}
-                  
-                  {/* Hidden inputs for lat/long */}
-                  <input type="hidden" {...register('delivery_lat')} />
-                  <input type="hidden" {...register('delivery_long')} />
                 </div>
+              </div>
+            </div>
 
-                {/* Primary Delivery Date */}
-                {/* <div>
-                  <label className="block text-sm font-medium text-secondary-700 mb-2">
-                    Primary Delivery Date *
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={20} />
-                    <input
-                      type="date"
-                      {...register('delivery_date')}
-                      className="w-full pl-10 px-4 py-3 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-secondary-500">
-                    This will be used as the default date for delivery scheduling (configurable in next step)
-                  </p>
-                  {errors.delivery_date && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
-                      {errors.delivery_date.message}
-                    </p>
-                  )}
-                </div> */}
+            {/* Section 3: Contact Person & PO Number */}
+            <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <User className="text-primary-600" size={22} />
+                <h3 className="font-bold text-secondary-900">Contact & Reference</h3>
+              </div>
 
-                {/* Load Size */}
-                {/* <Input
-                  label="Load Size (Optional)"
-                  placeholder="e.g., 6 cubic meters"
-                  {...register('load_size')}
-                  error={errors.load_size?.message}
-                /> */}
+              <div className="space-y-4">
+                {/* Contact Person Name */}
+                <Input
+                  label="Contact Person Name *"
+                  placeholder="Who should be contacted at the delivery site?"
+                  {...register('contact_person_name')}
+                  error={errors.contact_person_name?.message}
+                  icon={User}
+                />
 
-                
+                {/* Contact Person Number */}
+                <Input
+                  label="Contact Person Number *"
+                  placeholder="e.g., 0412 345 678"
+                  {...register('contact_person_number')}
+                  error={errors.contact_person_number?.message}
+                  icon={Phone}
+                />
+
+                {/* PO Number */}
+                <Input
+                  label="PO Number (Optional)"
+                  placeholder="e.g., PO-2024-001"
+                  {...register('po_number')}
+                  error={errors.po_number?.message}
+                />
               </div>
             </div>
 
             {/* Action Buttons */}
             <div className="flex gap-4">
-              <Button
-                type="button"
-                onClick={onBack}
-                variant="outline"
-                className="flex-1"
-              >
+              <Button type="button" onClick={onBack} variant="outline" className="flex-1">
                 ← Back
               </Button>
               <Button

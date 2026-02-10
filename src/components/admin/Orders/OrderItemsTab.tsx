@@ -14,10 +14,8 @@ import {
   Clock,
   AlertCircle,
   DollarSign,
-  Edit3,
   X,
   Check,
-  CreditCard,
   User,
   Edit,
   Lock,
@@ -32,8 +30,6 @@ import type { AdminOrderItem, WorkflowStatus } from '../../../types/adminOrder.t
 import { formatCurrency } from '../../../features/adminOrders/utils';
 import {
   useAssignSupplier,
-  useSetQuotedPrice,
-  useMarkItemAsPaid,
 } from '../../../features/adminOrders/hooks';
 import AdminOrderItemEditModal from './AdminOrderItemEditModal';
 import AdminChangeSupplierModal from './AdminChangeSupplierModal';
@@ -48,8 +44,6 @@ interface OrderItemsTabProps {
 }
 
 const OrderItemsTab: React.FC<OrderItemsTabProps> = ({ items, workflow, orderId, paymentStatus }) => {
-  const [editingQuotedPrice, setEditingQuotedPrice] = useState<number | null>(null);
-  const [quotedPriceValue, setQuotedPriceValue] = useState<string>('');
   const [editingItem, setEditingItem] = useState<AdminOrderItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
@@ -89,8 +83,6 @@ const canChangeSupplier = (item: AdminOrderItem, paymentStatus: string) => {
   } = usePermissions();
 
   const assignSupplierMutation = useAssignSupplier();
-  const setQuotedPriceMutation = useSetQuotedPrice();
-  const markAsPaidMutation = useMarkItemAsPaid();
 
   // Toggle delivery schedule expansion
   const toggleItemExpansion = (itemId: number) => {
@@ -156,45 +148,6 @@ const canChangeSupplier = (item: AdminOrderItem, paymentStatus: string) => {
       item_id: itemId,
       supplier: supplierId,
       offer_id: offerId,
-    });
-  };
-
-  // Handle quoted price editing
-  const handleStartEditQuotedPrice = (item: AdminOrderItem) => {
-    if (isReadOnly || !canEnterQuotedRates) return;
-    setEditingQuotedPrice(item.id);
-    setQuotedPriceValue(item.quoted_price?.toString() || '');
-  };
-
-  const handleSaveQuotedPrice = (itemId: number) => {
-    if (isReadOnly) return;
-    const price = quotedPriceValue === '' ? null : parseFloat(quotedPriceValue);
-    if (price !== null && (isNaN(price) || price < 0)) {
-      return;
-    }
-    setQuotedPriceMutation.mutate(
-      { orderId, itemId, quotedPrice: price },
-      {
-        onSuccess: () => {
-          setEditingQuotedPrice(null);
-          setQuotedPriceValue('');
-        },
-      }
-    );
-  };
-
-  const handleCancelEditQuotedPrice = () => {
-    setEditingQuotedPrice(null);
-    setQuotedPriceValue('');
-  };
-
-  // Handle payment status toggle
-  const handleTogglePaidStatus = (itemId: number, currentStatus: number) => {
-    if (isReadOnly) return;
-    markAsPaidMutation.mutate({
-      orderId,
-      itemId,
-      isPaid: currentStatus === 0,
     });
   };
 
@@ -300,7 +253,7 @@ const canChangeSupplier = (item: AdminOrderItem, paymentStatus: string) => {
               <div className="flex justify-between items-center text-sm mt-1">
                 <span className="font-medium text-gray-700">Confirmed Deliveries:</span>
                 <span className="font-bold text-green-700">
-                  {item.deliveries?.filter(d => d.supplier_confirms).length || 0} / {item.deliveries?.length || 0}
+                  {item.supplier_confirms ? (item.deliveries?.length +'/'+ item.deliveries?.length) : (0 +'/'+ item.deliveries?.length)}
                 </span>
               </div>
             </div>
@@ -484,120 +437,12 @@ const canChangeSupplier = (item: AdminOrderItem, paymentStatus: string) => {
               <span className="font-medium text-gray-900">{item.delivery_type}</span>
             </div>
           )}
-          {item.delivery_cost && item.delivery_cost > 0 && (
-            <div className="flex justify-between text-sm text-blue-600">
-              <span>Delivery Cost:</span>
-              <span className="font-medium">+{formatCurrency(item.delivery_cost)}</span>
-            </div>
-          )}
         </div>
       </PermissionGate>
 
-      {/* Quoted Price Section */}
-      <PermissionGate permission="pricing.enter_quoted_rates">
-        <div className="mt-4 bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <DollarSign size={16} className="text-purple-600" />
-              <span className="text-sm font-bold text-gray-900">Quoted Price Override</span>
-            </div>
-            {editingQuotedPrice === item.id ? (
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={quotedPriceValue}
-                  onChange={(e) => setQuotedPriceValue(e.target.value)}
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  className="w-32 px-3 py-1.5 text-sm border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  autoFocus
-                />
-                <button
-                  onClick={() => handleSaveQuotedPrice(item.id)}
-                  disabled={setQuotedPriceMutation.isPending}
-                  className="p-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                  title="Save"
-                >
-                  <Check size={16} />
-                </button>
-                <button
-                  onClick={handleCancelEditQuotedPrice}
-                  className="p-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  title="Cancel"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-purple-700">
-                  {item.is_quoted === 1 && item.quoted_price !== null
-                    ? formatCurrency(item.quoted_price as number)
-                    : 'Not Set'}
-                </span>
-                {!isReadOnly && (
-                  <button
-                    onClick={() => handleStartEditQuotedPrice(item)}
-                    className="p-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                    title="Edit Quoted Price"
-                  >
-                    <Edit3 size={16} />
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </PermissionGate>
 
-      {/* Payment Status Section */}
-      <div className="mt-4 bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CreditCard size={16} className="text-blue-600" />
-            <span className="text-sm font-bold text-gray-900">Payment Status</span>
-          </div>
-          {isReadOnly ? (
-            <span
-              className={`px-3 py-1.5 text-xs font-bold rounded-full ${
-                item.is_paid === 1
-                  ? 'bg-green-100 text-green-800 border-2 border-green-300'
-                  : 'bg-gray-100 text-gray-800 border-2 border-gray-300'
-              }`}
-            >
-              {item.is_paid === 1 ? '✓ Paid' : 'Unpaid'}
-            </span>
-          ) : (
-            <PermissionGate
-              permission="payments.mark_paid"
-              fallback={
-                <span
-                  className={`px-3 py-1.5 text-xs font-bold rounded-full ${
-                    item.is_paid === 1
-                      ? 'bg-green-100 text-green-800 border-2 border-green-300'
-                      : 'bg-gray-100 text-gray-800 border-2 border-gray-300'
-                  }`}
-                >
-                  {item.is_paid === 1 ? '✓ Paid' : 'Unpaid'}
-                </span>
-              }
-            >
-              <button
-                onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
-                disabled={markAsPaidMutation.isPending}
-                className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${
-                  item.is_paid === 1
-                    ? 'bg-green-100 text-green-800 border-2 border-green-300 hover:bg-green-200'
-                    : 'bg-gray-100 text-gray-800 border-2 border-gray-300 hover:bg-gray-200'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                {item.is_paid === 1 ? '✓ Paid' : 'Mark as Paid'}
-              </button>
-            </PermissionGate>
-          )}
-        </div>
-      </div>
+
+   
 
       {/* Delivery Schedule */}
       {renderDeliverySchedule(item)}
@@ -693,65 +538,11 @@ const canChangeSupplier = (item: AdminOrderItem, paymentStatus: string) => {
                   <span className="font-medium">-{formatCurrency(item.supplier_discount)}</span>
                 </div>
               )}
-              {item.delivery_type && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Delivery ({item.delivery_type}):</span>
-                  <span className="font-medium text-gray-900">
-                    {item.delivery_cost ? formatCurrency(item.delivery_cost) : 'Included'}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </PermissionGate>
 
-        {/* Payment Status */}
-        <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CreditCard size={16} className="text-blue-600" />
-              <span className="text-sm font-bold text-gray-900">Payment Status</span>
-            </div>
-            {isReadOnly ? (
-              <span
-                className={`px-3 py-1.5 text-xs font-bold rounded-full ${
-                  item.is_paid === 1
-                    ? 'bg-green-100 text-green-800 border-2 border-green-300'
-                    : 'bg-gray-100 text-gray-800 border-2 border-gray-300'
-                }`}
-              >
-                {item.is_paid === 1 ? '✓ Paid' : 'Unpaid'}
-              </span>
-            ) : (
-              <PermissionGate
-                permission="payments.mark_paid"
-                fallback={
-                  <span
-                    className={`px-3 py-1.5 text-xs font-bold rounded-full ${
-                      item.is_paid === 1
-                        ? 'bg-green-100 text-green-800 border-2 border-green-300'
-                        : 'bg-gray-100 text-gray-800 border-2 border-gray-300'
-                    }`}
-                  >
-                    {item.is_paid === 1 ? '✓ Paid' : 'Unpaid'}
-                  </span>
-                }
-              >
-                <button
-                  onClick={() => handleTogglePaidStatus(item.id, item.is_paid)}
-                  disabled={markAsPaidMutation.isPending}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all ${
-                    item.is_paid === 1
-                      ? 'bg-green-100 text-green-800 border-2 border-green-300 hover:bg-green-200'
-                      : 'bg-gray-100 text-gray-800 border-2 border-gray-300 hover:bg-gray-200'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {item.is_paid === 1 ? '✓ Paid' : 'Mark as Paid'}
-                </button>
-              </PermissionGate>
-            )}
-          </div>
-        </div>
+
       </div>
 
       {/* Delivery Schedule */}

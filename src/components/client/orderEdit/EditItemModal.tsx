@@ -2,12 +2,9 @@
 /**
  * EDIT ITEM MODAL
  * 
- * Modal for editing an existing order item:
- * - Update quantity (must be >= delivered quantity)
- * - Manage split deliveries (scheduled only)
- * - Add new delivery slots
- * - Edit/Remove scheduled delivery slots
- * - Validates: scheduled qty sum = item qty - delivered qty
+ * UPDATED: Added truck_type and delivery_cost per delivery slot
+ * - truck_type: visible to all users (admin + client)
+ * - delivery_cost: visible to admin only (via isAdmin prop)
  * 
  * RULES:
  * - Cannot reduce quantity below delivered amount
@@ -29,6 +26,8 @@ import {
   CheckCircle,
   Lock,
   Info,
+  Truck,
+  DollarSign,
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import type { OrderEditItem, EditDeliveryPayload } from '../../../types/orderEdit.types';
@@ -37,6 +36,21 @@ import {
   getScheduledDeliveries,
   getDeliveredDeliveries,
 } from '../../../types/orderEdit.types';
+
+// ==================== TRUCK TYPES ====================
+const TRUCK_TYPES = [
+  { value: 'tipper_light', label: 'Tipper Truck Light (3-6 tonnes)' },
+  { value: 'tipper_medium', label: 'Tipper Truck Medium (6-11 tonnes)' },
+  { value: 'tipper_heavy', label: 'Tipper Truck Heavy (11-14 tonnes)' },
+  { value: 'light_rigid', label: 'Light Rigid Truck (3.5 tonnes)' },
+  { value: 'medium_rigid', label: 'Medium Rigid Trucks (7 tonnes)' },
+  { value: 'heavy_rigid', label: 'Heavy Rigid Trucks (16-49 tonnes)' },
+  { value: 'mini_body', label: 'Mini Body Truck (8 tonnes)' },
+  { value: 'body_truck', label: 'Body Truck (12 tonnes)' },
+  { value: 'eight_wheeler', label: 'Eight-Wheeler Body Truck (16 tonnes)' },
+  { value: 'semi', label: 'Semi (28 tonnes)' },
+  { value: 'truck_dog', label: 'Truck and Dog (38 tonnes)' },
+];
 
 interface EditItemModalProps {
   isOpen: boolean;
@@ -47,17 +61,19 @@ interface EditItemModalProps {
     quantity: number;
     deliveries: EditDeliveryPayload[];
   }) => void;
+  isAdmin?: boolean; // NEW: controls delivery_cost visibility
 }
 
 interface LocalDelivery {
   id: number | null;
-  localId: string; // For React key
+  localId: string;
   quantity: number;
   delivery_date: string;
   delivery_time: string;
+  truck_type: string;       // NEW
+  delivery_cost: number;    // NEW (admin only)
   isNew: boolean;
 }
-
 
 const toNumber = (v: unknown, fallback = 0): number => {
   if (v === null || v === undefined) return fallback;
@@ -66,43 +82,31 @@ const toNumber = (v: unknown, fallback = 0): number => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100; 
-
-
-/**
- * Format time for input field (HH:mm)
- * Handles various formats: "08:00:00", "08:00", null, ""
- */
-const formatTimeForInput = (time: string | null | undefined): string => {
-  if (!time || time.trim() === '') return '08:00';
-  
-  // Handle "HH:mm:ss" or "HH:mm" format
-  const parts = time.split(':');
-  if (parts.length >= 2) {
-    const hours = parts[0].padStart(2, '0');
-    const minutes = parts[1].padStart(2, '0');
-    return `${hours}:${minutes}`;
-  }
-  
-  return '08:00';
-};
-
 /**
  * Format time for API (H:i format) or null
- * Laravel expects "H:i" format like "08:00"
  */
 const formatTimeForApi = (time: string | null | undefined): string | null => {
   if (!time || time.trim() === '') return null;
-  
-  // Ensure HH:mm format (strip seconds if present)
   const parts = time.split(':');
   if (parts.length >= 2) {
     const hours = parts[0].padStart(2, '0');
     const minutes = parts[1].padStart(2, '0');
     return `${hours}:${minutes}`;
   }
-  
   return null;
+};
+
+/**
+ * Format time from API (H:i:s or HH:mm) to input (HH:mm)
+ */
+const formatTimeForInput = (time: string | null | undefined): string => {
+  if (!time) return '08:00';
+  const clean = time.split('T').pop() || time;
+  const parts = clean.split(':');
+  if (parts.length >= 2) {
+    return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+  }
+  return '08:00';
 };
 
 const EditItemModal: React.FC<EditItemModalProps> = ({
@@ -110,51 +114,56 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
   onClose,
   item,
   onSave,
+  isAdmin = false,
 }) => {
-  // Form state
-  const [quantity, setQuantity] = useState<number>(0);
+  const [quantity, setQuantity] = useState(1);
   const [scheduledDeliveries, setScheduledDeliveries] = useState<LocalDelivery[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
 
-  // Derived values
-  const deliveredQty = useMemo(() => {
-    if (!item) return 0;
-    return getDeliveredQuantity(item);
-  }, [item]);
-
-  const deliveredDeliveries = useMemo(() => {
-    if (!item) return [];
-    return getDeliveredDeliveries(item);
-  }, [item]);
-
+  // Derived: delivered info
+  const deliveredQty = useMemo(() => (item ? getDeliveredQuantity(item) : 0), [item]);
+  const deliveredDeliveries = useMemo(() => (item ? getDeliveredDeliveries(item) : []), [item]);
   const minQuantity = deliveredQty;
 
-  // Calculate allocated vs required
-  const allocatedQty = useMemo(() => {
-        return round2(
-        scheduledDeliveries.reduce((sum, d) => sum + toNumber(d.quantity, 0), 0)
-        );
-    }, [scheduledDeliveries]);
-  const requiredScheduledQty = round2(toNumber(quantity, 0) - toNumber(deliveredQty, 0));
-  const remainingToAllocate = round2(requiredScheduledQty - allocatedQty);
-  const isAllocationValid = Math.abs(remainingToAllocate) < 0.0001; // tighter + stable
+  // Derived: allocation check (scheduled only)
+  const requiredScheduled = useMemo(
+    () => Math.max(0, quantity - deliveredQty),
+    [quantity, deliveredQty]
+  );
+  const allocatedScheduled = useMemo(
+    () =>
+      scheduledDeliveries.reduce(
+        (sum, d) => sum + toNumber(d.quantity, 0),
+        0
+      ),
+    [scheduledDeliveries]
+  );
+  const remainingToAllocate = useMemo(
+    () => parseFloat((requiredScheduled - allocatedScheduled).toFixed(4)),
+    [requiredScheduled, allocatedScheduled]
+  );
+  const isAllocationValid = useMemo(
+    () => Math.abs(remainingToAllocate) < 0.01,
+    [remainingToAllocate]
+  );
 
-  // Initialize form when modal opens
+  // Initialize from item
   useEffect(() => {
     if (isOpen && item) {
-      setQuantity(toNumber(item.quantity, 0));
-      
-      // Convert existing scheduled deliveries to local format
-      // Note: API returns 'qty', we use 'quantity' in local state
-      const existing = getScheduledDeliveries(item).map((d) => ({
-            id: d.id,
-            localId: `existing-${d.id}`,
-            quantity: toNumber((d as any).quantity ?? (d as any).qty, 0), // supports qty/quantity
-            delivery_date: d.delivery_date?.split('T')[0] || '',
-            delivery_time: formatTimeForInput(d.delivery_time),
-            isNew: false,
-        }));
-      
+      setQuantity(toNumber(item.quantity, 1));
+
+      const scheduled = getScheduledDeliveries(item);
+      const existing: LocalDelivery[] = scheduled.map((d) => ({
+        id: d.id,
+        localId: uuidv4(),
+        quantity: toNumber(d.quantity ?? (d as any).qty, 0),
+        delivery_date: d.delivery_date?.split('T')[0] || '',
+        delivery_time: formatTimeForInput(d.delivery_time),
+        truck_type: d.truck_type || '',
+        delivery_cost: toNumber(d.delivery_cost, 0),
+        isNew: false,
+      }));
+
       setScheduledDeliveries(existing);
       setErrors([]);
     }
@@ -162,15 +171,15 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
 
   // Handle quantity change
   const handleQuantityChange = (newQty: number) => {
-  const qtyNum = toNumber(newQty, minQuantity);
-  setQuantity(qtyNum < minQuantity ? minQuantity : qtyNum);
-};
+    const qtyNum = toNumber(newQty, minQuantity);
+    setQuantity(qtyNum < minQuantity ? minQuantity : qtyNum);
+  };
 
   // Add new delivery slot
   const handleAddDelivery = () => {
     const rem = toNumber(remainingToAllocate, 0);
     const defaultQty = rem > 0 ? rem : 1;
-    
+
     setScheduledDeliveries((prev) => [
       ...prev,
       {
@@ -179,6 +188,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
         quantity: defaultQty > 0 ? defaultQty : 1,
         delivery_date: '',
         delivery_time: '08:00',
+        truck_type: 'tipper_light',
+        delivery_cost: 0,
         isNew: true,
       },
     ]);
@@ -206,12 +217,10 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
   const validateForm = (): boolean => {
     const newErrors: string[] = [];
 
-    // Check quantity
     if (quantity < minQuantity) {
       newErrors.push(`Quantity cannot be less than delivered amount (${minQuantity})`);
     }
 
-    // Check allocation
     if (!isAllocationValid) {
       if (remainingToAllocate > 0) {
         newErrors.push(
@@ -224,16 +233,19 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
       }
     }
 
-    // Check each delivery has date
     const hasEmptyDates = scheduledDeliveries.some((d) => !d.delivery_date);
     if (hasEmptyDates) {
       newErrors.push('All delivery slots must have a delivery date.');
     }
 
-    // Check each delivery has quantity > 0
     const hasZeroQty = scheduledDeliveries.some((d) => toNumber(d.quantity, 0) <= 0);
     if (hasZeroQty) {
       newErrors.push('All delivery slots must have quantity greater than 0.');
+    }
+
+    const hasNoTruckType = scheduledDeliveries.some((d) => !d.truck_type);
+    if (hasNoTruckType) {
+      newErrors.push('All delivery slots must have a truck type selected.');
     }
 
     setErrors(newErrors);
@@ -245,12 +257,13 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
     if (!item) return;
     if (!validateForm()) return;
 
-    // Convert to API payload format with proper time formatting
     const deliveriesPayload: EditDeliveryPayload[] = scheduledDeliveries.map((d) => ({
       id: d.id,
-      quantity: d.quantity, // Use quantity for API payload
+      quantity: d.quantity,
       delivery_date: d.delivery_date,
       delivery_time: formatTimeForApi(d.delivery_time),
+      truck_type: d.truck_type || null,
+      ...(isAdmin ? { delivery_cost: d.delivery_cost || 0 } : {}),
     }));
 
     onSave({
@@ -260,7 +273,6 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
     });
   };
 
-  // Don't render if not open
   if (!isOpen || !item) return null;
 
   const getImageUrl = (photo: string | null): string => {
@@ -273,10 +285,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Modal */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -299,10 +308,10 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
               </div>
               <div>
                 <h2 className="text-lg font-bold text-gray-900">
-                  Edit Item
+                  Edit: {item.product?.product_name}
                 </h2>
                 <p className="text-sm text-gray-600">
-                  {item.product?.product_name}
+                  Update quantity and delivery schedule
                 </p>
               </div>
             </div>
@@ -315,131 +324,110 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
           </div>
         </div>
 
-        {/* Content */}
+        {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Delivered Info Banner */}
           {deliveredQty > 0 && (
-            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 flex items-start gap-3">
-              <Lock className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold text-green-800">
-                  {deliveredQty} {item.product?.unit_of_measure} already delivered
-                </p>
-                <p className="text-sm text-green-700">
-                  Delivered quantities are locked and cannot be modified.
-                  Minimum order quantity is {deliveredQty}.
-                </p>
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-amber-900">
+                    {deliveredQty} {item.product?.unit_of_measure || 'units'} already delivered
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Quantity cannot be reduced below {deliveredQty}. Delivered slots are locked.
+                  </p>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Quantity Section */}
+          {/* Quantity */}
           <div className="bg-white border-2 border-gray-200 rounded-xl p-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
-              Order Quantity ({item.product?.unit_of_measure || 'units'})
+            <label className="block text-sm font-bold text-gray-900 mb-2">
+              Total Quantity ({item.product?.unit_of_measure || 'units'})
             </label>
-            <div className="flex items-center gap-4">
-              <input
-                type="number"
-                min={minQuantity}
-                value={quantity}
-                onChange={(e) => {
-                    const v = e.currentTarget.valueAsNumber;
-                    handleQuantityChange(Number.isFinite(v) ? v : minQuantity);
-                }}
-                step="0.01"
-                className="w-32 px-4 py-3 border-2 border-gray-200 rounded-lg text-lg font-bold focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <div className="text-sm text-gray-600">
-                {deliveredQty > 0 && (
-                  <span className="text-green-600 font-medium">
-                    Min: {minQuantity} (delivered)
-                  </span>
-                )}
-              </div>
-            </div>
-            {quantity !== item.quantity && (
-              <p className="mt-2 text-sm text-amber-600 flex items-center gap-1">
-                <CheckCircle className="w-4 h-4" />
-                Changed from {item.quantity} to {quantity}
+            <input
+              type="number"
+              min={minQuantity || 0.01}
+              step="0.01"
+              value={quantity}
+              onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
+              className="w-32 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg font-medium"
+            />
+            {minQuantity > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                Minimum: {minQuantity} (already delivered)
               </p>
             )}
           </div>
 
-          {/* Allocation Progress */}
-          <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+          {/* Allocation Bar */}
+          <div className="bg-white border-2 border-gray-200 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold text-gray-700">
-                Delivery Allocation
-              </span>
+              <span className="text-sm font-bold text-gray-900">Delivery Allocation</span>
               <span
                 className={`text-sm font-bold ${
-                  isAllocationValid
-                    ? 'text-green-600'
-                    : remainingToAllocate > 0
-                    ? 'text-amber-600'
-                    : 'text-red-600'
+                  isAllocationValid ? 'text-green-600' : 'text-orange-600'
                 }`}
               >
-                {allocatedQty} / {requiredScheduledQty} allocated
+                {allocatedScheduled.toFixed(2)} / {requiredScheduled.toFixed(2)} allocated
               </span>
             </div>
             <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className={`h-full transition-all duration-300 ${
-                  allocatedQty > requiredScheduledQty
-                    ? 'bg-red-500'
-                    : isAllocationValid
+                className={`h-full rounded-full transition-all ${
+                  isAllocationValid
                     ? 'bg-green-500'
-                    : 'bg-amber-500'
+                    : allocatedScheduled > requiredScheduled
+                    ? 'bg-red-500'
+                    : 'bg-orange-500'
                 }`}
                 style={{
-                  width: `${Math.min((allocatedQty / Math.max(requiredScheduledQty, 1)) * 100, 100)}%`,
+                  width: `${Math.min(
+                    100,
+                    requiredScheduled > 0
+                      ? (allocatedScheduled / requiredScheduled) * 100
+                      : 0
+                  )}%`,
                 }}
               />
             </div>
-            <div className="mt-2 text-xs text-gray-600">
-              {deliveredQty > 0 && (
-                <span className="text-green-600 mr-3">
-                  ✓ {deliveredQty} delivered (locked)
-                </span>
-              )}
-              {isAllocationValid ? (
-                <span className="text-green-600">✓ Fully allocated</span>
-              ) : remainingToAllocate > 0 ? (
-                <span className="text-amber-600">
-                  {remainingToAllocate} remaining to allocate
-                </span>
-              ) : (
-                <span className="text-red-600">
-                  Over-allocated by {Math.abs(remainingToAllocate)}
-                </span>
-              )}
-            </div>
+            {isAllocationValid && (
+              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" /> Fully allocated
+              </p>
+            )}
           </div>
 
-          {/* Delivered Deliveries (Read-only) */}
+          {/* Delivered Deliveries (Read-Only) */}
           {deliveredDeliveries.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <Lock className="w-4 h-4 text-green-600" />
+              <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-gray-500" />
                 Delivered (Locked)
-              </h4>
+              </h3>
               <div className="space-y-2">
-                {deliveredDeliveries.map((d) => (
+                {deliveredDeliveries.map((d, i) => (
                   <div
                     key={d.id}
-                    className="flex items-center gap-4 p-3 bg-green-50 rounded-lg border border-green-200"
+                    className="p-3 bg-gray-100 border-2 border-gray-200 rounded-lg opacity-60"
                   >
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    </div>
-                    <div className="flex-1 grid grid-cols-3 gap-2 text-sm">
-                      <span className="font-semibold">
-                        {d.quantity} {item.product?.unit_of_measure}
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="font-medium">
+                        Qty: {toNumber(d.quantity, 0)}
                       </span>
-                      <span>{d.delivery_date?.split('T')[0]}</span>
-                      <span>{d.delivery_time || '-'}</span>
+                      <span>📅 {d.delivery_date?.split('T')[0] || '-'}</span>
+                      {d.truck_type && (
+                        <span className="flex items-center gap-1">
+                          <Truck className="w-3 h-3" />
+                          {TRUCK_TYPES.find((t) => t.value === d.truck_type)?.label || d.truck_type}
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 bg-green-200 text-green-800 text-xs rounded-full font-medium">
+                        Delivered
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -450,13 +438,13 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
           {/* Scheduled Deliveries (Editable) */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-blue-600" />
-                Scheduled Deliveries
-              </h4>
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-gray-600" />
+                Delivery Schedule
+              </h3>
               <button
                 onClick={handleAddDelivery}
-                className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium border border-blue-200"
+                className="px-3 py-1.5 text-sm font-medium text-blue-600 border-2 border-blue-300 rounded-lg hover:bg-blue-50 flex items-center gap-1"
               >
                 <Plus className="w-4 h-4" />
                 Add Slot
@@ -491,68 +479,111 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                         {index + 1}
                       </div>
 
-                      {/* Fields Grid */}
-                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {/* Quantity */}
-                        <div>
-                          <label className="text-xs text-gray-600 mb-1 block">
-                            Quantity
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={delivery.quantity}
-                            onChange={(e) => {
+                      {/* Fields */}
+                      <div className="flex-1 space-y-3">
+                        {/* Row 1: Quantity + Truck Type */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Quantity */}
+                          <div>
+                            <label className="text-xs text-gray-600 mb-1 block">Quantity</label>
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={delivery.quantity}
+                              onChange={(e) => {
                                 const v = e.currentTarget.valueAsNumber;
-                                handleDeliveryChange(delivery.localId, 'quantity', Number.isFinite(v) ? v : 0);
-                            }}
-                            step="0.01"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          />
+                                handleDeliveryChange(
+                                  delivery.localId,
+                                  'quantity',
+                                  Number.isFinite(v) ? v : 0
+                                );
+                              }}
+                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            />
+                          </div>
+
+                          {/* Truck Type */}
+                          <div>
+                            <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                              <Truck className="w-3 h-3" />
+                              Truck Type
+                            </label>
+                            <select
+                              value={delivery.truck_type}
+                              onChange={(e) =>
+                                handleDeliveryChange(delivery.localId, 'truck_type', e.target.value)
+                              }
+                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            >
+                              <option value="">Select truck type...</option>
+                              {TRUCK_TYPES.map((t) => (
+                                <option key={t.value} value={t.value}>
+                                  {t.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
 
-                        {/* Date */}
-                        <div>
-                          <label className="text-xs text-gray-600 mb-1 block">
-                            Delivery Date
-                          </label>
-                          <div className="relative">
-                            <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        {/* Row 2: Date + Time + Delivery Cost (admin) */}
+                        <div className={`grid grid-cols-1 gap-3 ${isAdmin ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+                          {/* Delivery Date */}
+                          <div>
+                            <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              Delivery Date
+                            </label>
                             <input
                               type="date"
                               value={delivery.delivery_date}
                               onChange={(e) =>
-                                handleDeliveryChange(
-                                  delivery.localId,
-                                  'delivery_date',
-                                  e.target.value
-                                )
+                                handleDeliveryChange(delivery.localId, 'delivery_date', e.target.value)
                               }
-                              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                             />
                           </div>
-                        </div>
 
-                        {/* Time */}
-                        <div>
-                          <label className="text-xs text-gray-600 mb-1 block">
-                            Time
-                          </label>
-                          <div className="relative">
-                            <Clock className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          {/* Time */}
+                          <div>
+                            <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Time
+                            </label>
                             <input
                               type="time"
                               value={delivery.delivery_time}
                               onChange={(e) =>
-                                handleDeliveryChange(
-                                  delivery.localId,
-                                  'delivery_time',
-                                  e.target.value
-                                )
+                                handleDeliveryChange(delivery.localId, 'delivery_time', e.target.value)
                               }
-                              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                             />
                           </div>
+
+                          {/* Delivery Cost (Admin Only) */}
+                          {isAdmin && (
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                                <DollarSign className="w-3 h-3" />
+                                Delivery Cost
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={delivery.delivery_cost}
+                                onChange={(e) =>
+                                  handleDeliveryChange(
+                                    delivery.localId,
+                                    'delivery_cost',
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -560,18 +591,10 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                       <button
                         onClick={() => handleRemoveDelivery(delivery.localId)}
                         className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                        title="Remove slot"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-
-                    {delivery.isNew && (
-                      <p className="mt-2 text-xs text-blue-600 flex items-center gap-1">
-                        <Info className="w-3 h-3" />
-                        New delivery slot
-                      </p>
-                    )}
                   </div>
                 ))}
               </div>
@@ -580,38 +603,28 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
 
           {/* Errors */}
           {errors.length > 0 && (
-            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-red-800">Please fix the following:</p>
-                  <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
-                    {errors.map((err, i) => (
-                      <li key={i}>{err}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+              {errors.map((error, i) => (
+                <p key={i} className="text-sm text-red-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {error}
+                </p>
+              ))}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t-2 border-gray-200 bg-gray-50 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t-2 border-gray-200 bg-gray-50 flex items-center justify-between">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+            className="px-4 py-2 text-gray-700 font-medium hover:bg-gray-200 rounded-lg transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            disabled={!isAllocationValid}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg font-medium transition-colors ${
-              isAllocationValid
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-            }`}
+            className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-md"
           >
             <Save className="w-4 h-4" />
             Save Changes

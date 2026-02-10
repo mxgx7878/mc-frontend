@@ -714,6 +714,7 @@ const AdminOrderEdit = () => {
           onClose={handleCloseEditModal}
           item={editingItem}
           onSave={handleSaveItemChanges}
+          isAdmin={true}
         />
 
         {/* Add Item Modal */}
@@ -722,6 +723,7 @@ const AdminOrderEdit = () => {
           onClose={handleCloseAddModal}
           onAdd={handleAddItem}
           existingProductIds={existingProductIds}
+          isAdmin={true}
         />
       </div>
     </DashboardLayout>

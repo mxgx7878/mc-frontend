@@ -4,30 +4,32 @@
  * ORDER CREATE PAGE - 4-STEP WIZARD WITH SPLIT DELIVERIES
  * 
  * ARCHITECTURE:
- * Step 1: Product Selection (cart management)
+ * Step 1: Location + Product Selection (location picker + cart management)
  * Step 2: Project & Delivery Details (address, contact, primary date)
  * Step 3: Split Delivery Schedule (configure delivery slots)
  * Step 4: Review & Confirm (final review before submission)
  * 
- * KEY CHANGES FROM ORIGINAL:
- * - Added Step 3 for split delivery scheduling
- * - Step 2 simplified (removed time, special fields, added contact person)
- * - Step 4 shows grouped delivery schedule
- * - Backend payload includes delivery_slots per item
+ * UPDATED: Step 1 now includes a location selector bar
+ * - User can select an existing project (uses project's lat/long)
+ * - Or enter a custom delivery address via Google Autocomplete
+ * - Location is sent to backend → products show is_available badge
+ * - Products with is_available=false are dimmed and can't be added to cart
  * 
  * DATA FLOW:
- * 1. User adds products to cart (Step 1)
- * 2. User enters project + delivery info (Step 2)
- * 3. User configures delivery slots (Step 3)
- * 4. User reviews and confirms (Step 4)
- * 5. System submits order with items.*.delivery_slots
+ * 1. User optionally sets delivery location (Step 1 - top bar)
+ * 2. Products load with availability based on location
+ * 3. User adds available products to cart (Step 1)
+ * 4. User enters project + delivery info (Step 2)
+ * 5. User configures delivery slots (Step 3)
+ * 6. User reviews and confirms (Step 4)
  */
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, X, Filter, Loader2, AlertCircle, Package } from 'lucide-react';
+import { Search, X, Filter, Loader2, AlertCircle, Package, MapPin, Building2, Navigation, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Autocomplete from 'react-google-autocomplete';
 
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import OrderWizard from '../../components/order/OrderWizard';
@@ -54,6 +56,24 @@ const OrderCreate = () => {
 
   // ==================== CART STATE ====================
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+
+  // ==================== STEP 1 LOCATION STATE ====================
+  /**
+   * NEW: Location state for Step 1 product availability
+   * - locationSource: 'none' | 'project' | 'custom'
+   * - deliveryLat/Long: coordinates sent to API
+   * - selectedLocationProject: project chosen for location
+   * - locationLabel: display text for selected location
+   */
+  const [locationSource, setLocationSource] = useState<'none' | 'project' | 'custom'>('none');
+  const [deliveryLat, setDeliveryLat] = useState<number | undefined>(undefined);
+  const [deliveryLong, setDeliveryLong] = useState<number | undefined>(undefined);
+  const [selectedLocationProject, setSelectedLocationProject] = useState<Project | null>(null);
+  const [locationLabel, setLocationLabel] = useState<string>('');
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [showCustomAddress, setShowCustomAddress] = useState(false);
+  const [projectSearchTerm, setProjectSearchTerm] = useState('');
+  const [addressKey, setAddressKey] = useState(0); // Force re-render autocomplete
 
   // ==================== STEP 2 STATE ====================
   const [orderFormData, setOrderFormData] = useState<OrderFormValues | null>(null);
@@ -85,39 +105,34 @@ const OrderCreate = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch Products (only on Step 1)
+  // Fetch Projects (needed on Step 1 for location picker AND Step 2 for form)
+  const { data: projectsData } = useQuery({
+    queryKey: ['client-projects'],
+    queryFn: () => projectsAPI.list({}),
+    enabled: currentStep === 1 || currentStep === 2,
+  });
+
+  // Fetch Products (only on Step 1) — NOW includes location params
   const {
     data: productsData,
     isLoading: loadingProducts,
     error: productsError,
   } = useQuery({
-    queryKey: ['client-products', currentPage, searchTerm, selectedProductType],
+    queryKey: ['client-products', currentPage, searchTerm, selectedProductType, deliveryLat, deliveryLong],
     queryFn: () =>
       ordersAPI.getClientProducts({
         page: currentPage,
         per_page: 12,
         search: searchTerm || undefined,
         product_type: selectedProductType,
+        delivery_lat: deliveryLat,     // NEW: pass location
+        delivery_long: deliveryLong,   // NEW: pass location
       }),
     enabled: currentStep === 1,
   });
 
-  // Fetch Projects (only on Step 2)
-  const { data: projectsData } = useQuery({
-    queryKey: ['client-projects'],
-    queryFn: () => projectsAPI.list({}),
-    enabled: currentStep === 2,
-  });
-
   // ==================== CREATE ORDER MUTATION ====================
-  
-  /**
-   * Create order mutation
-   * 
-   * WHAT: Sends order data to backend with delivery_slots per item
-   * WHY: Final step - user has confirmed all details
-   * HOW: Transform cart items into API payload format
-   */
+
   const createOrderMutation = useMutation({
     mutationFn: ordersAPI.createOrder,
     onSuccess: () => {
@@ -134,16 +149,69 @@ const OrderCreate = () => {
     },
   });
 
-  // ==================== CART ACTIONS ====================
+  // ==================== LOCATION HANDLERS (Step 1) ====================
 
   /**
-   * Add product to cart
-   * 
-   * WHAT: Adds product with default delivery slot
-   * WHY: User selected product in Step 1
-   * NOTE: Delivery slots will be configured in Step 3
+   * Handle project selection for location
+   * Uses the project's saved delivery coordinates
    */
+  const handleLocationProjectSelect = (project: Project) => {
+    if (project.delivery_lat && project.delivery_long) {
+      setLocationSource('project');
+      setDeliveryLat(Number(project.delivery_lat));
+      setDeliveryLong(Number(project.delivery_long));
+      setSelectedLocationProject(project);
+      setLocationLabel(project.delivery_address || project.name);
+      setShowProjectPicker(false);
+      setShowCustomAddress(false);
+      setProjectSearchTerm('');
+      setCurrentPage(1); // Reset pagination when location changes
+    } else {
+      toast.error('This project has no saved location. Please select another or enter a custom address.');
+    }
+  };
+
+  /**
+   * Handle Google Autocomplete place selection for custom location
+   */
+  const handleCustomPlaceSelected = (place: any) => {
+    if (place.geometry?.location) {
+      const lat = Number(place.geometry.location.lat());
+      const lng = Number(place.geometry.location.lng());
+      setLocationSource('custom');
+      setDeliveryLat(lat);
+      setDeliveryLong(lng);
+      setSelectedLocationProject(null);
+      setLocationLabel(place.formatted_address || 'Custom location');
+      setShowCustomAddress(false);
+      setCurrentPage(1);
+    }
+  };
+
+  /**
+   * Clear location — products will show without availability info
+   */
+  const handleClearLocation = () => {
+    setLocationSource('none');
+    setDeliveryLat(undefined);
+    setDeliveryLong(undefined);
+    setSelectedLocationProject(null);
+    setLocationLabel('');
+    setShowProjectPicker(false);
+    setShowCustomAddress(false);
+    setAddressKey((prev) => prev + 1);
+    setCurrentPage(1);
+  };
+
+  // ==================== CART ACTIONS ====================
+
   const handleAddToCart = (product: Product) => {
+    // Prevent adding unavailable products
+    if (product.is_available === false) {
+      toast.error('This product is not available at the selected location.');
+      return;
+    }
+
     const updated = cartUtils.addItem({
       product_id: product.id,
       product_name: product.product_name,
@@ -156,20 +224,11 @@ const OrderCreate = () => {
     toast.success(`✅ ${product.product_name} added to cart`);
   };
 
-  /**
-   * Update cart item quantity
-   * 
-   * WHAT: Changes total quantity and scales delivery slots proportionally
-   * WHY: User changed mind about order quantity
-   */
   const handleUpdateQuantity = (productId: number, quantity: number) => {
     const updated = cartUtils.updateQuantity(productId, quantity);
     setCartItems(updated);
   };
 
-  /**
-   * Remove item from cart
-   */
   const handleRemoveItem = (productId: number) => {
     const updated = cartUtils.removeItem(productId);
     setCartItems(updated);
@@ -178,9 +237,6 @@ const OrderCreate = () => {
 
   // ==================== WIZARD NAVIGATION ====================
 
-  /**
-   * Step 1 → Step 2
-   */
   const handleProceedToStep2 = () => {
     if (cartItems.length === 0) {
       toast.error('Your cart is empty. Please add some products.');
@@ -190,76 +246,42 @@ const OrderCreate = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  /**
-   * Step 2 → Back to Step 1
-   */
   const handleBackToStep1 = () => {
     setCurrentStep(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  /**
-   * Step 2 → Step 3 (with form data)
-   * 
-   * WHAT: Saves order details and moves to split delivery scheduling
-   * WHY: User has entered project + delivery information
-   * HOW: Store orderFormData in state for later use
-   */
   const handleStep2Submit = (formData: OrderFormValues) => {
     setOrderFormData(formData);
 
-    // Find and save selected project for display in Step 4
     const project = projects.find((p) => p.id === formData.project_id);
     setSelectedProject(project || null);
 
-    // Move to Step 3 (Split Delivery)
     setCurrentStep(3);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  /**
-   * Step 3 → Back to Step 2
-   */
   const handleBackToStep2 = () => {
     setCurrentStep(2);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  /**
-   * Step 3 → Step 4 (with configured delivery slots)
-   * 
-   * WHAT: Updates cart items with user-configured delivery slots
-   * WHY: User has finished splitting deliveries
-   * HOW: Merge delivery_slots into cart state
-   */
   const handleStep3Continue = (itemsWithSlots: CartItem[]) => {
     setCartItems(itemsWithSlots);
-    
-    // Save to localStorage
-    itemsWithSlots.forEach(item => {
+
+    itemsWithSlots.forEach((item) => {
       cartUtils.updateDeliverySlots(item.product_id, item.delivery_slots || []);
     });
 
-    // Move to Step 4 (Review)
     setCurrentStep(4);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  /**
-   * Step 4 → Back to Step 3
-   */
   const handleBackToStep3 = () => {
     setCurrentStep(3);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  /**
-   * Step 4 → Submit Order
-   * 
-   * WHAT: Transform cart + form data into API payload and submit
-   * WHY: User has confirmed all details
-   * HOW: Map cart items to items array with delivery_slots
-   */
   const handleFinalOrderSubmit = () => {
     if (!orderFormData) return;
 
@@ -273,6 +295,7 @@ const OrderCreate = () => {
           quantity: slot.quantity,
           delivery_date: slot.delivery_date,
           delivery_time: slot.delivery_time,
+          truck_type: slot.truck_type,
         })),
       })),
     };
@@ -305,11 +328,16 @@ const OrderCreate = () => {
   const products = productsData?.data || [];
   const meta = productsData?.meta;
   const projects = projectsData?.data || [];
-  const productTypes = Array.isArray(productTypesData)
-    ? productTypesData
-    : productTypesData?.data || [];
+  const productTypes = Array.isArray(productTypesData) ? productTypesData : productTypesData?.data || [];
   const totalCartItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const today = new Date().toISOString().split('T')[0];
+
+  // Filter projects for location picker dropdown
+  const filteredProjects = projects.filter(
+    (p) =>
+      p.name.toLowerCase().includes(projectSearchTerm.toLowerCase()) ||
+      (p.delivery_address && p.delivery_address.toLowerCase().includes(projectSearchTerm.toLowerCase()))
+  );
 
   // ==================== RENDER ====================
 
@@ -320,14 +348,14 @@ const OrderCreate = () => {
         <div>
           <h1 className="text-3xl font-bold text-secondary-900">Create Order</h1>
           <p className="text-secondary-600 mt-1">
-            {currentStep === 1 && 'Select products and add them to your cart'}
+            {currentStep === 1 && 'Set your delivery location and select products'}
             {currentStep === 2 && 'Enter project and delivery details'}
             {currentStep === 3 && 'Configure delivery schedule for each product'}
             {currentStep === 4 && 'Review your order before final submission'}
           </p>
         </div>
 
-        {/* Wizard Progress - Updated to 4 steps */}
+        {/* Wizard Progress - 4 steps */}
         <OrderWizard
           currentStep={currentStep}
           onStepChange={setCurrentStep}
@@ -338,10 +366,190 @@ const OrderCreate = () => {
             { number: 4, title: 'Review' },
           ]}
         >
-          {/* ==================== STEP 1: PRODUCT SELECTION ==================== */}
+          {/* ==================== STEP 1: LOCATION + PRODUCT SELECTION ==================== */}
           {currentStep === 1 && (
             <div className="space-y-6">
-              {/* Search & Filters */}
+
+              {/* ===== LOCATION SELECTOR BAR ===== */}
+              <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin className="text-primary-600" size={20} />
+                  <h3 className="font-semibold text-secondary-900 text-sm">Delivery Location</h3>
+                  <span className="text-xs text-secondary-500">(optional — filters product availability)</span>
+                </div>
+
+                {/* Location is SET — show selected location with clear button */}
+                {locationSource !== 'none' && (
+                  <div className="flex items-center gap-3 bg-primary-50 border border-primary-200 rounded-lg px-4 py-3">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {locationSource === 'project' ? (
+                        <Building2 size={16} className="text-primary-600 flex-shrink-0" />
+                      ) : (
+                        <Navigation size={16} className="text-primary-600 flex-shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        {locationSource === 'project' && selectedLocationProject && (
+                          <p className="text-xs text-primary-600 font-medium">
+                            {selectedLocationProject.name}
+                          </p>
+                        )}
+                        <p className="text-sm text-primary-800 font-semibold truncate">
+                          {locationLabel}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleClearLocation}
+                      className="flex-shrink-0 p-1.5 hover:bg-primary-100 rounded-lg transition-colors"
+                      title="Clear location"
+                    >
+                      <X size={16} className="text-primary-600" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Location NOT set — show selection options */}
+                {locationSource === 'none' && !showProjectPicker && !showCustomAddress && (
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => {
+                        setShowProjectPicker(true);
+                        setShowCustomAddress(false);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-secondary-300 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-all text-secondary-600 hover:text-primary-700"
+                    >
+                      <Building2 size={18} />
+                      <span className="font-medium text-sm">Select Project</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCustomAddress(true);
+                        setShowProjectPicker(false);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-secondary-300 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-all text-secondary-600 hover:text-primary-700"
+                    >
+                      <Navigation size={18} />
+                      <span className="font-medium text-sm">Enter Custom Address</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Project Picker Dropdown */}
+                {showProjectPicker && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 relative">
+                        <Search
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400"
+                          size={16}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Search projects..."
+                          value={projectSearchTerm}
+                          onChange={(e) => setProjectSearchTerm(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2.5 text-sm border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                          autoFocus
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowProjectPicker(false);
+                          setProjectSearchTerm('');
+                        }}
+                        className="p-2.5 hover:bg-secondary-100 rounded-lg transition-colors"
+                      >
+                        <X size={16} className="text-secondary-500" />
+                      </button>
+                    </div>
+
+                    <div className="max-h-48 overflow-y-auto border border-secondary-200 rounded-lg divide-y divide-secondary-100">
+                      {filteredProjects.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-secondary-500">
+                          No projects found
+                        </div>
+                      ) : (
+                        filteredProjects.map((project) => (
+                          <button
+                            key={project.id}
+                            onClick={() => handleLocationProjectSelect(project)}
+                            className="w-full text-left px-4 py-3 hover:bg-primary-50 transition-colors"
+                          >
+                            <p className="font-medium text-sm text-secondary-900">{project.name}</p>
+                            {project.delivery_address ? (
+                              <p className="text-xs text-secondary-500 mt-0.5 truncate">
+                                📍 {project.delivery_address}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-red-400 mt-0.5">No address saved</p>
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Switch to custom address */}
+                    <button
+                      onClick={() => {
+                        setShowProjectPicker(false);
+                        setShowCustomAddress(true);
+                        setProjectSearchTerm('');
+                      }}
+                      className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      Or enter a custom address instead →
+                    </button>
+                  </div>
+                )}
+
+                {/* Custom Address Input */}
+                {showCustomAddress && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 relative">
+                        <MapPin
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400 z-10"
+                          size={16}
+                        />
+                        <Autocomplete
+                          key={addressKey}
+                          apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}
+                          onPlaceSelected={handleCustomPlaceSelected}
+                          options={{
+                            types: ['address'],
+                            componentRestrictions: { country: 'au' },
+                          }}
+                          className="w-full pl-9 pr-3 py-2.5 text-sm border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
+                          placeholder="Start typing delivery address..."
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowCustomAddress(false);
+                          setAddressKey((prev) => prev + 1);
+                        }}
+                        className="p-2.5 hover:bg-secondary-100 rounded-lg transition-colors"
+                      >
+                        <X size={16} className="text-secondary-500" />
+                      </button>
+                    </div>
+
+                    {/* Switch to project picker */}
+                    <button
+                      onClick={() => {
+                        setShowCustomAddress(false);
+                        setShowProjectPicker(true);
+                        setAddressKey((prev) => prev + 1);
+                      }}
+                      className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      Or select from your projects instead →
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* ===== SEARCH & FILTERS ===== */}
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
                 <div className="flex flex-col md:flex-row gap-4">
                   {/* Search Input */}
@@ -358,98 +566,88 @@ const OrderCreate = () => {
                         setSearchTerm(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="w-full pl-10 pr-10 py-3 rounded-lg border-2 border-secondary-200 focus:border-primary-500 focus:outline-none transition-colors"
+                      className="w-full pl-10 pr-4 py-3 border-2 border-secondary-200 rounded-lg focus:outline-none focus:border-primary-500 transition-colors"
                     />
-                    {searchTerm && (
-                      <button
-                        onClick={() => {
-                          setSearchTerm('');
-                          setCurrentPage(1);
-                        }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600 transition-colors"
-                      >
-                        <X size={20} />
-                      </button>
-                    )}
                   </div>
 
-                  {/* Product Type Filter */}
+                  {/* Product Type Dropdown */}
                   <div className="relative">
-                    <Button
-                      variant="outline"
+                    <button
                       onClick={() => setShowProductTypeDropdown(!showProductTypeDropdown)}
-                      className="w-full md:w-auto"
+                      className="flex items-center gap-2 px-4 py-3 border-2 border-secondary-200 rounded-lg hover:border-primary-400 transition-colors bg-white min-w-[200px]"
                     >
-                      <Filter size={18} />
-                      {selectedProductType
-                        ? productTypes.find((p) => p.product_type === selectedProductType)
-                            ?.product_type
-                        : 'All Product Types'}
-                    </Button>
+                      <Filter size={18} className="text-secondary-500" />
+                      <span className="text-sm font-medium text-secondary-700 flex-1 text-left">
+                        {selectedProductType || 'All Types'}
+                      </span>
+                      <ChevronDown size={16} className="text-secondary-400" />
+                    </button>
 
                     {showProductTypeDropdown && (
-                      <div className="absolute right-0 mt-2 w-56 bg-white border border-secondary-200 rounded-lg shadow-lg z-50">
-                        <button
-                          onClick={() => handleProductTypeSelect(undefined)}
-                          className={`w-full text-left px-4 py-2 hover:bg-secondary-50 transition-colors ${
-                            !selectedProductType
-                              ? 'bg-primary-50 text-primary-700 font-semibold'
-                              : ''
-                          }`}
-                        >
-                          All Product Types
-                        </button>
-                        {productTypes.map((type) => (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={() => setShowProductTypeDropdown(false)}
+                        />
+                        <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-secondary-200 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
                           <button
-                            key={type.product_type}
-                            onClick={() => handleProductTypeSelect(type.product_type)}
-                            className={`w-full text-left px-4 py-2 hover:bg-secondary-50 transition-colors border-t border-secondary-100 ${
-                              selectedProductType === type.product_type
-                                ? 'bg-primary-50 text-primary-700 font-semibold'
-                                : ''
+                            onClick={() => handleProductTypeSelect(undefined)}
+                            className={`w-full text-left px-4 py-2.5 text-sm hover:bg-primary-50 transition-colors ${
+                              !selectedProductType ? 'bg-primary-50 text-primary-700 font-medium' : ''
                             }`}
                           >
-                            {type.product_type}
+                            All Types
                           </button>
-                        ))}
-                      </div>
+                          {productTypes.map((type: any) => (
+                            <button
+                              key={type.product_type}
+                              onClick={() => handleProductTypeSelect(type.product_type)}
+                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-primary-50 transition-colors ${
+                                selectedProductType === type.product_type
+                                  ? 'bg-primary-50 text-primary-700 font-medium'
+                                  : ''
+                              }`}
+                            >
+                              {type.product_type}
+                            </button>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
+
+                {/* Active filters info */}
+                {locationSource !== 'none' && (
+                  <div className="mt-3 flex items-center gap-2 text-xs text-secondary-500">
+                    <MapPin size={12} />
+                    <span>Showing availability for: <strong className="text-secondary-700">{locationLabel}</strong></span>
+                  </div>
+                )}
               </div>
 
-              {/* Products Grid */}
+              {/* ===== PRODUCTS GRID ===== */}
               {loadingProducts ? (
-                <div className="flex flex-col items-center justify-center py-16">
-                  <Loader2 className="animate-spin text-primary-600 mb-4" size={48} />
-                  <p className="text-secondary-600">Loading products...</p>
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="w-10 h-10 animate-spin text-primary-600" />
+                  <p className="mt-4 text-secondary-600 text-sm">Loading products...</p>
                 </div>
               ) : productsError ? (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-6 flex items-center gap-3">
-                  <AlertCircle className="text-red-600 flex-shrink-0" size={24} />
-                  <div>
-                    <p className="font-semibold text-red-900">Failed to load products</p>
-                    <p className="text-sm text-red-700 mt-1">
-                      {(productsError as any)?.message || 'Please try refreshing the page'}
-                    </p>
-                  </div>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+                  <AlertCircle className="mx-auto text-red-500 mb-3" size={32} />
+                  <p className="text-red-700 font-medium">Failed to load products</p>
+                  <p className="text-red-600 text-sm mt-1">Please try again later</p>
                 </div>
               ) : products.length === 0 ? (
                 <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-12">
-                  <div className="text-center space-y-4">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-secondary-100 rounded-full">
-                      <Package className="text-secondary-400" size={32} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-secondary-900">
-                        No products found
-                      </h3>
-                      <p className="text-sm text-secondary-600 mt-1">
-                        {searchTerm || selectedProductType
-                          ? 'Try adjusting your search or filters'
-                          : 'No products available at the moment'}
-                      </p>
-                    </div>
+                  <div className="flex flex-col items-center text-center">
+                    <Package className="text-secondary-400 mb-4" size={48} />
+                    <h3 className="text-lg font-semibold text-secondary-900 mb-2">No Products Found</h3>
+                    <p className="text-secondary-600 text-sm mb-4">
+                      {searchTerm || selectedProductType
+                        ? 'Try adjusting your search or filters'
+                        : 'No products available at the moment'}
+                    </p>
                     {(searchTerm || selectedProductType) && (
                       <Button
                         onClick={() => {
@@ -505,22 +703,6 @@ const OrderCreate = () => {
                   )}
                 </>
               )}
-
-              {/* Proceed Button (Fixed at bottom on mobile) */}
-              {cartItems.length > 0 && (
-                <div className="fixed bottom-0 left-0 right-0 lg:relative bg-white border-t border-secondary-200 p-4 shadow-xl lg:shadow-none z-30">
-                  <div className="max-w-7xl mx-auto">
-                    <Button
-                      onClick={handleProceedToStep2}
-                      variant="primary"
-                      fullWidth
-                      className="py-4 text-lg font-semibold"
-                    >
-                      Continue to Delivery Details ({totalCartItems} items) →
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -539,6 +721,13 @@ const OrderCreate = () => {
                 const updated = cartUtils.updateCustomBlend(productId, blend);
                 setCartItems(updated);
               }}
+              // Pre-fill from Step 1 location selection
+              prefillProject={locationSource === 'project' ? selectedLocationProject : null}
+              prefillLocation={
+                locationSource === 'custom' && deliveryLat && deliveryLong
+                  ? { address: locationLabel, lat: deliveryLat, long: deliveryLong }
+                  : null
+              }
             />
           )}
 

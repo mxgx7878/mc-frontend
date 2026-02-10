@@ -53,6 +53,7 @@ export interface Product {
   tech_doc: string | null;
   specifications: string;
   price: string | null;
+  is_available: boolean | null;
 }
 
 // ==================== PROJECT ====================
@@ -106,6 +107,7 @@ export interface OrderFormValues {
       quantity: number;
       delivery_date: string;
       delivery_time: string;
+      truck_type: string;
     }>;
   }>;
 }

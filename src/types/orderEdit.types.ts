@@ -2,13 +2,9 @@
 /**
  * ORDER EDIT TYPES
  * 
- * Types for client order editing functionality.
- * Supports: contact info updates, item add/update/remove, delivery management
- * 
- * STEP 1: Contact Information only
- * - contact_person_name
- * - contact_person_number  
- * - site_instructions
+ * UPDATED: Added truck_type and delivery_cost to delivery payloads
+ * - truck_type: visible to both admin and client
+ * - delivery_cost: admin-only field
  */
 
 // ==================== DELIVERY TYPES ====================
@@ -16,15 +12,19 @@
 /**
  * Delivery slot for edit payload
  * - id: null for new deliveries, number for existing
- * - quantity: quantity for this delivery (backend expects 'quantity')
+ * - quantity: quantity for this delivery
  * - delivery_date: YYYY-MM-DD format
  * - delivery_time: HH:mm format (optional)
+ * - truck_type: truck type for this delivery slot
+ * - delivery_cost: admin-only delivery cost per slot
  */
 export interface EditDeliveryPayload {
   id: number | null;
   quantity: number;
   delivery_date: string;
   delivery_time?: string | null;
+  truck_type?: string | null;
+  delivery_cost?: number | null;
 }
 
 /**
@@ -36,11 +36,41 @@ export interface OrderDelivery {
   quantity: number;
   delivery_date: string;
   delivery_time: string | null;
+  truck_type?: string | null;
+  delivery_cost?: number | string | null;
   status: 'scheduled' | 'pending' | 'delivered' | 'completed' | 'cancelled';
   supplier_confirms?: boolean;
   created_at: string;
   updated_at: string;
 }
+
+// ==================== HELPER FUNCTIONS ====================
+
+/**
+ * Get total delivered quantity for an item
+ */
+export const getDeliveredQuantity = (item: OrderEditItem): number => {
+  if (!item.deliveries || item.deliveries.length === 0) return 0;
+  return item.deliveries
+    .filter((d) => d.status === 'delivered')
+    .reduce((sum, d) => sum + Number(d.quantity), 0);
+};
+
+/**
+ * Get scheduled (non-delivered) deliveries
+ */
+export const getScheduledDeliveries = (item: OrderEditItem): OrderDelivery[] => {
+  if (!item.deliveries) return [];
+  return item.deliveries.filter((d) => d.status !== 'delivered');
+};
+
+/**
+ * Get delivered deliveries (read-only)
+ */
+export const getDeliveredDeliveries = (item: OrderEditItem): OrderDelivery[] => {
+  if (!item.deliveries) return [];
+  return item.deliveries.filter((d) => d.status === 'delivered');
+};
 
 // ==================== ITEM TYPES ====================
 
@@ -100,12 +130,21 @@ export interface OrderEditItem {
 // ==================== ORDER FIELDS ====================
 
 /**
- * Editable order fields (Step 1)
+ * Editable order fields
  */
 export interface EditOrderFields {
   contact_person_name?: string | null;
   contact_person_number?: string | null;
   site_instructions?: string | null;
+}
+
+/**
+ * Contact info form state
+ */
+export interface ContactInfoFormState {
+  contact_person_name: string;
+  contact_person_number: string;
+  site_instructions: string;
 }
 
 // ==================== MAIN PAYLOAD ====================
@@ -130,40 +169,26 @@ export interface EditOrderResponseOrder {
   po_number: string;
   client_id: number;
   project_id: number;
-  
-  // Contact info
   contact_person_name: string | null;
   contact_person_number: string | null;
   site_instructions: string | null;
-  
-  // Delivery
   delivery_address: string;
   delivery_date: string;
   delivery_time: string | null;
   delivery_lat: number | null;
   delivery_long: number | null;
-  
-  // Status
   order_status: string;
   payment_status: string;
   workflow: string;
-  
-  // Pricing
   total_price: string | null;
   gst_tax: string | null;
   discount: string | null;
   customer_item_cost: string | null;
   customer_delivery_cost: string | null;
-  
-  // Flags
   repeat_order: boolean;
   is_archived: number;
-  
-  // Timestamps
   created_at: string;
   updated_at: string;
-  
-  // Relations
   project?: {
     id: number;
     name: string;
@@ -194,56 +219,3 @@ export interface EditOrderErrorResponse {
   message: string;
   errors?: Record<string, string[]>;
 }
-
-// ==================== FORM STATE ====================
-
-/**
- * Form state for contact information (Step 1)
- */
-export interface ContactInfoFormState {
-  contact_person_name: string;
-  contact_person_number: string;
-  site_instructions: string;
-}
-
-/**
- * Track what has changed for UI feedback
- */
-export interface EditOrderChanges {
-  contactInfoChanged: boolean;
-  itemsAdded: number[];
-  itemsUpdated: number[];
-  itemsRemoved: number[];
-}
-
-// ==================== HELPER TYPES ====================
-
-/**
- * Check if an item can be removed (no delivered deliveries)
- */
-export const canRemoveItem = (item: OrderEditItem): boolean => {
-  return !item.deliveries.some(d => d.status === 'delivered');
-};
-
-/**
- * Get delivered quantity for an item
- */
-export const getDeliveredQuantity = (item: OrderEditItem): number => {
-  return item.deliveries
-    .filter(d => d.status === 'delivered')
-    .reduce((sum, d) => sum + d.quantity, 0);
-};
-
-/**
- * Get scheduled deliveries for an item (editable)
- */
-export const getScheduledDeliveries = (item: OrderEditItem): OrderDelivery[] => {
-  return item.deliveries.filter(d => d.status !== 'delivered');
-};
-
-/**
- * Get delivered deliveries for an item (read-only)
- */
-export const getDeliveredDeliveries = (item: OrderEditItem): OrderDelivery[] => {
-  return item.deliveries.filter(d => d.status === 'delivered');
-};

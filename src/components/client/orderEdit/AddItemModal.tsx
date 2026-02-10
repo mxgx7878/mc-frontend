@@ -2,19 +2,15 @@
 /**
  * ADD ITEM MODAL
  * 
- * Modal for adding new products to an existing order:
- * - Search products by name
- * - Filter by product type
- * - Paginated product list
- * - Select product
- * - Set quantity
- * - Configure split deliveries
+ * UPDATED: Added truck_type and delivery_cost per delivery slot
+ * - truck_type: visible to all users (admin + client)
+ * - delivery_cost: visible to admin only (via isAdmin prop)
  * 
  * FLOW:
  * 1. Search/browse products
  * 2. Click product to select
  * 3. Set quantity
- * 4. Add delivery slots (split if needed)
+ * 4. Add delivery slots with truck type (+ delivery cost for admin)
  * 5. Validate and add to order
  */
 
@@ -35,16 +31,34 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
+  Truck,
+  DollarSign,
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { ordersAPI } from '../../../api/handlers/orders.api';
 import type { AddItemPayload, EditDeliveryPayload } from '../../../types/orderEdit.types';
 
+// ==================== TRUCK TYPES ====================
+const TRUCK_TYPES = [
+  { value: 'tipper_light', label: 'Tipper Truck Light (3-6 tonnes)' },
+  { value: 'tipper_medium', label: 'Tipper Truck Medium (6-11 tonnes)' },
+  { value: 'tipper_heavy', label: 'Tipper Truck Heavy (11-14 tonnes)' },
+  { value: 'light_rigid', label: 'Light Rigid Truck (3.5 tonnes)' },
+  { value: 'medium_rigid', label: 'Medium Rigid Trucks (7 tonnes)' },
+  { value: 'heavy_rigid', label: 'Heavy Rigid Trucks (16-49 tonnes)' },
+  { value: 'mini_body', label: 'Mini Body Truck (8 tonnes)' },
+  { value: 'body_truck', label: 'Body Truck (12 tonnes)' },
+  { value: 'eight_wheeler', label: 'Eight-Wheeler Body Truck (16 tonnes)' },
+  { value: 'semi', label: 'Semi (28 tonnes)' },
+  { value: 'truck_dog', label: 'Truck and Dog (38 tonnes)' },
+];
+
 interface AddItemModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (item: AddItemPayload) => void;
-  existingProductIds: number[]; // Products already in order (to show warning)
+  existingProductIds: number[];
+  isAdmin?: boolean; // NEW: controls delivery_cost visibility
 }
 
 interface LocalDelivery {
@@ -52,6 +66,8 @@ interface LocalDelivery {
   quantity: number;
   delivery_date: string;
   delivery_time: string;
+  truck_type: string;       // NEW
+  delivery_cost: number;    // NEW (admin only)
 }
 
 type ModalStep = 'select' | 'configure';
@@ -75,21 +91,19 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
   onClose,
   onAdd,
   existingProductIds,
+  isAdmin = false,
 }) => {
-  // Modal step state
+  // Product selection state
   const [step, setStep] = useState<ModalStep>('select');
-  
-  // Product search state
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedProductType, setSelectedProductType] = useState<string>('');
-  const [currentPage, setCurrentPage] = useState(1);
-  
-  // Selected product state
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
-  
+  const [page, setPage] = useState(1);
+  const [selectedType, setSelectedType] = useState<string | undefined>(undefined);
+  const [showTypeFilter, setShowTypeFilter] = useState(false);
+
   // Configuration state
-  const [quantity, setQuantity] = useState<number>(1);
+  const [quantity, setQuantity] = useState(1);
   const [deliveries, setDeliveries] = useState<LocalDelivery[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -97,65 +111,62 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
-      setCurrentPage(1); // Reset page on search
+      setPage(1);
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Reset state when modal opens/closes
+  // Fetch products
+  const { data: productsData, isLoading } = useQuery({
+    queryKey: ['add-item-products', debouncedSearch, page, selectedType],
+    queryFn: () =>
+      ordersAPI.getClientProducts({
+        page,
+        search: debouncedSearch || undefined,
+        product_type: selectedType,
+      }),
+    enabled: isOpen && step === 'select',
+  });
+
+  // Fetch product types
+  const { data: productTypesData } = useQuery({
+    queryKey: ['product-types'],
+    queryFn: () => ordersAPI.getProductTypes(),
+    enabled: isOpen,
+  });
+
+  const products = productsData?.data || [];
+  const meta = productsData?.meta;
+  const productTypes = Array.isArray(productTypesData) ? productTypesData : [];
+
+  // Calculate allocation
+  const allocatedQuantity = useMemo(
+    () => deliveries.reduce((sum, d) => sum + (d.quantity || 0), 0),
+    [deliveries]
+  );
+  const remainingToAllocate = useMemo(
+    () => parseFloat((quantity - allocatedQuantity).toFixed(4)),
+    [quantity, allocatedQuantity]
+  );
+  const isAllocationValid = useMemo(
+    () => Math.abs(remainingToAllocate) < 0.01,
+    [remainingToAllocate]
+  );
+
+  // Reset when modal opens/closes
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
       setStep('select');
-      setSearchTerm('');
-      setDebouncedSearch('');
-      setSelectedProductType('');
-      setCurrentPage(1);
       setSelectedProduct(null);
+      setSearchTerm('');
+      setPage(1);
+      setSelectedType(undefined);
       setQuantity(1);
       setDeliveries([]);
       setErrors([]);
     }
   }, [isOpen]);
 
-  // Fetch product types
-  const { data: productTypesData } = useQuery({
-    queryKey: ['product-types'],
-    queryFn: () => ordersAPI.getProductTypes(),
-    staleTime: 5 * 60 * 1000,
-    enabled: isOpen,
-  });
-
-  // Fetch products
-  const { 
-    data: productsData, 
-    isLoading: loadingProducts,
-    isFetching: fetchingProducts,
-  } = useQuery({
-    queryKey: ['client-products', currentPage, debouncedSearch, selectedProductType],
-    queryFn: () =>
-      ordersAPI.getClientProducts({
-        page: currentPage,
-        per_page: 8,
-        search: debouncedSearch || undefined,
-        product_type: selectedProductType || undefined,
-      }),
-    enabled: isOpen && step === 'select',
-    staleTime: 30000,
-  });
-
-  const products = productsData?.data || [];
-  const pagination = productsData?.meta;
-  const productTypes = productTypesData?.data || [];
-
-  // Allocation calculations
-  const allocatedQty = useMemo(() => {
-    return deliveries.reduce((sum, d) => sum + (d.quantity || 0), 0);
-  }, [deliveries]);
-
-  const remainingToAllocate = quantity - allocatedQty;
-  const isAllocationValid = Math.abs(remainingToAllocate) < 0.01;
-
-  // Get image URL
   const getImageUrl = (photo: string | null): string => {
     if (!photo) return '';
     return photo.startsWith('http')
@@ -167,13 +178,14 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
   const handleSelectProduct = (product: any) => {
     setSelectedProduct(product);
     setQuantity(1);
-    // Initialize with one delivery slot
     setDeliveries([
       {
         localId: uuidv4(),
         quantity: 1,
         delivery_date: '',
         delivery_time: '08:00',
+        truck_type: 'tipper_light',
+        delivery_cost: 0,
       },
     ]);
     setErrors([]);
@@ -199,6 +211,8 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
         quantity: defaultQty > 0 ? defaultQty : 1,
         delivery_date: '',
         delivery_time: '08:00',
+        truck_type: 'tipper_light',
+        delivery_cost: 0,
       },
     ]);
   };
@@ -256,6 +270,11 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
       newErrors.push('All delivery slots must have quantity greater than 0.');
     }
 
+    const hasNoTruckType = deliveries.some((d) => !d.truck_type);
+    if (hasNoTruckType) {
+      newErrors.push('All delivery slots must have a truck type selected.');
+    }
+
     setErrors(newErrors);
     return newErrors.length === 0;
   };
@@ -269,6 +288,8 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
       quantity: d.quantity,
       delivery_date: d.delivery_date,
       delivery_time: formatTimeForApi(d.delivery_time),
+      truck_type: d.truck_type || null,
+      ...(isAdmin ? { delivery_cost: d.delivery_cost || 0 } : {}),
     }));
 
     const item: AddItemPayload = {
@@ -331,14 +352,13 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-6">
           {step === 'select' ? (
-            /* Product Selection Step */
-            <div className="p-6">
-              {/* Search and Filter Bar */}
-              <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                {/* Search Input */}
+            /* ==================== STEP: SELECT PRODUCT ==================== */
+            <div className="space-y-4">
+              {/* Search & Filters */}
+              <div className="flex gap-3">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -346,190 +366,177 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search products..."
-                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    autoFocus
                   />
                 </div>
-
-                {/* Product Type Filter */}
                 <div className="relative">
-                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <select
-                    value={selectedProductType}
-                    onChange={(e) => {
-                      setSelectedProductType(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="pl-10 pr-8 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 appearance-none bg-white min-w-[200px]"
+                  <button
+                    onClick={() => setShowTypeFilter(!showTypeFilter)}
+                    className="px-4 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
                   >
-                    <option value="">All Types</option>
-                    {productTypes.map((type: any) => (
-                      <option key={type.product_type} value={type.product_type}>
-                        {type.product_type}
-                      </option>
-                    ))}
-                  </select>
+                    <Filter className="w-4 h-4" />
+                    {selectedType || 'All Types'}
+                  </button>
+                  {showTypeFilter && (
+                    <div className="absolute right-0 mt-1 w-48 bg-white border-2 border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                      <button
+                        onClick={() => {
+                          setSelectedType(undefined);
+                          setShowTypeFilter(false);
+                          setPage(1);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                      >
+                        All Types
+                      </button>
+                      {productTypes.map((type: string) => (
+                        <button
+                          key={type}
+                          onClick={() => {
+                            setSelectedType(type);
+                            setShowTypeFilter(false);
+                            setPage(1);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Loading State */}
-              {loadingProducts && (
+              {/* Product List */}
+              {isLoading ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 text-green-600 animate-spin" />
-                  <span className="ml-3 text-gray-600">Loading products...</span>
+                  <Loader2 className="w-8 h-8 animate-spin text-green-500" />
                 </div>
-              )}
-
-              {/* Products Grid */}
-              {!loadingProducts && products.length > 0 && (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    {products.map((product: any) => {
-                      const isExisting = existingProductIds.includes(product.id);
-                      
-                      return (
-                        <button
-                          key={product.id}
-                          onClick={() => handleSelectProduct(product)}
-                          className={`p-4 border-2 rounded-xl text-left transition-all hover:shadow-md ${
-                            isExisting
-                              ? 'border-amber-300 bg-amber-50 hover:border-amber-400'
-                              : 'border-gray-200 bg-white hover:border-green-400 hover:bg-green-50'
-                          }`}
-                        >
-                          {/* Product Image */}
-                          <div className="w-full h-24 bg-gray-100 rounded-lg mb-3 overflow-hidden">
+              ) : products.length === 0 ? (
+                <div className="text-center py-12">
+                  <Package className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                  <p className="text-gray-600">No products found</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {products.map((product: any) => {
+                    const isExisting = existingProductIds.includes(product.id);
+                    return (
+                      <button
+                        key={product.id}
+                        onClick={() => handleSelectProduct(product)}
+                        className={`w-full text-left p-4 rounded-xl border-2 transition-all hover:shadow-md ${
+                          isExisting
+                            ? 'border-yellow-300 bg-yellow-50 hover:border-yellow-400'
+                            : 'border-gray-200 bg-white hover:border-green-400'
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                             {product.photo ? (
                               <img
                                 src={getImageUrl(product.photo)}
                                 alt={product.product_name}
                                 className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                }}
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
-                                <Package className="w-10 h-10 text-gray-400" />
+                                <Package className="w-6 h-6 text-gray-400" />
                               </div>
                             )}
                           </div>
-
-                          {/* Product Info */}
-                          <h4 className="font-semibold text-gray-900 text-sm truncate mb-1">
-                            {product.product_name}
-                          </h4>
-                          <p className="text-xs text-gray-600 mb-2">
-                            {product.product_type}
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500">
-                              {product.unit_of_measure}
-                            </span>
-                            {product.price && (
-                              <span className="text-sm font-bold text-green-600">
-                                {product.price}
-                              </span>
-                            )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-gray-900">{product.product_name}</p>
+                            <p className="text-sm text-gray-600">
+                              {product.product_type} · Unit: {product.unit_of_measure}
+                            </p>
                           </div>
-
-                          {/* Existing Warning */}
-                          {isExisting && (
-                            <div className="mt-2 px-2 py-1 bg-amber-100 rounded text-xs text-amber-700 font-medium">
-                              Already in order
-                            </div>
+                          {product.price && (
+                            <span className="text-green-600 font-bold">
+                              ${parseFloat(product.price).toFixed(2)} / {product.unit_of_measure}
+                            </span>
                           )}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Pagination */}
-                  {pagination && pagination.last_page > 1 && (
-                    <div className="flex items-center justify-between border-t pt-4">
-                      <span className="text-sm text-gray-600">
-                        Page {pagination.current_page} of {pagination.last_page}
-                        {' '}({pagination.total} products)
-                      </span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                          disabled={currentPage === 1 || fetchingProducts}
-                          className="flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                          Previous
-                        </button>
-                        <button
-                          onClick={() => setCurrentPage((p) => Math.min(pagination.last_page, p + 1))}
-                          disabled={currentPage === pagination.last_page || fetchingProducts}
-                          className="flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Next
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
+                          {isExisting && (
+                            <span className="px-2 py-1 bg-yellow-200 text-yellow-800 text-xs font-medium rounded-full">
+                              Already in order
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
 
-              {/* Empty State */}
-              {!loadingProducts && products.length === 0 && (
-                <div className="text-center py-12">
-                  <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Products Found</h3>
-                  <p className="text-gray-600">
-                    {debouncedSearch || selectedProductType
-                      ? 'Try adjusting your search or filter'
-                      : 'No products available'}
-                  </p>
+              {/* Pagination */}
+              {meta && meta.last_page > 1 && (
+                <div className="flex items-center justify-center gap-3 pt-4">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="p-2 rounded-lg border-2 border-gray-300 disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    Page {page} of {meta.last_page}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
+                    disabled={page === meta.last_page}
+                    className="p-2 rounded-lg border-2 border-gray-300 disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
               )}
             </div>
           ) : (
-            /* Configuration Step */
-            <div className="p-6 space-y-6">
+            /* ==================== STEP: CONFIGURE ITEM ==================== */
+            <div className="space-y-6">
               {/* Selected Product Info */}
               {selectedProduct && (
-                <div className="flex items-start gap-4 p-4 bg-green-50 rounded-xl border-2 border-green-200">
-                  <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                    {selectedProduct.photo ? (
-                      <img
-                        src={getImageUrl(selectedProduct.photo)}
-                        alt={selectedProduct.product_name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Package className="w-8 h-8 text-gray-400" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-gray-900">{selectedProduct.product_name}</h3>
-                    <p className="text-sm text-gray-600">{selectedProduct.product_type}</p>
-                    <div className="flex items-center gap-4 mt-2 text-sm">
-                      <span className="text-gray-500">
-                        Unit: {selectedProduct.unit_of_measure}
-                      </span>
-                      {selectedProduct.price && (
-                        <span className="font-semibold text-green-600">
-                          {selectedProduct.price} / {selectedProduct.unit_of_measure}
-                        </span>
+                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-lg overflow-hidden bg-white border border-gray-200">
+                      {selectedProduct.photo ? (
+                        <img
+                          src={getImageUrl(selectedProduct.photo)}
+                          alt={selectedProduct.product_name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="w-7 h-7 text-gray-400" />
+                        </div>
                       )}
                     </div>
+                    <div>
+                      <p className="font-bold text-gray-900">{selectedProduct.product_name}</p>
+                      <p className="text-sm text-gray-600">
+                        {selectedProduct.product_type}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Unit: {selectedProduct.unit_of_measure}
+                        {selectedProduct.price && (
+                          <span className="ml-3 text-green-700 font-semibold">
+                            ${parseFloat(selectedProduct.price).toFixed(2)} / {selectedProduct.unit_of_measure}
+                          </span>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 text-green-600">
+                  <div className="flex items-center gap-1 text-green-700 font-medium">
                     <CheckCircle className="w-5 h-5" />
-                    <span className="text-sm font-medium">Selected</span>
+                    Selected
                   </div>
                 </div>
               )}
 
-              {/* Quantity Input */}
+              {/* Quantity */}
               <div className="bg-white border-2 border-gray-200 rounded-xl p-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-bold text-gray-900 mb-2">
                   Order Quantity ({selectedProduct?.unit_of_measure || 'units'})
                 </label>
                 <input
@@ -537,68 +544,54 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                   min="0.01"
                   step="0.01"
                   value={quantity}
-                  onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0.01)}
-                  className="w-32 px-4 py-3 border-2 border-gray-200 rounded-lg text-lg font-bold focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
+                  className="w-32 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg font-medium"
                 />
               </div>
 
-              {/* Allocation Progress */}
-              <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4">
+              {/* Delivery Allocation Bar */}
+              <div className="bg-white border-2 border-gray-200 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-700">
-                    Delivery Allocation
-                  </span>
+                  <span className="text-sm font-bold text-gray-900">Delivery Allocation</span>
                   <span
                     className={`text-sm font-bold ${
-                      isAllocationValid
-                        ? 'text-green-600'
-                        : remainingToAllocate > 0
-                        ? 'text-amber-600'
-                        : 'text-red-600'
+                      isAllocationValid ? 'text-green-600' : 'text-orange-600'
                     }`}
                   >
-                    {allocatedQty.toFixed(2)} / {quantity.toFixed(2)} allocated
+                    {allocatedQuantity.toFixed(2)} / {quantity.toFixed(2)} allocated
                   </span>
                 </div>
                 <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                   <div
-                    className={`h-full transition-all duration-300 ${
-                      allocatedQty > quantity
-                        ? 'bg-red-500'
-                        : isAllocationValid
+                    className={`h-full rounded-full transition-all ${
+                      isAllocationValid
                         ? 'bg-green-500'
-                        : 'bg-amber-500'
+                        : allocatedQuantity > quantity
+                        ? 'bg-red-500'
+                        : 'bg-orange-500'
                     }`}
                     style={{
-                      width: `${Math.min((allocatedQty / Math.max(quantity, 0.01)) * 100, 100)}%`,
+                      width: `${Math.min(100, (allocatedQuantity / quantity) * 100)}%`,
                     }}
                   />
                 </div>
-                <div className="mt-2 text-xs text-gray-600">
-                  {isAllocationValid ? (
-                    <span className="text-green-600">✓ Fully allocated</span>
-                  ) : remainingToAllocate > 0 ? (
-                    <span className="text-amber-600">
-                      {remainingToAllocate.toFixed(2)} remaining to allocate
-                    </span>
-                  ) : (
-                    <span className="text-red-600">
-                      Over-allocated by {Math.abs(remainingToAllocate).toFixed(2)}
-                    </span>
-                  )}
-                </div>
+                {isAllocationValid && (
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" /> Fully allocated
+                  </p>
+                )}
               </div>
 
-              {/* Delivery Slots */}
+              {/* Delivery Schedule */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-green-600" />
-                    Delivery Schedule
-                  </h4>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-gray-600" />
+                    <h3 className="font-bold text-gray-900">Delivery Schedule</h3>
+                  </div>
                   <button
                     onClick={handleAddDelivery}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium border border-green-200"
+                    className="px-3 py-1.5 text-sm font-medium text-blue-600 border-2 border-blue-300 rounded-lg hover:bg-blue-50 flex items-center gap-1"
                   >
                     <Plus className="w-4 h-4" />
                     Add Slot
@@ -609,79 +602,118 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                   {deliveries.map((delivery, index) => (
                     <div
                       key={delivery.localId}
-                      className="p-4 bg-white rounded-lg border-2 border-gray-200"
+                      className="p-4 rounded-lg border-2 bg-white border-gray-200"
                     >
                       <div className="flex items-start gap-3">
                         {/* Slot Number */}
-                        <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+                        <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
                           {index + 1}
                         </div>
 
-                        {/* Fields Grid */}
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          {/* Quantity */}
-                          <div>
-                            <label className="text-xs text-gray-600 mb-1 block">
-                              Quantity
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              step="0.01"
-                              value={delivery.quantity}
-                              onChange={(e) =>
-                                handleDeliveryChange(
-                                  delivery.localId,
-                                  'quantity',
-                                  parseFloat(e.target.value) || 0
-                                )
-                              }
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                            />
+                        {/* Fields */}
+                        <div className="flex-1 space-y-3">
+                          {/* Row 1: Quantity + Truck Type */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {/* Quantity */}
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block">Quantity</label>
+                              <input
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value={delivery.quantity}
+                                onChange={(e) =>
+                                  handleDeliveryChange(
+                                    delivery.localId,
+                                    'quantity',
+                                    parseFloat(e.target.value) || 0
+                                  )
+                                }
+                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              />
+                            </div>
+
+                            {/* Truck Type */}
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                                <Truck className="w-3 h-3" />
+                                Truck Type
+                              </label>
+                              <select
+                                value={delivery.truck_type}
+                                onChange={(e) =>
+                                  handleDeliveryChange(delivery.localId, 'truck_type', e.target.value)
+                                }
+                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              >
+                                <option value="">Select truck type...</option>
+                                {TRUCK_TYPES.map((t) => (
+                                  <option key={t.value} value={t.value}>
+                                    {t.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
 
-                          {/* Date */}
-                          <div>
-                            <label className="text-xs text-gray-600 mb-1 block">
-                              Delivery Date
-                            </label>
-                            <div className="relative">
-                              <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          {/* Row 2: Date + Time + Delivery Cost (admin) */}
+                          <div className={`grid grid-cols-1 gap-3 ${isAdmin ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+                            {/* Delivery Date */}
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                Delivery Date
+                              </label>
                               <input
                                 type="date"
                                 value={delivery.delivery_date}
                                 onChange={(e) =>
-                                  handleDeliveryChange(
-                                    delivery.localId,
-                                    'delivery_date',
-                                    e.target.value
-                                  )
+                                  handleDeliveryChange(delivery.localId, 'delivery_date', e.target.value)
                                 }
-                                className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                               />
                             </div>
-                          </div>
 
-                          {/* Time */}
-                          <div>
-                            <label className="text-xs text-gray-600 mb-1 block">
-                              Time
-                            </label>
-                            <div className="relative">
-                              <Clock className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            {/* Time */}
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                Time
+                              </label>
                               <input
                                 type="time"
                                 value={delivery.delivery_time}
                                 onChange={(e) =>
-                                  handleDeliveryChange(
-                                    delivery.localId,
-                                    'delivery_time',
-                                    e.target.value
-                                  )
+                                  handleDeliveryChange(delivery.localId, 'delivery_time', e.target.value)
                                 }
-                                className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                               />
                             </div>
+
+                            {/* Delivery Cost (Admin Only) */}
+                            {isAdmin && (
+                              <div>
+                                <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                                  <DollarSign className="w-3 h-3" />
+                                  Delivery Cost
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={delivery.delivery_cost}
+                                  onChange={(e) =>
+                                    handleDeliveryChange(
+                                      delivery.localId,
+                                      'delivery_cost',
+                                      parseFloat(e.target.value) || 0
+                                    )
+                                  }
+                                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -690,7 +722,6 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                           <button
                             onClick={() => handleRemoveDelivery(delivery.localId)}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                            title="Remove slot"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -703,18 +734,13 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
 
               {/* Errors */}
               {errors.length > 0 && (
-                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-red-800">Please fix the following:</p>
-                      <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
-                        {errors.map((err, i) => (
-                          <li key={i}>{err}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+                <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                  {errors.map((error, i) => (
+                    <p key={i} className="text-sm text-red-700 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      {error}
+                    </p>
+                  ))}
                 </div>
               )}
             </div>
@@ -725,20 +751,14 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
         <div className="px-6 py-4 border-t-2 border-gray-200 bg-gray-50 flex items-center justify-between">
           <button
             onClick={step === 'configure' ? handleBackToSelect : onClose}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+            className="px-4 py-2 text-gray-700 font-medium hover:bg-gray-200 rounded-lg transition-colors"
           >
             {step === 'configure' ? 'Back' : 'Cancel'}
           </button>
-          
           {step === 'configure' && (
             <button
               onClick={handleAdd}
-              disabled={!isAllocationValid}
-              className={`flex items-center gap-2 px-5 py-2 rounded-lg font-medium transition-colors ${
-                isAllocationValid
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-              }`}
+              className="px-6 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-md"
             >
               <Plus className="w-4 h-4" />
               Add to Order

@@ -3,11 +3,11 @@
 /**
  * Orders API Handler
  * 
- * Handles all API calls related to order creation and management:
- * - Fetch products for client
- * - Get categories
- * - Get product details
- * - Create orders
+ * UPDATED: getClientProducts now accepts delivery_lat & delivery_long
+ * to enable location-based product availability filtering.
+ * 
+ * When location is provided, the backend returns is_available (true/false)
+ * for each product based on whether any supplier can deliver to that location.
  */
 
 import api from '../axios.config';
@@ -43,9 +43,13 @@ export interface ProductTypesResponse {
 
 export const ordersAPI = {
   /**
-   * Get products for client with search and filters
-   * @param params - Query parameters (page, per_page, search, category)
-   * @returns Paginated products list
+   * Get products for client with search, filters, and optional location
+   * 
+   * UPDATED: Added delivery_lat & delivery_long params
+   * When provided, backend returns is_available per product
+   * 
+   * @param params - Query parameters (page, per_page, search, category, product_type, delivery_lat, delivery_long)
+   * @returns Paginated products list with availability info
    */
   getClientProducts: async (params: {
     page?: number;
@@ -53,6 +57,8 @@ export const ordersAPI = {
     search?: string;
     category?: number;
     product_type?: string;
+    delivery_lat?: number;   // NEW: Latitude for availability check
+    delivery_long?: number;  // NEW: Longitude for availability check
   }): Promise<ProductsResponse> => {
     try {
       const response = await api.get('/client/products', { params });
@@ -84,8 +90,6 @@ export const ordersAPI = {
     }
   },
 
-
-
   /**
    * Get single product details
    * @param id - Product ID
@@ -114,6 +118,3 @@ export const ordersAPI = {
     }
   },
 };
-// ===========================================================================
-// END OF FILE
-// ===========================================================================
