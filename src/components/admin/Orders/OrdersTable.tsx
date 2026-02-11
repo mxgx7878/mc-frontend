@@ -2,9 +2,12 @@
 
 /**
  * Orders Table Component - WITH PERMISSION-BASED COLUMNS
- * Comprehensive table with pricing information
- * HIDES supplier cost, profit, and margin columns for Support role
- * INCLUDES delete/archive functionality for Admin
+ * 
+ * WHAT CHANGED:
+ * - Added other_charges display in Customer Price column
+ * - Consistent with new costing logic (50% item margin, 10% delivery margin)
+ * - All values come from API pre-calculated totals (backend computes margins)
+ * - No frontend calculation needed - listing API returns flat aggregates
  */
 
 import React, { useState } from 'react';
@@ -13,6 +16,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Eye, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Lock, Trash2 } from 'lucide-react';
 import type { AdminOrder } from '../../../types/adminOrder.types';
+import { FileText } from 'lucide-react';
 import {
   getWorkflowBadgeClass,
   getPaymentBadgeClass,
@@ -45,10 +49,10 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  
+
   // Get permissions
   const { canViewCostPrice, canViewProfitMargin, role } = usePermissions();
-  
+
   // Delete modal state
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
@@ -65,7 +69,6 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
     mutationFn: archivesAPI.archiveOrder,
     onSuccess: () => {
       toast.success('Order archived successfully');
-      // Invalidate the admin orders list to refetch data
       queryClient.invalidateQueries({ queryKey: adminOrdersKeys.lists() });
       setDeleteModal({ isOpen: false, orderId: null, poNumber: '' });
     },
@@ -150,33 +153,38 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                 <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                   Items
                 </th>
-                
+
                 {/* Supplier Cost Column - Only visible if can view cost price */}
                 {canViewCostPrice && (
                   <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-blue-50">
                     Supplier Cost
                   </th>
                 )}
-                
+
                 {/* Customer Price - Always visible */}
                 <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-green-50">
                   Customer Price
                 </th>
-                
+
+                {/* Invoices Column */}
+                <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-amber-50">
+                  Invoices
+                </th>
+
                 {/* Profit Column - Only visible if can view profit margin */}
                 {canViewProfitMargin && (
                   <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
                     Profit
                   </th>
                 )}
-                
+
                 {/* Margin % Column - Only visible if can view profit margin */}
                 {canViewProfitMargin && (
                   <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap bg-purple-50">
                     Margin %
                   </th>
                 )}
-                
+
                 <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                   Actions
                 </th>
@@ -287,6 +295,11 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                           <div className="text-xs text-gray-600 space-y-0.5">
                             <div>Items: {formatCurrency(order.supplier_item_cost)}</div>
                             <div>Delivery: {formatCurrency(order.supplier_delivery_cost)}</div>
+                            {((order as any).supplier_discount ?? 0) > 0 && (
+                              <div className="text-green-600">
+                                Discount: -{formatCurrency((order as any).supplier_discount)}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -307,7 +320,27 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                               Discount: -{formatCurrency(order.discount)}
                             </div>
                           )}
+                          {(order.other_charges ?? 0) > 0 && (
+                            <div>Other: {formatCurrency(order.other_charges)}</div>
+                          )}
                         </div>
+                      </div>
+                    </td>
+
+                    {/* Invoices */}
+                    <td className="px-4 py-4 text-center bg-amber-50/30">
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <FileText size={14} className="text-amber-600" />
+                          <span className="text-base font-bold text-gray-900">
+                            {(order as any).invoices_count ?? 0}
+                          </span>
+                        </div>
+                        {((order as any).invoiced_amount ?? 0) > 0 && (
+                          <span className="text-xs text-gray-600">
+                            {formatCurrency((order as any).invoiced_amount)}
+                          </span>
+                        )}
                       </div>
                     </td>
 
@@ -353,7 +386,7 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                           <Eye size={16} />
                           View
                         </button>
-                        
+
                         {/* Delete Button - Only for Admin */}
                         {canDeleteOrders && (
                           <button
@@ -377,8 +410,9 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
         {pagination && pagination.total_pages > 1 && (
           <div className="px-6 py-4 border-t-2 border-gray-200 flex items-center justify-between bg-gray-50">
             <div className="text-sm text-gray-600 font-medium">
-              Showing page {pagination.current_page} of {pagination.total_pages} (
-              {pagination.total_items.toLocaleString()} total orders)
+              Showing {(pagination.current_page - 1) * pagination.per_page + 1} to{' '}
+              {Math.min(pagination.current_page * pagination.per_page, pagination.total_items)} of{' '}
+              {pagination.total_items} orders
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -390,20 +424,18 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                 Previous
               </button>
 
-              {/* Page Numbers */}
               <div className="flex items-center gap-1">
-                {[...Array(pagination.total_pages)].map((_, i) => {
-                  const page = i + 1;
+                {Array.from({ length: pagination.total_pages }, (_, i) => i + 1).map((page) => {
                   if (
                     page === 1 ||
                     page === pagination.total_pages ||
-                    (page >= pagination.current_page - 1 && page <= pagination.current_page + 1)
+                    Math.abs(page - pagination.current_page) <= 1
                   ) {
                     return (
                       <button
                         key={page}
                         onClick={() => onPageChange(page)}
-                        className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
+                        className={`w-10 h-10 rounded-lg text-sm font-bold transition-colors ${
                           page === pagination.current_page
                             ? 'bg-blue-600 text-white shadow-md'
                             : 'text-gray-700 hover:bg-gray-100 border-2 border-gray-300'

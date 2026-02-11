@@ -172,26 +172,31 @@ export interface AdminOrder {
   items_count: number;
   unassigned_items_count: number;
   suppliers_count: number;
-  
-  // NEW: Supplier costs
+
+  // Supplier costs (computed from items + deliveries)
   supplier_item_cost: number;
+  supplier_discount: number;       // NEW
   supplier_delivery_cost: number;
   supplier_total: number;
-  
-  // NEW: Customer costs
+
+  // Customer costs (with margins applied)
   customer_item_cost: number;
   customer_delivery_cost: number;
-  
+
   // Totals and profit
   total_price: number;
   profit_amount: number;
   profit_margin_percent: number;
-  
+
   // Other charges
   gst_tax: number;
   discount: number;
   other_charges: number;
-  
+
+  // Invoice tracking                // NEW
+  invoices_count: number;           // NEW
+  invoiced_amount: number;          // NEW
+
   order_info?: string | null;
   repeat_order?: boolean;
   created_at: string;
