@@ -409,8 +409,8 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                             </label>
                             <input
                               type="number"
-                              step="0.01"
-                              min="0.01"
+                              step="0.20"
+                              min="0.20"
                               value={slot.quantity}
                               onChange={(e) =>
                                 handleUpdateSlot(item.product_id, slot.slot_id, 'quantity', parseFloat(e.target.value) || 0)

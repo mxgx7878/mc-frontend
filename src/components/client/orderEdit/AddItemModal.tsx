@@ -549,8 +549,8 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                 </label>
                 <input
                   type="number"
-                  min="0.01"
-                  step="0.01"
+                  min="0.20"
+                  step="0.20"
                   value={quantity}
                   onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
                   className="w-32 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg font-medium"

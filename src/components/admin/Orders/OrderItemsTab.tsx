@@ -229,6 +229,34 @@ const canChangeSupplier = (item: AdminOrderItem, paymentStatus: string) => {
                             </span>
                           </div>
                         </div>
+                        {((delivery as any).load_size || (delivery as any).time_interval) && (
+                        <div className="flex items-center gap-4 mt-2 px-1">
+                          {(delivery as any).load_size && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-gray-600">Load Size:</span>
+                              <span className="text-xs font-bold text-gray-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                {(delivery as any).load_size} per trip
+                              </span>
+                            </div>
+                          )}
+                          {(delivery as any).time_interval && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-gray-600">Interval:</span>
+                              <span className="text-xs font-bold text-gray-900 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                                {(delivery as any).time_interval === '60' ? '1 hour' : (delivery as any).time_interval === '120' ? '2 hours' : (delivery as any).time_interval + ' min'}
+                              </span>
+                            </div>
+                          )}
+                          {(delivery as any).load_size && (delivery as any).time_interval && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-gray-600">Trips:</span>
+                              <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                {Math.ceil(parseFloat(String(delivery.quantity)) / parseFloat(String((delivery as any).load_size)))} loads
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       </div>
                     </div>
                   </div>

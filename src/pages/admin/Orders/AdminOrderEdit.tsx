@@ -85,7 +85,9 @@ const mapAdminItemToEditItem = (item: AdminOrderItem): OrderEditItem => ({
     quantity: typeof d.quantity === 'string' ? parseFloat(d.quantity) : d.quantity,
     delivery_date: d.delivery_date,
     delivery_time: d.delivery_time ?? null,
-    truck_type: d.truck_type ?? null,                    // ← ADD
+    truck_type: d.truck_type ?? null,
+    load_size: (d as any).load_size ?? null,
+    time_interval: (d as any).time_interval ?? null,                    // ← ADD
     delivery_cost: d.delivery_cost ?? null,
     status: ('status' in d ? (d as any).status : 'scheduled') as any,
     supplier_confirms: !!d.supplier_confirms,

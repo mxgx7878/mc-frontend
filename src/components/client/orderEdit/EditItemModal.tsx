@@ -630,7 +630,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                             </label>
                             <input
                               type="number"
-                              step="0.01"
+                              step="0.20"
                               min="0"
                               max={delivery.quantity}
                               placeholder="e.g. 0.2"

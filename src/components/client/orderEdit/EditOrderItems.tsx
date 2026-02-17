@@ -353,6 +353,21 @@ const EditOrderItems: React.FC<EditOrderItemsProps> = ({
                                 {formatTime(delivery.delivery_time)}
                               </span>
                             </div>
+                            {((delivery as any).load_size || (delivery as any).time_interval) && (
+                              <div className="flex items-center gap-3 text-xs text-gray-500">
+                                {(delivery as any).load_size && (
+                                  <span>{(delivery as any).load_size}/load</span>
+                                )}
+                                {(delivery as any).time_interval && (
+                                  <span>every {(delivery as any).time_interval === '60' ? '1 hr' : (delivery as any).time_interval + ' min'}</span>
+                                )}
+                                {(delivery as any).load_size && (delivery as any).time_interval && (
+                                  <span className="text-blue-600 font-medium">
+                                    ({Math.ceil(parseFloat(String(delivery.quantity)) / parseFloat((delivery as any).load_size))} trips)
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                           {getDeliveryStatusBadge(delivery.status)}
                         </div>
