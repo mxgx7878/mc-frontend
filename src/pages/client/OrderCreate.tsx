@@ -36,6 +36,7 @@ import OrderWizard from '../../components/order/OrderWizard';
 import ProductCard from '../../components/order/ProductCard';
 import ProductDetailModal from '../../components/order/ProductDetailModal';
 import FloatingCartBadge from '../../components/order/FloatingCartBadge';
+import StickyCartBar from '../../components/order/StickyCartBar';
 import Step2_ProjectDelivery from '../../components/order/Step2_ProjectDelivery';
 import Step3_SplitDelivery from '../../components/order/Step3_SplitDelivery';
 import Step4_ReviewOrder from '../../components/order/Step4_ReviewOrder';
@@ -90,6 +91,7 @@ const OrderCreate = () => {
   // ==================== PRODUCT MODAL STATE ====================
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductModal, setShowProductModal] = useState(false);
+  const [cartSidebarOpen, setCartSidebarOpen] = useState(false)
 
   // ==================== LOAD CART FROM LOCALSTORAGE ====================
   useEffect(() => {
@@ -296,6 +298,8 @@ const OrderCreate = () => {
           delivery_date: slot.delivery_date,
           delivery_time: slot.delivery_time,
           truck_type: slot.truck_type,
+          load_size: slot.load_size,
+          time_interval: slot.time_interval,
         })),
       })),
     };
@@ -368,7 +372,7 @@ const OrderCreate = () => {
         >
           {/* ==================== STEP 1: LOCATION + PRODUCT SELECTION ==================== */}
           {currentStep === 1 && (
-            <div className="space-y-6">
+            <div className={`space-y-6 ${cartItems.length > 0 ? 'pb-24' : ''}`}>
 
               {/* ===== LOCATION SELECTOR BAR ===== */}
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-5">
@@ -756,15 +760,23 @@ const OrderCreate = () => {
 
         {/* Floating Cart Badge (Only on Step 1) */}
         {currentStep === 1 && (
-          <FloatingCartBadge
-            itemCount={totalCartItems}
+          <StickyCartBar
             cartItems={cartItems}
-            onUpdateQuantity={handleUpdateQuantity}
-            onRemoveItem={handleRemoveItem}
-            onProceedToCheckout={handleProceedToStep2}
+            totalItems={totalCartItems}
+            onContinue={handleProceedToStep2}
+            onOpenCart={() => setCartSidebarOpen(true)}
           />
         )}
-
+       {/* Cart Sidebar Drawer — controlled by StickyCartBar */}
+        <FloatingCartBadge
+          itemCount={totalCartItems}
+          cartItems={cartItems}
+          isOpen={cartSidebarOpen}
+          onClose={() => setCartSidebarOpen(false)}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onProceedToNext={handleProceedToStep2}
+        />
         {/* Product Detail Modal */}
         <ProductDetailModal
           isOpen={showProductModal}

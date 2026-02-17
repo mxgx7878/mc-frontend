@@ -56,11 +56,58 @@ import type { ClientInvoice, InvoiceStatus, ClientOrder } from '../../types/clie
 // Update these when company details change
 const COMPANY_INFO = {
   name: 'Material Connect',
+  legalName: 'Material Connect Pty Ltd',
   abn: '12 345 678 901',
   address: 'Sydney, NSW, Australia',
   phone: '1300 000 000',
   email: 'accounts@materialconnect.com.au',
+  remittanceEmail: 'remittance@materialconnect.com.au',
+  website: 'www.materialconnect.com.au',
   logo: 'https://demowebportals.com/material_connect/public/assets/img/logo-text.png',
+  bank: {
+    bsb: '084034',
+    accountNumber: '889916362',
+  },
+};
+
+
+
+const getInvoiceDisplayStatus = (status: InvoiceStatus): { label: string; className: string } => {
+  switch (status) {
+    case 'Sent':
+    case 'Issued':
+    case 'Unpaid':
+      return {
+        label: 'Awaiting Payment – Delivery Pending',
+        className: 'text-amber-700 bg-amber-50 border-amber-200',
+      };
+    case 'Paid':
+      return {
+        label: 'Paid',
+        className: 'text-green-700 bg-green-50 border-green-200',
+      };
+    case 'Overdue':
+      return {
+        label: 'Overdue – Delivery On Hold',
+        className: 'text-red-700 bg-red-50 border-red-200',
+      };
+    case 'Draft':
+      return {
+        label: 'Draft',
+        className: 'text-gray-600 bg-gray-50 border-gray-200',
+      };
+    case 'Cancelled':
+    case 'Void':
+      return {
+        label: status,
+        className: 'text-gray-600 bg-gray-50 border-gray-200',
+      };
+    default:
+      return {
+        label: status,
+        className: 'text-gray-600 bg-gray-50 border-gray-200',
+      };
+  }
 };
 
 // ==================== TYPES ====================
@@ -392,7 +439,7 @@ const ItemsTab = ({ items }: { items: any[] }) => {
   );
 };
 
-// ==================== INVOICE VIEW MODAL (Proper Invoice Document) ====================
+// ==================== INVOICE VIEW MODAL (Tax Invoice Document) ====================
 const InvoiceViewModal = ({
   invoice,
   order,
@@ -411,8 +458,10 @@ const InvoiceViewModal = ({
 
   // Calculate items subtotal (without delivery)
   const itemsSubtotal = invoice.items.reduce((sum, item) => {
-    return sum + (item.quantity * item.unit_price);
+    return sum + item.quantity * item.unit_price;
   }, 0);
+
+  const displayStatus = getInvoiceDisplayStatus(invoice.status);
 
   return (
     <>
@@ -422,7 +471,7 @@ const InvoiceViewModal = ({
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto">
         <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8 border border-gray-200"
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-8 border border-gray-200"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Modal Header (not part of invoice) */}
@@ -432,10 +481,15 @@ const InvoiceViewModal = ({
               Invoice {invoice.invoice_number}
             </h3>
             <div className="flex items-center gap-2">
-              <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${getInvoiceStatusColor(invoice.status)}`}>
-                {invoice.status}
+              <span
+                className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${displayStatus.className}`}
+              >
+                {displayStatus.label}
               </span>
-              <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors">
+              <button
+                onClick={onClose}
+                className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+              >
                 <X className="w-4 h-4 text-gray-500" />
               </button>
             </div>
@@ -443,7 +497,7 @@ const InvoiceViewModal = ({
 
           {/* Invoice Document */}
           <div className="p-8">
-            {/* Company Header */}
+            {/* ── Company Header ── */}
             <div className="flex items-start justify-between mb-8">
               <div>
                 <img
@@ -455,36 +509,40 @@ const InvoiceViewModal = ({
                   }}
                 />
                 <h2 className="text-xl font-bold text-gray-900">{COMPANY_INFO.name}</h2>
+                <p className="text-sm font-medium text-gray-700">{COMPANY_INFO.legalName}</p>
                 {COMPANY_INFO.abn && (
                   <p className="text-sm text-gray-500 mt-0.5">ABN: {COMPANY_INFO.abn}</p>
                 )}
                 <p className="text-sm text-gray-500">{COMPANY_INFO.address}</p>
                 <p className="text-sm text-gray-500">{COMPANY_INFO.phone}</p>
                 <p className="text-sm text-gray-500">{COMPANY_INFO.email}</p>
+                <p className="text-sm text-gray-500">{COMPANY_INFO.website}</p>
               </div>
               <div className="text-right">
-                <h1 className="text-3xl font-bold text-gray-900 tracking-tight">INVOICE</h1>
-                <p className="text-sm font-semibold text-blue-600 mt-1">{invoice.invoice_number}</p>
+                <h1 className="text-3xl font-bold text-gray-900 tracking-tight">TAX INVOICE</h1>
+                <p className="text-sm font-semibold text-blue-600 mt-1">
+                  {invoice.invoice_number}
+                </p>
               </div>
             </div>
 
-            {/* Bill To + Invoice Details */}
+            {/* ── Bill To + Invoice Details ── */}
             <div className="flex justify-between mb-8 gap-8">
               {/* Bill To */}
               <div className="flex-1">
-                <p className="text-[11px] uppercase font-bold text-gray-400 tracking-wider mb-2">Bill To</p>
+                <p className="text-[11px] uppercase font-bold text-gray-400 tracking-wider mb-2">
+                  Bill To
+                </p>
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
                   {clientCompany?.name && (
                     <p className="font-bold text-gray-900 text-sm">{clientCompany.name}</p>
                   )}
-                  {client?.name && (
-                    <p className="text-sm text-gray-700">{client.name}</p>
-                  )}
-                  {client?.email && (
-                    <p className="text-sm text-gray-500">{client.email}</p>
-                  )}
+                  {client?.name && <p className="text-sm text-gray-700">{client.name}</p>}
+                  {client?.email && <p className="text-sm text-gray-500">{client.email}</p>}
                   {(client?.phone || clientCompany?.phone) && (
-                    <p className="text-sm text-gray-500">{client?.phone || clientCompany?.phone}</p>
+                    <p className="text-sm text-gray-500">
+                      {client?.phone || clientCompany?.phone}
+                    </p>
                   )}
                   {clientCompany?.abn && (
                     <p className="text-sm text-gray-500 mt-1">ABN: {clientCompany.abn}</p>
@@ -495,57 +553,100 @@ const InvoiceViewModal = ({
                 </div>
 
                 {/* Deliver To */}
-                <p className="text-[11px] uppercase font-bold text-gray-400 tracking-wider mb-2 mt-4">Deliver To</p>
+                <p className="text-[11px] uppercase font-bold text-gray-400 tracking-wider mb-2 mt-4">
+                  Deliver To
+                </p>
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
                   <div className="flex items-start gap-2">
                     <MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-gray-700">{order.delivery_address || '-'}</p>
+                    <div>
+                      <p className="text-sm text-gray-700">
+                        {order.delivery_address || '-'}
+                      </p>
+                      {order.project?.name && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Site / Job Ref: {order.project.name}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Invoice Details */}
               <div className="w-[220px] flex-shrink-0">
-                <p className="text-[11px] uppercase font-bold text-gray-400 tracking-wider mb-2">Invoice Details</p>
+                <p className="text-[11px] uppercase font-bold text-gray-400 tracking-wider mb-2">
+                  Invoice Details
+                </p>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Invoice Date:</span>
-                    <span className="font-medium text-gray-900">{invoice.issued_date ? formatDate(invoice.issued_date) : '-'}</span>
+                    <span className="font-medium text-gray-900">
+                      {invoice.issued_date ? formatDate(invoice.issued_date) : '-'}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Due Date:</span>
-                    <span className="font-medium text-gray-900">{invoice.due_date ? formatDate(invoice.due_date) : '-'}</span>
+                    <span className="font-medium text-gray-900">
+                      {invoice.due_date ? formatDate(invoice.due_date) : '-'}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">PO Number:</span>
                     <span className="font-medium text-gray-900">{order.po_number}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-sm items-center">
                     <span className="text-gray-500">Status:</span>
-                    <span className={`font-semibold ${invoice.status === 'Paid' ? 'text-green-600' : 'text-amber-600'}`}>
-                      {invoice.status}
+                    <span
+                      className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${displayStatus.className}`}
+                    >
+                      {displayStatus.label}
                     </span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Line Items Table */}
+            {/* ── Line Items Table ── */}
             <div className="mb-6">
               <table className="w-full">
                 <thead>
                   <tr className="border-b-2 border-gray-900">
-                    <th className="text-left py-3 text-xs font-bold text-gray-900 uppercase tracking-wider">Item</th>
-                    <th className="text-center py-3 text-xs font-bold text-gray-900 uppercase tracking-wider w-[80px]">Qty</th>
-                    <th className="text-right py-3 text-xs font-bold text-gray-900 uppercase tracking-wider w-[120px]">Unit Price</th>
-                    <th className="text-right py-3 text-xs font-bold text-gray-900 uppercase tracking-wider w-[120px]">Amount</th>
+                    <th className="text-left py-3 text-xs font-bold text-gray-900 uppercase tracking-wider">
+                      Item
+                    </th>
+                    <th className="text-left py-3 text-xs font-bold text-gray-900 uppercase tracking-wider w-[100px]">
+                      Delivery Date
+                    </th>
+                    <th className="text-center py-3 text-xs font-bold text-gray-900 uppercase tracking-wider w-[80px]">
+                      Qty
+                    </th>
+                    <th className="text-right py-3 text-xs font-bold text-gray-900 uppercase tracking-wider w-[100px]">
+                      Unit Price
+                    </th>
+                    <th className="text-right py-3 text-xs font-bold text-gray-900 uppercase tracking-wider w-[100px]">
+                      Amount
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {invoice.items.map((item, idx) => (
-                    <tr key={item.id} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                    <tr
+                      key={item.id}
+                      className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                    >
                       <td className="py-3 pr-4">
-                        <p className="text-sm font-medium text-gray-900">{item.product_name}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {item.product_name}
+                        </p>
+                        {order.project?.name && (
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            Site: {order.project.name}
+                          </p>
+                        )}
+                      </td>
+                      <td className="py-3 text-sm text-gray-600">
+                        {item.delivery_date ? formatDate(item.delivery_date) : '-'}
                       </td>
                       <td className="py-3 text-center text-sm text-gray-700">
                         {item.quantity} {item.unit_of_measure}
@@ -562,55 +663,170 @@ const InvoiceViewModal = ({
               </table>
             </div>
 
-            {/* Totals */}
-            <div className="flex justify-end mb-6">
-              <div className="w-[280px]">
+            {/* ── Totals ── */}
+            <div className="flex justify-end mb-8">
+              <div className="w-[300px]">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Subtotal</span>
-                    <span className="font-medium text-gray-900">{formatCurrency(itemsSubtotal)}</span>
+                    <span className="text-gray-500">Items Subtotal</span>
+                    <span className="font-medium text-gray-900">
+                      {formatCurrency(itemsSubtotal)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Delivery</span>
+                    <span className="font-medium text-gray-900">
+                      {formatCurrency(invoice.delivery_total)}
+                    </span>
                   </div>
                   {invoice.discount > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-green-600">Discount</span>
-                      <span className="font-medium text-green-600">-{formatCurrency(invoice.discount)}</span>
+                      <span className="font-medium text-green-600">
+                        -{formatCurrency(invoice.discount)}
+                      </span>
                     </div>
                   )}
+                  <div className="flex justify-between text-sm pt-1 border-t border-gray-200">
+                    <span className="text-gray-500">Subtotal (excl. GST)</span>
+                    <span className="font-medium text-gray-900">
+                      {formatCurrency(
+                        itemsSubtotal + invoice.delivery_total - invoice.discount
+                      )}
+                    </span>
+                  </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">GST (10%)</span>
-                    <span className="font-medium text-gray-900">{formatCurrency(invoice.gst_tax)}</span>
+                    <span className="font-medium text-gray-900">
+                      {formatCurrency(invoice.gst_tax)}
+                    </span>
                   </div>
                   <div className="border-t-2 border-gray-900 pt-2 mt-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-base font-bold text-gray-900">Total</span>
-                      <span className="text-xl font-bold text-gray-900">{formatCurrency(invoice.total_amount)}</span>
+                      <span className="text-base font-bold text-gray-900">Total (AUD)</span>
+                      <span className="text-xl font-bold text-gray-900">
+                        {formatCurrency(invoice.total_amount)}
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Delivery Note */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6">
-              <div className="flex items-center gap-2">
-                <Truck className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                <p className="text-sm text-blue-800 font-medium">Delivery is included in this invoice.</p>
+            {/* ── Payment Details Section ── */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 mb-6">
+              <p className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3">
+                Payment Details
+              </p>
+              <div className="grid grid-cols-2 gap-6">
+                {/* Bank Details */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 mb-1.5">Bank Details</p>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">BSB:</span>
+                      <span className="font-medium text-gray-900">
+                        {COMPANY_INFO.bank.bsb}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Account Number:</span>
+                      <span className="font-medium text-gray-900">
+                        {COMPANY_INFO.bank.accountNumber}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {/* Payment Reference */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 mb-1.5">
+                    Payment Reference
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    Please use{' '}
+                    <span className="font-bold text-gray-900">
+                      {invoice.invoice_number}
+                    </span>{' '}
+                    as your payment reference.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <p className="text-xs font-semibold text-gray-600 mb-1">Payment Terms</p>
+                <p className="text-sm text-gray-700">
+                  Payment must occur in full prior to delivery unless otherwise agreed in
+                  writing.
+                </p>
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-200 flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500">
+                <span>
+                  Remittance:{' '}
+                  <a
+                    href={`mailto:${COMPANY_INFO.remittanceEmail}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    {COMPANY_INFO.remittanceEmail}
+                  </a>
+                </span>
+                <span>
+                  Web:{' '}
+                  <a
+                    href={`https://${COMPANY_INFO.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    {COMPANY_INFO.website}
+                  </a>
+                </span>
               </div>
             </div>
 
-            {/* Notes */}
+            {/* ── Notes ── */}
             {invoice.notes && (
               <div className="border-t border-gray-200 pt-4 mb-4">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Notes</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Notes
+                </p>
                 <p className="text-sm text-gray-600">{invoice.notes}</p>
               </div>
             )}
 
-            {/* Footer */}
-            <div className="border-t border-gray-200 pt-4 text-center">
-              <p className="text-xs text-gray-400">
-                Thank you for your business. &mdash; {COMPANY_INFO.name}
+            {/* ── Terms & Conditions Footer ── */}
+            <div className="border-t border-gray-200 pt-4">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                Terms &amp; Conditions
               </p>
+              <div className="space-y-1.5 text-[11px] text-gray-500 leading-relaxed">
+                <p>
+                  1. Payment must be received in full prior to dispatch or delivery of goods
+                  unless otherwise agreed in writing.
+                </p>
+                <p>
+                  2. Any bank charges, merchant fees, processing fees or surcharges are the
+                  responsibility of the client.
+                </p>
+                <p>3. All prices are inclusive of GST unless otherwise stated.</p>
+                <p>
+                  4. Goods remain the property of the supplier until paid in full.
+                </p>
+                <p>
+                  5. Any variations to quantity after invoicing may result in adjustment
+                  invoices.
+                </p>
+                <p>
+                  6. The client is responsible for ensuring suitable site access for
+                  delivery.
+                </p>
+              </div>
+              <div className="mt-4 pt-3 border-t border-gray-100 text-center">
+                <p className="text-xs text-gray-400">
+                  Thank you for your business &mdash; {COMPANY_INFO.legalName}
+                </p>
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  {COMPANY_INFO.website} &middot; {COMPANY_INFO.email}
+                </p>
+              </div>
             </div>
           </div>
         </div>

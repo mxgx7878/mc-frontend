@@ -68,6 +68,8 @@ interface LocalDelivery {
   delivery_time: string;
   truck_type: string;       // NEW
   delivery_cost: number;    // NEW (admin only)
+  load_size: string;
+  time_interval: string;
 }
 
 type ModalStep = 'select' | 'configure';
@@ -186,6 +188,8 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
         delivery_time: '08:00',
         truck_type: 'tipper_light',
         delivery_cost: 0,
+        load_size: '',
+        time_interval: '',
       },
     ]);
     setErrors([]);
@@ -213,6 +217,8 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
         delivery_time: '08:00',
         truck_type: 'tipper_light',
         delivery_cost: 0,
+        load_size: '',
+        time_interval: '',
       },
     ]);
   };
@@ -289,6 +295,8 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
       delivery_date: d.delivery_date,
       delivery_time: formatTimeForApi(d.delivery_time),
       truck_type: d.truck_type || null,
+      load_size: d.load_size || null,
+      time_interval: d.time_interval || null,
       ...(isAdmin ? { delivery_cost: d.delivery_cost || 0 } : {}),
     }));
 
@@ -714,6 +722,52 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                                 />
                               </div>
                             )}
+                          </div>
+
+                          {/* Row 3: Load Size + Time Interval */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                                <Package className="w-3 h-3" />
+                                Load Size per Trip
+                                <span className="text-gray-400 font-normal ml-1">optional</span>
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max={delivery.quantity}
+                                placeholder="e.g. 0.2"
+                                value={delivery.load_size || ''}
+                                onChange={(e) =>
+                                  handleDeliveryChange(delivery.localId, 'load_size', e.target.value)
+                                }
+                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                Time Between Loads
+                                <span className="text-gray-400 font-normal ml-1">optional</span>
+                              </label>
+                              <select
+                                value={delivery.time_interval || ''}
+                                onChange={(e) =>
+                                  handleDeliveryChange(delivery.localId, 'time_interval', e.target.value)
+                                }
+                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              >
+                                <option value="">No interval (single delivery)</option>
+                                <option value="30">30 minutes</option>
+                                <option value="60">1 hour</option>
+                                <option value="90">1.5 hours</option>
+                                <option value="120">2 hours</option>
+                                <option value="150">2.5 hours</option>
+                                <option value="180">3 hours</option>
+                                <option value="240">4 hours</option>
+                              </select>
+                            </div>
                           </div>
                         </div>
 

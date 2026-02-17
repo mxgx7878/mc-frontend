@@ -8,16 +8,17 @@ export default {
     extend: {
       colors: {
         primary: {
-          50: '#fff5f2',
-          100: '#ffe8e0',
-          200: '#ffd4c6',
-          300: '#ffb69e',
-          400: '#ff8a65',
-          500: '#ff6b3d',
-          600: '#f04e1f',
-          700: '#d93d0f',
-          800: '#b33310',
-          900: '#932f14',
+          50: '#f0fdfd',
+          100: '#ccfbfc',
+          200: '#9ef4f7',
+          300: '#62e4eb',
+          400: '#30cdd7',
+          500: '#2caeb6',   // ← Logo brand color (exact match)
+          600: '#228c96',
+          700: '#1d7179',
+          800: '#1e5b63',
+          900: '#1d4d54',
+          950: '#0f3339',
         },
         secondary: {
           50: '#f8fafc',

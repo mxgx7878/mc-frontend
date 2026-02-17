@@ -28,6 +28,8 @@ import {
   Info,
   Truck,
   DollarSign,
+  Weight,
+  Timer,
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import type { OrderEditItem, EditDeliveryPayload } from '../../../types/orderEdit.types';
@@ -52,6 +54,52 @@ const TRUCK_TYPES = [
   { value: 'truck_dog', label: 'Truck and Dog (38 tonnes)' },
 ];
 
+
+const TIME_INTERVAL_OPTIONS = [
+    { value: '', label: 'No interval (single delivery)' },
+    { value: '30', label: '30 minutes' },
+    { value: '60', label: '1 hour' },
+    { value: '90', label: '1.5 hours' },
+    { value: '120', label: '2 hours' },
+    { value: '150', label: '2.5 hours' },
+    { value: '180', label: '3 hours' },
+    { value: '240', label: '4 hours' },
+  ];
+
+  /** Add minutes to HH:mm, return new HH:mm */
+  const addMinutes = (time: string, mins: number): string => {
+    const [h, m] = time.split(':').map(Number);
+    const total = h * 60 + m + mins;
+    return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  };
+
+  /** HH:mm → 12-hour display */
+  const to12h = (time: string): string => {
+    const [h, m] = time.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${period}`;
+  };
+
+  /** Build visual timeline breakdown for a delivery slot */
+  const buildTimeBreakdown = (
+    slotQty: number,
+    startTime: string,
+    loadSize: number,
+    intervalMinutes: number
+  ): Array<{ time: string; qty: number }> => {
+    if (!loadSize || loadSize <= 0 || !intervalMinutes || !startTime) return [];
+    const trips = Math.ceil(slotQty / loadSize);
+    const result: Array<{ time: string; qty: number }> = [];
+    let currentTime = startTime;
+    for (let i = 0; i < trips; i++) {
+      const isLast = i === trips - 1;
+      const qty = isLast ? parseFloat((slotQty - loadSize * (trips - 1)).toFixed(4)) : loadSize;
+      result.push({ time: currentTime, qty: Math.max(qty, 0) });
+      currentTime = addMinutes(currentTime, intervalMinutes);
+    }
+    return result;
+  };
+
 interface EditItemModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -72,6 +120,8 @@ interface LocalDelivery {
   delivery_time: string;
   truck_type: string;       // NEW
   delivery_cost: number;    // NEW (admin only)
+  load_size: string;
+  time_interval: string;
   isNew: boolean;
 }
 
@@ -161,6 +211,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
         delivery_time: formatTimeForInput(d.delivery_time),
         truck_type: d.truck_type || '',
         delivery_cost: toNumber(d.delivery_cost, 0),
+        load_size: d.load_size || '',
+        time_interval: d.time_interval || '',
         isNew: false,
       }));
 
@@ -190,6 +242,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
         delivery_time: '08:00',
         truck_type: 'tipper_light',
         delivery_cost: 0,
+        load_size: '',
+        time_interval: '',
         isNew: true,
       },
     ]);
@@ -263,6 +317,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
       delivery_date: d.delivery_date,
       delivery_time: formatTimeForApi(d.delivery_time),
       truck_type: d.truck_type || null,
+      load_size: d.load_size || null,
+      time_interval: d.time_interval || null,
       ...(isAdmin ? { delivery_cost: d.delivery_cost || 0 } : {}),
     }));
 
@@ -350,8 +406,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
             </label>
             <input
               type="number"
-              min={minQuantity || 0.01}
-              step="0.01"
+              min={minQuantity || 0.20}
+              step="0.20"
               value={quantity}
               onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
               className="w-32 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg font-medium"
@@ -423,6 +479,12 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                         <span className="flex items-center gap-1">
                           <Truck className="w-3 h-3" />
                           {TRUCK_TYPES.find((t) => t.value === d.truck_type)?.label || d.truck_type}
+                        </span>
+                      )}
+                      {d.load_size && d.time_interval && (
+                        <span className="flex items-center gap-1 text-xs">
+                          <Weight className="w-3 h-3" />
+                          {d.load_size}/load · every {TIME_INTERVAL_OPTIONS.find((t) => t.value === d.time_interval)?.label || d.time_interval + ' min'}
                         </span>
                       )}
                       <span className="px-2 py-0.5 bg-green-200 text-green-800 text-xs rounded-full font-medium">
@@ -526,9 +588,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                           </div>
                         </div>
 
-                        {/* Row 2: Date + Time + Delivery Cost (admin) */}
-                        <div className={`grid grid-cols-1 gap-3 ${isAdmin ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
-                          {/* Delivery Date */}
+                        {/* Row 2: Date + Time */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
@@ -543,8 +604,6 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                               className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                             />
                           </div>
-
-                          {/* Time */}
                           <div>
                             <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
                               <Clock className="w-3 h-3" />
@@ -559,9 +618,85 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                               className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                             />
                           </div>
+                        </div>
 
-                          {/* Delivery Cost (Admin Only) */}
-                          {isAdmin && (
+                        {/* Row 3: Load Size + Time Interval */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                              <Weight className="w-3 h-3" />
+                              Load Size per Trip
+                              <span className="text-gray-400 font-normal ml-1">optional</span>
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max={delivery.quantity}
+                              placeholder="e.g. 0.2"
+                              value={delivery.load_size || ''}
+                              onChange={(e) =>
+                                handleDeliveryChange(delivery.localId, 'load_size', e.target.value)
+                              }
+                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                              <Timer className="w-3 h-3" />
+                              Time Between Loads
+                              <span className="text-gray-400 font-normal ml-1">optional</span>
+                            </label>
+                            <select
+                              value={delivery.time_interval || ''}
+                              onChange={(e) =>
+                                handleDeliveryChange(delivery.localId, 'time_interval', e.target.value)
+                              }
+                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            >
+                              {TIME_INTERVAL_OPTIONS.map((t) => (
+                                <option key={t.value} value={t.value}>
+                                  {t.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Timeline Preview */}
+                        {(() => {
+                          const ls = parseFloat(delivery.load_size || '0');
+                          const iv = parseInt(delivery.time_interval || '0', 10);
+                          const breakdown =
+                            ls > 0 && iv > 0 && delivery.delivery_time
+                              ? buildTimeBreakdown(delivery.quantity, delivery.delivery_time, ls, iv)
+                              : [];
+                          if (breakdown.length <= 1) return null;
+                          return (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                              <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+                                <Timer className="w-3.5 h-3.5 text-blue-600" />
+                                {breakdown.length} loads on this day
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {breakdown.map((trip, i) => (
+                                  <span
+                                    key={i}
+                                    className="inline-flex items-center gap-1 bg-white border border-blue-200 rounded px-2 py-1 text-xs"
+                                  >
+                                    <span className="font-bold text-blue-700">{to12h(trip.time)}</span>
+                                    <span className="text-gray-400">→</span>
+                                    <span className="font-semibold text-gray-800">{trip.qty}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Row 4: Delivery Cost (Admin Only) */}
+                        {isAdmin && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
                                 <DollarSign className="w-3 h-3" />
@@ -583,8 +718,8 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                                 placeholder="0.00"
                               />
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Remove Button */}

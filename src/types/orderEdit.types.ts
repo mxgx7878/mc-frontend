@@ -25,6 +25,8 @@ export interface EditDeliveryPayload {
   delivery_time?: string | null;
   truck_type?: string | null;
   delivery_cost?: number | null;
+  load_size?: string | null;
+  time_interval?: string | null;
 }
 
 /**
@@ -38,6 +40,8 @@ export interface OrderDelivery {
   delivery_time: string | null;
   truck_type?: string | null;        // ← ADD
   delivery_cost?: number | string | null;  // ← ADD (API may return string like "50.00")
+  load_size?: string | null;
+  time_interval?: string | null;
   status: 'scheduled' | 'pending' | 'delivered' | 'completed' | 'cancelled';
   supplier_confirms?: boolean;
   created_at: string;

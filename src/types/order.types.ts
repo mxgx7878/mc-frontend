@@ -23,6 +23,8 @@ export interface DeliverySlot {
   delivery_date: string; // YYYY-MM-DD format
   delivery_time: string; // HH:mm format (24-hour)
   truck_type: string;
+  load_size?: string;       // Per-load quantity as string (e.g. "0.2")
+  time_interval?: string;
 }
 
 // ==================== CART ITEM ====================
@@ -108,6 +110,8 @@ export interface OrderFormValues {
       delivery_date: string;
       delivery_time: string;
       truck_type: string;
+      load_size?: string;
+      time_interval?: string;
     }>;
   }>;
 }

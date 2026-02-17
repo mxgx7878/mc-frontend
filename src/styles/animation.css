@@ -165,3 +165,20 @@
 .animate-glow {
   animation: glow 2s ease-in-out infinite;
 }
+
+
+/* Slide Up from Bottom (for StickyCartBar) */
+@keyframes slideUp {
+  from {
+     transform: translateY(100%);
+     opacity: 0;
+   }
+   to {
+     transform: translateY(0);
+     opacity: 1;
+   }
+ }
+
+ .animate-slideUp {
+   animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+ }
