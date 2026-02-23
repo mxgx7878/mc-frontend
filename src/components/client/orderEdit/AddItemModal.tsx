@@ -37,21 +37,8 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { ordersAPI } from '../../../api/handlers/orders.api';
 import type { AddItemPayload, EditDeliveryPayload } from '../../../types/orderEdit.types';
+import { getTruckTypesForUnit, autoSelectTruckType } from '../../../utils/truckTypes';
 
-// ==================== TRUCK TYPES ====================
-const TRUCK_TYPES = [
-  { value: 'tipper_light', label: 'Tipper Truck Light (3-6 tonnes)' },
-  { value: 'tipper_medium', label: 'Tipper Truck Medium (6-11 tonnes)' },
-  { value: 'tipper_heavy', label: 'Tipper Truck Heavy (11-14 tonnes)' },
-  { value: 'light_rigid', label: 'Light Rigid Truck (3.5 tonnes)' },
-  { value: 'medium_rigid', label: 'Medium Rigid Trucks (7 tonnes)' },
-  { value: 'heavy_rigid', label: 'Heavy Rigid Trucks (16-49 tonnes)' },
-  { value: 'mini_body', label: 'Mini Body Truck (8 tonnes)' },
-  { value: 'body_truck', label: 'Body Truck (12 tonnes)' },
-  { value: 'eight_wheeler', label: 'Eight-Wheeler Body Truck (16 tonnes)' },
-  { value: 'semi', label: 'Semi (28 tonnes)' },
-  { value: 'truck_dog', label: 'Truck and Dog (38 tonnes)' },
-];
 
 interface AddItemModalProps {
   isOpen: boolean;
@@ -186,7 +173,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
         quantity: 1,
         delivery_date: '',
         delivery_time: '08:00',
-        truck_type: 'tipper_light',
+        truck_type: autoSelectTruckType(1, product.unit_of_measure || ''),
         delivery_cost: 0,
         load_size: '',
         time_interval: '',
@@ -208,6 +195,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
   // Add delivery slot
   const handleAddDelivery = () => {
     const defaultQty = Math.max(0.01, remainingToAllocate);
+    const unitOfMeasure = selectedProduct?.unit_of_measure || '';
     setDeliveries((prev) => [
       ...prev,
       {
@@ -215,7 +203,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
         quantity: defaultQty > 0 ? defaultQty : 1,
         delivery_date: '',
         delivery_time: '08:00',
-        truck_type: 'tipper_light',
+        truck_type: autoSelectTruckType(defaultQty > 0 ? defaultQty : 1, unitOfMeasure),
         delivery_cost: 0,
         load_size: '',
         time_interval: '',
@@ -235,10 +223,20 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
     field: keyof LocalDelivery,
     value: string | number
   ) => {
+    const unitOfMeasure = selectedProduct?.unit_of_measure || '';
+
     setDeliveries((prev) =>
-      prev.map((d) =>
-        d.localId === localId ? { ...d, [field]: value } : d
-      )
+      prev.map((d) => {
+        if (d.localId !== localId) return d;
+        const updated = { ...d, [field]: value };
+
+        if (field === 'quantity') {
+          const qty = parseFloat(value.toString()) || 0;
+          updated.truck_type = autoSelectTruckType(qty, unitOfMeasure);
+        }
+
+        return updated;
+      })
     );
   };
 
@@ -276,10 +274,10 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
       newErrors.push('All delivery slots must have quantity greater than 0.');
     }
 
-    const hasNoTruckType = deliveries.some((d) => !d.truck_type);
-    if (hasNoTruckType) {
-      newErrors.push('All delivery slots must have a truck type selected.');
-    }
+    // const hasNoTruckType = deliveries.some((d) => !d.truck_type);
+    // if (hasNoTruckType) {
+    //   newErrors.push('All delivery slots must have a truck type selected.');
+    // }
 
     setErrors(newErrors);
     return newErrors.length === 0;
@@ -649,13 +647,10 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                               </label>
                               <select
                                 value={delivery.truck_type}
-                                onChange={(e) =>
-                                  handleDeliveryChange(delivery.localId, 'truck_type', e.target.value)
-                                }
-                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                disabled
+                                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm bg-gray-100 cursor-not-allowed opacity-75"
                               >
-                                <option value="">Select truck type...</option>
-                                {TRUCK_TYPES.map((t) => (
+                                {getTruckTypesForUnit(selectedProduct?.unit_of_measure || '').map((t) => (
                                   <option key={t.value} value={t.value}>
                                     {t.label}
                                   </option>

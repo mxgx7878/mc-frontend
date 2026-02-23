@@ -72,9 +72,9 @@ const mapAdminItemToEditItem = (item: AdminOrderItem): OrderEditItem => ({
     id: item.product_id,
     product_name: item.product_name ?? 'Unknown Product',
     photo: null,
-    unit_of_measure: '',
+    unit_of_measure: item.unit_of_measure || '',
     specifications: '',
-    product_type: '',
+    product_type: item.product_type || '',
   },
   supplier: item.supplier
     ? { id: item.supplier.id, name: item.supplier.name, company_name: item.supplier.name }

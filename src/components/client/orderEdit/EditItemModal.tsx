@@ -38,21 +38,8 @@ import {
   getScheduledDeliveries,
   getDeliveredDeliveries,
 } from '../../../types/orderEdit.types';
+import { getTruckTypesForUnit, autoSelectTruckType, getTruckLabel  } from '../../../utils/truckTypes';
 
-// ==================== TRUCK TYPES ====================
-const TRUCK_TYPES = [
-  { value: 'tipper_light', label: 'Tipper Truck Light (3-6 tonnes)' },
-  { value: 'tipper_medium', label: 'Tipper Truck Medium (6-11 tonnes)' },
-  { value: 'tipper_heavy', label: 'Tipper Truck Heavy (11-14 tonnes)' },
-  { value: 'light_rigid', label: 'Light Rigid Truck (3.5 tonnes)' },
-  { value: 'medium_rigid', label: 'Medium Rigid Trucks (7 tonnes)' },
-  { value: 'heavy_rigid', label: 'Heavy Rigid Trucks (16-49 tonnes)' },
-  { value: 'mini_body', label: 'Mini Body Truck (8 tonnes)' },
-  { value: 'body_truck', label: 'Body Truck (12 tonnes)' },
-  { value: 'eight_wheeler', label: 'Eight-Wheeler Body Truck (16 tonnes)' },
-  { value: 'semi', label: 'Semi (28 tonnes)' },
-  { value: 'truck_dog', label: 'Truck and Dog (38 tonnes)' },
-];
 
 
 const TIME_INTERVAL_OPTIONS = [
@@ -209,7 +196,10 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
         quantity: toNumber(d.quantity ?? (d as any).qty, 0),
         delivery_date: d.delivery_date?.split('T')[0] || '',
         delivery_time: formatTimeForInput(d.delivery_time),
-        truck_type: d.truck_type || '',
+        truck_type: autoSelectTruckType(
+          toNumber(d.quantity ?? (d as any).qty, 0),
+          item.product?.unit_of_measure || ''
+        ),
         delivery_cost: toNumber(d.delivery_cost, 0),
         load_size: d.load_size || '',
         time_interval: d.time_interval || '',
@@ -228,26 +218,27 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
   };
 
   // Add new delivery slot
-  const handleAddDelivery = () => {
-    const rem = toNumber(remainingToAllocate, 0);
-    const defaultQty = rem > 0 ? rem : 1;
+ const handleAddDelivery = () => {
+  const rem = toNumber(remainingToAllocate, 0);
+  const defaultQty = rem > 0 ? rem : 1;
+  const unitOfMeasure = item?.product?.unit_of_measure || '';
 
-    setScheduledDeliveries((prev) => [
-      ...prev,
-      {
-        id: null,
-        localId: uuidv4(),
-        quantity: defaultQty > 0 ? defaultQty : 1,
-        delivery_date: '',
-        delivery_time: '08:00',
-        truck_type: 'tipper_light',
-        delivery_cost: 0,
-        load_size: '',
-        time_interval: '',
-        isNew: true,
-      },
-    ]);
-  };
+  setScheduledDeliveries((prev) => [
+    ...prev,
+    {
+      id: null,
+      localId: uuidv4(),
+      quantity: defaultQty > 0 ? defaultQty : 1,
+      delivery_date: '',
+      delivery_time: '08:00',
+      truck_type: autoSelectTruckType(defaultQty > 0 ? defaultQty : 1, unitOfMeasure),
+      delivery_cost: 0,
+      load_size: '',
+      time_interval: '',
+      isNew: true,
+    },
+  ]);
+};
 
   // Remove delivery slot
   const handleRemoveDelivery = (localId: string) => {
@@ -260,10 +251,21 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
     field: keyof LocalDelivery,
     value: string | number
   ) => {
+    const unitOfMeasure = item?.product?.unit_of_measure || '';
+
     setScheduledDeliveries((prev) =>
-      prev.map((d) =>
-        d.localId === localId ? { ...d, [field]: value } : d
-      )
+      prev.map((d) => {
+        if (d.localId !== localId) return d;
+        const updated = { ...d, [field]: value };
+
+        // Auto-select truck type when quantity changes
+        if (field === 'quantity') {
+          const qty = parseFloat(value.toString()) || 0;
+          updated.truck_type = autoSelectTruckType(qty, unitOfMeasure);
+        }
+
+        return updated;
+      })
     );
   };
 
@@ -478,7 +480,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                       {d.truck_type && (
                         <span className="flex items-center gap-1">
                           <Truck className="w-3 h-3" />
-                          {TRUCK_TYPES.find((t) => t.value === d.truck_type)?.label || d.truck_type}
+                          {getTruckLabel(d.truck_type || '', item.product?.unit_of_measure || '')}
                         </span>
                       )}
                       {d.load_size && d.time_interval && (
@@ -573,13 +575,10 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                             </label>
                             <select
                               value={delivery.truck_type}
-                              onChange={(e) =>
-                                handleDeliveryChange(delivery.localId, 'truck_type', e.target.value)
-                              }
-                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              disabled
+                              className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm bg-gray-100 cursor-not-allowed opacity-75"
                             >
-                              <option value="">Select truck type...</option>
-                              {TRUCK_TYPES.map((t) => (
+                              {getTruckTypesForUnit(item?.product?.unit_of_measure || '').map((t) => (
                                 <option key={t.value} value={t.value}>
                                   {t.label}
                                 </option>

@@ -56,6 +56,8 @@ export interface AdminOrderItem {
   id: number;
   product_id: number;
   product_name: string;
+  unit_of_measure?: string;    // ← ADD
+  product_type?: string;
   quantity: number;
   
   // Supplier Info

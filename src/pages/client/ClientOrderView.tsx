@@ -61,7 +61,7 @@ const COMPANY_INFO = {
   address: 'Sydney, NSW, Australia',
   phone: '1300 000 000',
   email: 'accounts@materialconnect.com.au',
-  remittanceEmail: 'remittance@materialconnect.com.au',
+  remittanceEmail: 'accounts@materialconnect.com.au',
   website: 'www.materialconnect.com.au',
   logo: 'https://demowebportals.com/material_connect/public/assets/img/logo-text.png',
   bank: {

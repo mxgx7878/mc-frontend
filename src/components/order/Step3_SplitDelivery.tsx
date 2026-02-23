@@ -30,22 +30,22 @@ import {
 import type { CartItem, DeliverySlot } from '../../types/order.types';
 import Button from '../common/Buttons';
 import { v4 as uuidv4 } from 'uuid';
-
+import { getTruckTypesForUnit, autoSelectTruckType } from '../../utils/truckTypes';
 // ==================== CONSTANTS ====================
 
-const TRUCK_TYPES = [
-  { value: 'tipper_light', label: 'Tipper Truck Light (3-6 tonnes)' },
-  { value: 'tipper_medium', label: 'Tipper Truck Medium (6-11 tonnes)' },
-  { value: 'tipper_heavy', label: 'Tipper Truck Heavy (11-14 tonnes)' },
-  { value: 'light_rigid', label: 'Light Rigid Truck (3.5 tonnes)' },
-  { value: 'medium_rigid', label: 'Medium Rigid Trucks (7 tonnes)' },
-  { value: 'heavy_rigid', label: 'Heavy Rigid Trucks (16-49 tonnes)' },
-  { value: 'mini_body', label: 'Mini Body Truck (8 tonnes)' },
-  { value: 'body_truck', label: 'Body Truck (12 tonnes)' },
-  { value: 'eight_wheeler', label: 'Eight-Wheeler Body Truck (16 tonnes)' },
-  { value: 'semi', label: 'Semi (28 tonnes)' },
-  { value: 'truck_dog', label: 'Truck and Dog (38 tonnes)' },
-];
+// const TRUCK_TYPES = [
+//   { value: 'tipper_light', label: 'Tipper Truck Light (3-6 tonnes)' },
+//   { value: 'tipper_medium', label: 'Tipper Truck Medium (6-11 tonnes)' },
+//   { value: 'tipper_heavy', label: 'Tipper Truck Heavy (11-14 tonnes)' },
+//   { value: 'light_rigid', label: 'Light Rigid Truck (3.5 tonnes)' },
+//   { value: 'medium_rigid', label: 'Medium Rigid Trucks (7 tonnes)' },
+//   { value: 'heavy_rigid', label: 'Heavy Rigid Trucks (16-49 tonnes)' },
+//   { value: 'mini_body', label: 'Mini Body Truck (8 tonnes)' },
+//   { value: 'body_truck', label: 'Body Truck (12 tonnes)' },
+//   { value: 'eight_wheeler', label: 'Eight-Wheeler Body Truck (16 tonnes)' },
+//   { value: 'semi', label: 'Semi (28 tonnes)' },
+//   { value: 'truck_dog', label: 'Truck and Dog (38 tonnes)' },
+// ];
 
 const TIME_INTERVAL_OPTIONS = [
   { value: '', label: 'No interval (single delivery)' },
@@ -128,13 +128,15 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
           slot_id: s.slot_id || uuidv4(),
           load_size: s.load_size || '',
           time_interval: s.time_interval || '',
+          // Re-calculate truck type based on current quantity
+          truck_type: autoSelectTruckType(s.quantity, item.unit_of_measure),
         }));
       } else {
         initial[item.product_id] = [
           {
             slot_id: uuidv4(),
             quantity: item.quantity,
-            truck_type: 'tipper_light',
+            truck_type: autoSelectTruckType(item.quantity, item.unit_of_measure),
             delivery_date: primaryDeliveryDate,
             delivery_time: '08:00',
             load_size: '',
@@ -160,6 +162,8 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
     const cur = productSlots[productId] || [];
     const allocated = cur.reduce((s, sl) => s + sl.quantity, 0);
     const rem = totalQuantity - allocated;
+    const item = cartItems.find((i) => i.product_id === productId);
+    const slotQty = rem > 0 ? Math.min(rem, 1) : 1;
 
     setProductSlots((p) => ({
       ...p,
@@ -167,8 +171,8 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
         ...cur,
         {
           slot_id: uuidv4(),
-          quantity: rem > 0 ? Math.min(rem, 1) : 1,
-          truck_type: 'tipper_light',
+          quantity: slotQty,
+          truck_type: autoSelectTruckType(slotQty, item?.unit_of_measure || ''),
           delivery_date: primaryDeliveryDate,
           delivery_time: '08:00',
           load_size: '',
@@ -191,11 +195,24 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
     field: keyof DeliverySlot,
     value: string | number
   ) => {
+    // Find the item to get unit_of_measure
+    const item = cartItems.find((i) => i.product_id === productId);
+
     setProductSlots((p) => ({
       ...p,
-      [productId]: (p[productId] || []).map((s) =>
-        s.slot_id === slotId ? { ...s, [field]: value } : s
-      ),
+      [productId]: (p[productId] || []).map((s) => {
+        if (s.slot_id !== slotId) return s;
+
+        const updated = { ...s, [field]: value };
+
+        // Auto-select truck type when quantity changes
+        if (field === 'quantity' && item) {
+          const qty = parseFloat(value.toString()) || 0;
+          updated.truck_type = autoSelectTruckType(qty, item.unit_of_measure);
+        }
+
+        return updated;
+      }),
     }));
     if (errors[productId]) setErrors((p) => ({ ...p, [productId]: '' }));
   };
@@ -426,12 +443,10 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                               <Truck className="absolute left-2 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none" size={14} />
                               <select
                                 value={slot.truck_type}
-                                onChange={(e) =>
-                                  handleUpdateSlot(item.product_id, slot.slot_id, 'truck_type', e.target.value)
-                                }
-                                className="w-full pl-7 pr-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white appearance-none"
+                                disabled
+                                className="w-full pl-7 pr-3 py-2 border border-secondary-300 rounded-lg text-sm bg-secondary-100 cursor-not-allowed opacity-75"
                               >
-                                {TRUCK_TYPES.map((t) => (
+                                {getTruckTypesForUnit(item.unit_of_measure).map((t) => (
                                   <option key={t.value} value={t.value}>{t.label}</option>
                                 ))}
                               </select>
