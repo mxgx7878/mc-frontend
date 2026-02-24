@@ -119,20 +119,35 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ charts, loading }) => {
     }
 
     // Line/Area Chart (Revenue Over Time)
-    if (id === 'time_revenue' && Array.isArray(series) && series[0]?.data) {
+    if (id === 'time_revenue' && Array.isArray(series) && typeof series[0] === 'object' && series[0] !== null && 'data' in series[0]) {
       const data = {
         labels,
-        datasets: series.map((s, idx) => ({
-          label: s.name,
-          data: s.data,
-          borderColor: idx === 0 ? '#3B82F6' : '#10B981',
-          backgroundColor: idx === 0 
-            ? 'rgba(59, 130, 246, 0.1)' 
-            : 'rgba(16, 185, 129, 0.1)',
-          fill: true,
-          tension: 0.4,
-          yAxisID: idx === 0 ? 'y' : 'y1',
-        })),
+        datasets: series.map((s, idx) => {
+          if (typeof s === 'object' && 'data' in s && 'name' in s) {
+            return {
+              label: (s as any).name,
+              data: (s as any).data,
+              borderColor: idx === 0 ? '#3B82F6' : '#10B981',
+              backgroundColor: idx === 0 
+                ? 'rgba(59, 130, 246, 0.1)' 
+                : 'rgba(16, 185, 129, 0.1)',
+              fill: true,
+              tension: 0.4,
+              yAxisID: idx === 0 ? 'y' : 'y1',
+            };
+          }
+          return {
+            label: '',
+            data: [],
+            borderColor: idx === 0 ? '#3B82F6' : '#10B981',
+            backgroundColor: idx === 0 
+              ? 'rgba(59, 130, 246, 0.1)' 
+              : 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            tension: 0.4,
+            yAxisID: idx === 0 ? 'y' : 'y1',
+          };
+        }),
       };
 
       const options = {
@@ -201,15 +216,25 @@ const ChartsSection: React.FC<ChartsSectionProps> = ({ charts, loading }) => {
     }
 
     // Bar Chart (Suppliers, Products, Price Distribution)
-    if (Array.isArray(series) && series[0]?.data) {
+    if (Array.isArray(series) && series[0] && typeof series[0] === 'object' && 'data' in series[0]) {
       const data = {
         labels,
-        datasets: series.map((s) => ({
-          label: s.name,
-          data: s.data,
-          backgroundColor: '#3B82F6',
-          borderRadius: 6,
-        })),
+        datasets: series.map((s) => {
+          if (typeof s === 'object' && 'data' in s) {
+            return {
+              label: (s as any).name,
+              data: (s as any).data,
+              backgroundColor: '#3B82F6',
+              borderRadius: 6,
+            };
+          }
+          return {
+            label: '',
+            data: [],
+            backgroundColor: '#3B82F6',
+            borderRadius: 6,
+          };
+        }),
       };
 
       const options = {

@@ -6,7 +6,9 @@
 /**
  * KPI Cards Component
  * Displays key performance indicators with comparisons
- * Revenue/Profit cards hidden for Support role
+ * Revenue/Invoice cards hidden for Support role
+ * 
+ * UPDATED: Now uses invoice-based revenue (total_invoiced, paid_amount, outstanding, collection_rate)
  */
 
 import React from 'react';
@@ -18,6 +20,8 @@ import {
   CheckCircle,
   Users,
   AlertCircle,
+  FileText,
+  Receipt,
   Lock
 } from 'lucide-react';
 import type { DashboardKPIs } from '../../../api/handlers/adminDashboard.api';
@@ -26,7 +30,7 @@ interface KPICardsProps {
   kpis: DashboardKPIs | null;
   loading: boolean;
   currency?: string;
-  /** If false, hides revenue/profit cards (for Support role) */
+  /** If false, hides revenue/invoice cards (for Support role) */
   showFinancialData?: boolean;
 }
 
@@ -49,8 +53,7 @@ const KPICards: React.FC<KPICardsProps> = ({
   showFinancialData = true 
 }) => {
   if (loading || !kpis) {
-    // Adjust skeleton count based on permissions
-    const skeletonCount = showFinancialData ? 8 : 5;
+    const skeletonCount = showFinancialData ? 8 : 4;
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[...Array(skeletonCount)].map((_, i) => (
@@ -72,16 +75,49 @@ const KPICards: React.FC<KPICardsProps> = ({
   };
 
   const allCards: KPICardData[] = [
+    // ── Invoice Revenue Cards (Financial) ──
     {
-      id: 'revenue',
-      title: 'Total Revenue',
-      value: formatCurrency(kpis.revenue),
-      change: kpis.revenue_change,
+      id: 'total_invoiced',
+      title: 'Total Invoiced',
+      value: formatCurrency(kpis.total_invoiced),
+      change: kpis.invoiced_change,
       icon: <DollarSign className="w-6 h-6" />,
       color: 'bg-green-500',
-      subValue: `${formatCurrency(kpis.revenue_prev)} last period`,
-      isFinancial: true, // Hidden for Support
+      subValue: `${formatCurrency(kpis.total_invoiced_prev)} last period`,
+      isFinancial: true,
     },
+    {
+      id: 'paid_amount',
+      title: 'Paid Amount',
+      value: formatCurrency(kpis.paid_amount),
+      change: kpis.paid_change,
+      icon: <CheckCircle className="w-6 h-6" />,
+      color: 'bg-emerald-500',
+      subValue: `${kpis.collection_rate}% collection rate`,
+      isFinancial: true,
+    },
+    {
+      id: 'outstanding',
+      title: 'Outstanding',
+      value: formatCurrency(kpis.outstanding_amount),
+      change: 0,
+      icon: <Receipt className="w-6 h-6" />,
+      color: 'bg-amber-500',
+      subValue: kpis.overdue_count > 0 ? `${kpis.overdue_count} overdue` : 'No overdue invoices',
+      isFinancial: true,
+    },
+    {
+      id: 'avg_invoice',
+      title: 'Avg Invoice Value',
+      value: formatCurrency(kpis.avg_invoice_value),
+      change: 0,
+      icon: <FileText className="w-6 h-6" />,
+      color: 'bg-purple-500',
+      subValue: `${kpis.invoice_count} invoices this period`,
+      isFinancial: true,
+    },
+
+    // ── Order Cards (Always Visible) ──
     {
       id: 'orders',
       title: 'Total Orders',
@@ -90,16 +126,7 @@ const KPICards: React.FC<KPICardsProps> = ({
       icon: <ShoppingCart className="w-6 h-6" />,
       color: 'bg-blue-500',
       subValue: `${kpis.orders_total_prev} last period`,
-      isFinancial: false, // Always visible
-    },
-    {
-      id: 'avg_order',
-      title: 'Avg Order Value',
-      value: formatCurrency(kpis.avg_order_value),
-      change: 0,
-      icon: <DollarSign className="w-6 h-6" />,
-      color: 'bg-purple-500',
-      isFinancial: true, // Hidden for Support
+      isFinancial: false,
     },
     {
       id: 'completed',
@@ -107,9 +134,9 @@ const KPICards: React.FC<KPICardsProps> = ({
       value: kpis.completed_orders,
       change: kpis.completed_change,
       icon: <CheckCircle className="w-6 h-6" />,
-      color: 'bg-green-500',
+      color: 'bg-teal-500',
       subValue: `${kpis.completed_orders_prev} last period`,
-      isFinancial: false, // Always visible
+      isFinancial: false,
     },
     {
       id: 'active_clients',
@@ -119,7 +146,7 @@ const KPICards: React.FC<KPICardsProps> = ({
       icon: <Users className="w-6 h-6" />,
       color: 'bg-indigo-500',
       subValue: `${kpis.total_clients} total`,
-      isFinancial: false, // Always visible
+      isFinancial: false,
     },
     {
       id: 'active_suppliers',
@@ -129,7 +156,7 @@ const KPICards: React.FC<KPICardsProps> = ({
       icon: <Users className="w-6 h-6" />,
       color: 'bg-cyan-500',
       subValue: `${kpis.total_suppliers} total`,
-      isFinancial: false, // Always visible
+      isFinancial: false,
     },
     {
       id: 'awaiting_payment',
@@ -138,7 +165,7 @@ const KPICards: React.FC<KPICardsProps> = ({
       change: 0,
       icon: <AlertCircle className="w-6 h-6" />,
       color: 'bg-orange-500',
-      isFinancial: false, // Always visible
+      isFinancial: false,
     },
     {
       id: 'supplier_missing',
@@ -147,7 +174,7 @@ const KPICards: React.FC<KPICardsProps> = ({
       change: 0,
       icon: <AlertCircle className="w-6 h-6" />,
       color: 'bg-red-500',
-      isFinancial: false, // Always visible
+      isFinancial: false,
     },
   ];
 
@@ -165,7 +192,7 @@ const KPICards: React.FC<KPICardsProps> = ({
             key={card.id}
             className="bg-white rounded-xl shadow-card p-6 hover:shadow-lg transition-shadow"
           >
-            {/* Icon & Title */}
+            {/* Icon & Change Badge */}
             <div className="flex items-center justify-between mb-4">
               <div className={`${card.color} text-white p-3 rounded-lg`}>
                 {card.icon}
@@ -202,12 +229,12 @@ const KPICards: React.FC<KPICardsProps> = ({
         ))}
       </div>
 
-      {/* Hidden Cards Notice - Only show if some cards are hidden */}
+      {/* Hidden Cards Notice */}
       {!showFinancialData && (
         <div className="flex items-center justify-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
           <Lock size={14} className="text-gray-500" />
           <span className="text-xs text-gray-600">
-            Revenue and profit metrics are hidden based on your role
+            Revenue and invoice metrics are hidden based on your role
           </span>
         </div>
       )}

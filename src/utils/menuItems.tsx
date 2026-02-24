@@ -17,6 +17,7 @@ import {
   CreditCard,
   Archive,
   Tags,
+  Headphones,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Role } from '../config/permissions';
@@ -36,6 +37,7 @@ export const clientMenuItems: MenuItem[] = [
   { label: 'Projects', path: '/client/projects', icon: <FolderOpen size={20} /> },
   { label: 'Orders', path: '/client/orders', icon: <ShoppingCart size={20} /> },
   { label: 'New Order', path: '/client/orders/create', icon: <PlusCircle size={20} /> },
+  { label: 'Support', path: '/client/support', icon: <Headphones size={20} /> },
 ];
 
 // ==================== ADMIN MENU (Full Access) ====================

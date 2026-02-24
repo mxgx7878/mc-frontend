@@ -5,28 +5,33 @@
 
 /**
  * Tables Section Component
- * Displays Top Clients, Top Suppliers, and Recent Activity tables
- * Spend/Revenue amounts hidden for Support role
+ * Displays Top Clients by Invoiced, Top Suppliers by Cost, and Recent Invoices
+ * Financial amounts hidden for Support role
+ * 
+ * UPDATED: Tables now match invoice-based backend response
+ *   - top_clients_by_invoiced (was top_clients_by_spend)
+ *   - top_suppliers_by_cost (was top_suppliers_by_revenue)
+ *   - recent_invoices (was recent_activity)
  */
 
 import React from 'react';
-import { TrendingUp, Clock, Package, Lock } from 'lucide-react';
-import type { TopClient, TopSupplier, RecentActivity } from '../../../api/handlers/adminDashboard.api';
+import { TrendingUp, Package, FileText, Lock } from 'lucide-react';
+import type { TopClient, TopSupplier, RecentInvoice } from '../../../api/handlers/adminDashboard.api';
 
 interface TablesSectionProps {
   topClients: TopClient[];
   topSuppliers: TopSupplier[];
-  recentActivity: RecentActivity[];
+  recentInvoices: RecentInvoice[];
   loading: boolean;
   currency?: string;
-  /** If false, hides spend/revenue amounts (for Support role) */
+  /** If false, hides financial amounts (for Support role) */
   showFinancialData?: boolean;
 }
 
 const TablesSection: React.FC<TablesSectionProps> = ({
   topClients,
   topSuppliers,
-  recentActivity,
+  recentInvoices,
   loading,
   currency = 'AUD',
   showFinancialData = true,
@@ -40,16 +45,17 @@ const TablesSection: React.FC<TablesSectionProps> = ({
     }).format(value);
   };
 
-  const getWorkflowBadgeClass = (workflow: string): string => {
+  const getInvoiceStatusBadgeClass = (status: string): string => {
     const styles: Record<string, string> = {
-      'Requested': 'bg-yellow-100 text-yellow-800',
-      'Supplier Missing': 'bg-red-100 text-red-800',
-      'Supplier Assigned': 'bg-blue-100 text-blue-800',
-      'Payment Requested': 'bg-orange-100 text-orange-800',
-      'On Hold': 'bg-gray-100 text-gray-800',
-      'Delivered': 'bg-green-100 text-green-800',
+      'Draft': 'bg-gray-100 text-gray-800',
+      'Sent': 'bg-blue-100 text-blue-800',
+      'Paid': 'bg-green-100 text-green-800',
+      'Partially Paid': 'bg-yellow-100 text-yellow-800',
+      'Overdue': 'bg-red-100 text-red-800',
+      'Cancelled': 'bg-gray-200 text-gray-600',
+      'Void': 'bg-gray-200 text-gray-600',
     };
-    return styles[workflow] || 'bg-gray-100 text-gray-800';
+    return styles[status] || 'bg-gray-100 text-gray-800';
   };
 
   if (loading) {
@@ -66,7 +72,7 @@ const TablesSection: React.FC<TablesSectionProps> = ({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Top Clients */}
+      {/* Top Clients by Invoiced */}
       <div className="bg-white rounded-xl shadow-card p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -98,12 +104,12 @@ const TablesSection: React.FC<TablesSectionProps> = ({
                       <p className="text-xs text-gray-500">{client.client_email}</p>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-600 mt-1">{client.order_count} orders</p>
+                  <p className="text-xs text-gray-600 mt-1">{client.invoice_count} invoices</p>
                 </div>
-                {/* Only show spend if authorized */}
                 {showFinancialData ? (
                   <div className="text-right">
-                    <p className="font-bold text-blue-600">{formatCurrency(client.total_spend)}</p>
+                    <p className="font-bold text-blue-600">{formatCurrency(client.total_invoiced)}</p>
+                    <p className="text-xs text-green-600">{formatCurrency(client.paid_amount)} paid</p>
                   </div>
                 ) : (
                   <div className="text-right">
@@ -118,7 +124,7 @@ const TablesSection: React.FC<TablesSectionProps> = ({
         </div>
       </div>
 
-      {/* Top Suppliers */}
+      {/* Top Suppliers by Cost */}
       <div className="bg-white rounded-xl shadow-card p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -128,7 +134,7 @@ const TablesSection: React.FC<TablesSectionProps> = ({
           {!showFinancialData && (
             <span className="text-xs text-gray-500 flex items-center gap-1">
               <Lock size={12} />
-              Revenue hidden
+              Costs hidden
             </span>
           )}
         </div>
@@ -152,10 +158,9 @@ const TablesSection: React.FC<TablesSectionProps> = ({
                   </div>
                   <p className="text-xs text-gray-600 mt-1">{supplier.order_count} orders</p>
                 </div>
-                {/* Only show revenue if authorized */}
                 {showFinancialData ? (
                   <div className="text-right">
-                    <p className="font-bold text-green-600">{formatCurrency(supplier.revenue)}</p>
+                    <p className="font-bold text-green-600">{formatCurrency(supplier.total_cost)}</p>
                   </div>
                 ) : (
                   <div className="text-right">
@@ -170,54 +175,56 @@ const TablesSection: React.FC<TablesSectionProps> = ({
         </div>
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Invoices */}
       <div className="bg-white rounded-xl shadow-card p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-purple-600" />
-            Recent Activity
+            <FileText className="w-5 h-5 text-purple-600" />
+            Recent Invoices
           </h3>
         </div>
 
         <div className="space-y-3 max-h-[500px] overflow-y-auto">
-          {recentActivity.length === 0 ? (
-            <p className="text-gray-500 text-sm text-center py-4">No recent activity</p>
+          {recentInvoices.length === 0 ? (
+            <p className="text-gray-500 text-sm text-center py-4">No recent invoices</p>
           ) : (
-            recentActivity.map((activity) => (
+            recentInvoices.map((invoice) => (
               <div
-                key={activity.id}
+                key={invoice.invoice_id}
                 className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">
-                      {activity.po_number}
+                      {invoice.invoice_number}
                     </p>
                     <p className="text-xs text-gray-600">
-                      {activity.client_name} • {activity.project_name}
+                      {invoice.client_name} &bull; PO: {invoice.po_number}
                     </p>
                   </div>
                   <span
-                    className={`text-xs px-2 py-1 rounded-full font-medium ${getWorkflowBadgeClass(
-                      activity.workflow
+                    className={`text-xs px-2 py-1 rounded-full font-medium ${getInvoiceStatusBadgeClass(
+                      invoice.status
                     )}`}
                   >
-                    {activity.workflow}
+                    {invoice.status}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-500">{activity.time_ago}</p>
-                  {/* Only show amount if authorized AND amount > 0 */}
-                  {activity.amount > 0 && (
-                    showFinancialData ? (
-                      <p className="text-xs font-semibold text-gray-700">
-                        {formatCurrency(activity.amount)}
-                      </p>
-                    ) : (
-                      <span className="text-xs text-gray-400">
-                        Amount hidden
-                      </span>
-                    )
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-gray-500">{invoice.time_ago}</p>
+                    {invoice.due_date && (
+                      <p className="text-xs text-gray-400">Due: {invoice.due_date}</p>
+                    )}
+                  </div>
+                  {showFinancialData ? (
+                    <p className="text-xs font-semibold text-gray-700">
+                      {formatCurrency(invoice.total_amount)}
+                    </p>
+                  ) : (
+                    <span className="text-xs text-gray-400">
+                      Amount hidden
+                    </span>
                   )}
                 </div>
               </div>

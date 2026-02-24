@@ -3,6 +3,9 @@
 /**
  * Admin Dashboard API Handler
  * Handles all API calls for admin dashboard analytics
+ * 
+ * UPDATED: Revenue is now invoice-driven (total_invoiced, paid_amount, outstanding)
+ * Tables changed: top_clients_by_invoiced, top_suppliers_by_cost, recent_invoices
  */
 
 import api from '../axios.config';
@@ -26,37 +29,45 @@ export interface DashboardFilters {
 }
 
 export interface DashboardKPIs {
-  // Primary metrics
+  // Orders
   orders_total: number;
   orders_total_prev: number;
   orders_change: number;
-  
-  revenue: number;
-  revenue_prev: number;
-  revenue_change: number;
-  
-  avg_order_value: number;
-  
+
   completed_orders: number;
   completed_orders_prev: number;
   completed_change: number;
-  
-  // Activity metrics
+
+  // Revenue — invoice-based
+  invoice_count: number;
+  total_invoiced: number;
+  total_invoiced_prev: number;
+  invoiced_change: number;
+
+  paid_amount: number;
+  paid_amount_prev: number;
+  paid_change: number;
+
+  outstanding_amount: number;
+  overdue_count: number;
+  avg_invoice_value: number;
+  collection_rate: number;
+
+  // Clients / Suppliers
   active_clients: number;
   active_clients_prev: number;
   active_clients_change: number;
-  
   active_suppliers: number;
-  
-  // Alerts & Actions
+
+  // Alerts
   awaiting_payment: number;
   supplier_missing: number;
   pending_supplier_approvals: number;
-  
+
   // Performance
   cancellation_rate: number;
   repeat_client_rate: number;
-  
+
   // System totals
   total_clients: number;
   total_suppliers: number;
@@ -64,7 +75,7 @@ export interface DashboardKPIs {
 
 export interface ChartSeries {
   name: string;
-  data: string[];
+  data: (number | string)[];
 }
 
 export interface Chart {
@@ -73,15 +84,17 @@ export interface Chart {
   group_by: string;
   type?: string;
   labels: string[];
-  series: ChartSeries[];
+  series: ChartSeries[] | number[];
+  amounts?: number[];
 }
 
 export interface TopClient {
   client_id: number;
   client_name: string;
   client_email: string;
-  order_count: number;
-  total_spend: number;
+  invoice_count: number;
+  total_invoiced: number;
+  paid_amount: number;
 }
 
 export interface TopSupplier {
@@ -89,19 +102,19 @@ export interface TopSupplier {
   supplier_name: string;
   supplier_email: string;
   order_count: number;
-  revenue: number;
+  total_cost: number;
 }
 
-export interface RecentActivity {
-  id: number;
-  type: string;
-  order_id: number;
-  po_number: string;
+export interface RecentInvoice {
+  invoice_id: number;
+  invoice_number: string;
   client_name: string;
-  project_name: string;
-  amount: number;
-  workflow: string;
-  timestamp: string;
+  po_number: string;
+  total_amount: number;
+  status: string;
+  issued_date: string;
+  due_date: string;
+  paid_at: string | null;
   time_ago: string;
 }
 
@@ -114,24 +127,22 @@ export interface Alert {
 
 export interface DashboardMetadata {
   generated_at: string;
-  data_freshness: string;
-  total_records_analyzed: number;
   period_days: number;
+  total_orders_analyzed: number;
+  total_invoices_analyzed: number;
 }
 
 export interface DashboardResponse {
   filters: DashboardFilters & {
-    group_by: null;
-    metric: string;
     currency: string;
     charts: string[];
   };
   kpis: DashboardKPIs;
   charts: Chart[];
   tables: {
-    top_clients_by_spend: TopClient[];
-    top_suppliers_by_revenue: TopSupplier[];
-    recent_activity: RecentActivity[];
+    top_clients_by_invoiced: TopClient[];
+    top_suppliers_by_cost: TopSupplier[];
+    recent_invoices: RecentInvoice[];
   };
   alerts: Alert[];
   metadata: DashboardMetadata;

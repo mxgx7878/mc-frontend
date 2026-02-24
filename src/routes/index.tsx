@@ -41,6 +41,7 @@ import ProjectCreate from '../pages/client/projects/ProjectCreate';
 import OrderCreate from '../pages/client/OrderCreate';
 import ClientOrders from '../pages/client/ClientOrders';
 import ClientOrderView from '../pages/client/ClientOrderView';
+import ClientSupport from '../pages/client/ClientSupport';
 
 //Supplier Delivery Zones
 import DeliveryZonesPage from '../pages/supplier/DeliveryZones';
@@ -137,6 +138,14 @@ const AppRouter = () => {
             <ClientOrderView />
             </ProtectedRoute>
           } 
+        />
+        <Route
+          path="/client/support"
+          element={
+            <ProtectedRoute allowedRoles={['client']}>
+              <ClientSupport />
+            </ProtectedRoute>
+          }
         />
         <Route
          path="/client/orders/:orderId/edit" 

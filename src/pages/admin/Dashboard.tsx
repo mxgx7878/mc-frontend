@@ -6,7 +6,11 @@
 /**
  * Admin Dashboard Page
  * Main dashboard showing KPIs, charts, tables, and alerts
- * Revenue/Profit widgets hidden for Support role
+ * Revenue/Invoice widgets hidden for Support role
+ * 
+ * UPDATED: Tables now reference invoice-based keys from backend
+ *   - top_clients_by_invoiced, top_suppliers_by_cost, recent_invoices
+ *   - Metadata uses total_orders_analyzed + total_invoices_analyzed
  */
 
 import { useState } from 'react';
@@ -110,7 +114,7 @@ const AdminDashboard = () => {
                   Last updated: {new Date(data.metadata.generated_at).toLocaleString()}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Analyzing {data.metadata.total_records_analyzed} records over {Math.round(data.metadata.period_days)} days
+                  {data.metadata.total_orders_analyzed} orders &bull; {data.metadata.total_invoices_analyzed} invoices &bull; {Math.round(data.metadata.period_days)} days
                 </p>
               </div>
             )}
@@ -122,7 +126,7 @@ const AdminDashboard = () => {
           <div className="px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-2">
             <Lock size={16} className="text-yellow-600" />
             <span className="text-sm text-yellow-800">
-              Financial metrics (revenue, profit) are hidden based on your role permissions
+              Financial metrics (revenue, invoices) are hidden based on your role permissions
             </span>
           </div>
         )}
@@ -165,19 +169,19 @@ const AdminDashboard = () => {
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Top Performers & Activity</h2>
           <TablesSection
-            topClients={data?.tables.top_clients_by_spend || []}
-            topSuppliers={data?.tables.top_suppliers_by_revenue || []}
-            recentActivity={data?.tables.recent_activity || []}
+            topClients={data?.tables.top_clients_by_invoiced || []}
+            topSuppliers={data?.tables.top_suppliers_by_cost || []}
+            recentInvoices={data?.tables.recent_invoices || []}
             loading={isLoading}
             currency={data?.filters.currency}
             showFinancialData={showFinancialData}
           />
         </div>
 
-        {/* Additional Insights - Only show financial insights to authorized users */}
+        {/* Additional Insights */}
         {data?.kpis && (
           <div className={`grid grid-cols-1 ${showFinancialData ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-6`}>
-            {/* Performance Metrics - Always visible (non-financial) */}
+            {/* Performance Metrics - Always visible */}
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
               <h3 className="text-sm font-medium text-blue-900 mb-2">Performance Metrics</h3>
               <div className="space-y-2">
@@ -192,7 +196,7 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* System Health - Always visible (non-financial) */}
+            {/* System Health - Always visible */}
             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
               <h3 className="text-sm font-medium text-green-900 mb-2">System Health</h3>
               <div className="space-y-2">
@@ -207,11 +211,15 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Current Period - Only for users who can see financial data */}
+            {/* Collection Overview - Only for financial users */}
             {showFinancialData && (
               <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
-                <h3 className="text-sm font-medium text-purple-900 mb-2">Current Period</h3>
+                <h3 className="text-sm font-medium text-purple-900 mb-2">Collection Overview</h3>
                 <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-purple-700">Collection Rate</span>
+                    <span className="text-lg font-bold text-purple-900">{data.kpis.collection_rate}%</span>
+                  </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-purple-700">Active Clients</span>
                     <span className="text-lg font-bold text-purple-900">{data.kpis.active_clients}</span>
