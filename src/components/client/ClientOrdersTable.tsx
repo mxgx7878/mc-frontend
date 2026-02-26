@@ -193,7 +193,7 @@ const ClientOrdersTable: React.FC<ClientOrdersTableProps> = ({
                           <div>Items: {formatCurrency(order.customer_item_cost ?? 0)}</div>
                         )}
                         {(order.customer_delivery_cost ?? 0) > 0 && (
-                          <div>Delivery: {formatCurrency(order.customer_delivery_cost ?? 0)}</div>
+                          <span className="text-xs font-medium text-green-600">Delivery Included</span>
                         )}
                         {(order.gst_tax ?? 0) > 0 && (
                           <div>GST: {formatCurrency(order.gst_tax ?? 0)}</div>

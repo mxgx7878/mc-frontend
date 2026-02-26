@@ -16,7 +16,6 @@ import {
   User,
   Phone,
   ClipboardList,
-  AlertCircle,
   XCircle,
   ChevronDown,
   ChevronUp,
@@ -295,12 +294,6 @@ const GuidelinesPanel = ({
 // ==================== OVERVIEW TAB ====================
 const OverviewTab = ({ order }: { order: any }) => (
   <div className="space-y-4">
-    {order.order_info && (
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
-        <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-        <p className="text-sm text-amber-800 font-medium">{order.order_info}</p>
-      </div>
-    )}
 
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
@@ -698,9 +691,7 @@ const InvoiceViewModal = ({
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Delivery</span>
-                    <span className="font-medium text-gray-900">
-                      {formatCurrency(invoice.delivery_total)}
-                    </span>
+                    <span className="text-xs font-medium text-green-600">Included</span>
                   </div>
                   {invoice.discount > 0 && (
                     <div className="flex justify-between text-sm">
@@ -1097,8 +1088,8 @@ const CostingSidebar = ({ order }: { order: any }) => (
         <span className="font-semibold text-gray-900">{formatCurrency(order.customer_item_cost || 0)}</span>
       </div>
       <div className="flex justify-between items-center text-sm">
-        <span className="text-gray-500">Delivery Cost</span>
-        <span className="font-semibold text-gray-900">{formatCurrency(order.customer_delivery_cost || 0)}</span>
+        <span className="text-gray-500">Delivery</span>
+        <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Included</span>
       </div>
       <div className="flex justify-between items-center text-sm">
         <span className="text-gray-500">GST (10%)</span>
