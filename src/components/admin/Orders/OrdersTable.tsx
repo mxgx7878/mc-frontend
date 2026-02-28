@@ -236,11 +236,6 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                           {formatDate(order.delivery_date)}
                         </span>
                         <span className="text-xs text-gray-500">{order.delivery_time}</span>
-                        {order.delivery_method && (
-                          <span className="text-xs text-blue-600 font-medium">
-                            {order.delivery_method}
-                          </span>
-                        )}
                       </div>
                     </td>
 
