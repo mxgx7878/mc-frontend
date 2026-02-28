@@ -148,7 +148,6 @@ export interface AdminOrderDetail {
   
   // Additional Info
   special_notes?: string | null;
-  delivery_method?: string;
   
   // Items
   items: AdminOrderItem[];
@@ -168,7 +167,7 @@ export interface AdminOrder {
   project: string;
   delivery_date: string;
   delivery_time: string;
-  delivery_method?: string;
+
   workflow: WorkflowStatus;
   payment_status: PaymentStatus;
   order_process?: string;
@@ -224,7 +223,6 @@ export interface AdminOrderFilters {
   projects: ProjectFilter[];
   workflows: WorkflowStatus[];
   payment_statuses: PaymentStatus[];
-  delivery_methods: string[];
 }
 
 // ==================== METRICS ====================
@@ -265,7 +263,6 @@ export interface AdminOrdersQueryParams {
   payment_status?: string;
   delivery_date_from?: string;
   delivery_date_to?: string;
-  delivery_method?: string;
   repeat_order?: string;
   has_missing_supplier?: string;
   supplier_confirms?: string;

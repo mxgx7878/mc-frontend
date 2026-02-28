@@ -24,7 +24,6 @@ const ClientOrdersList: React.FC = () => {
     order_status: searchParams.get('order_status') || '',
     payment_status: searchParams.get('payment_status') || '',
     delivery_date: searchParams.get('delivery_date') || '',
-    delivery_method: searchParams.get('delivery_method') || '',
     repeat_order: searchParams.get('repeat_order') || '',
     sort: searchParams.get('sort') || 'created_at',
     dir: searchParams.get('dir') || 'desc',
@@ -44,7 +43,6 @@ const ClientOrdersList: React.FC = () => {
         setAvailableFilters({
           order_statuses: data.order_statuses,
           payment_statuses: data.payment_statuses,
-          delivery_methods: data.delivery_methods,
         });
       }
       setIsFirstLoad(false);
@@ -76,7 +74,6 @@ const ClientOrdersList: React.FC = () => {
       order_status: '',
       payment_status: '',
       delivery_date: '',
-      delivery_method: '',
       repeat_order: '',
       sort: 'created_at',
       dir: 'desc',

@@ -11,7 +11,6 @@ interface ClientOrderFiltersProps {
     order_status: string;
     payment_status: string;
     delivery_date: string;
-    delivery_method: string;
     repeat_order: string;
     sort: string;
     dir: string;
@@ -110,22 +109,6 @@ const ClientOrderFilters: React.FC<ClientOrderFiltersProps> = ({
           </select>
         </div>
 
-        {/* Delivery Method Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Method</label>
-          <select
-            value={filters.delivery_method}
-            onChange={(e) => onFilterChange('delivery_method', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">All Methods</option>
-            {(availableFilters?.delivery_methods || ['Tipper', 'Agitator', 'Pump', 'Ute', 'Other']).map((method) => (
-              <option key={method} value={method}>
-                {method}
-              </option>
-            ))}
-          </select>
-        </div>
 
         {/* Delivery Date Filter */}
         <div>

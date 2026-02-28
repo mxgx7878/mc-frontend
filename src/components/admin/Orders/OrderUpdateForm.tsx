@@ -29,7 +29,6 @@ const OrderUpdateForm: React.FC<OrderUpdateFormProps> = ({ order }) => {
   const [formData, setFormData] = useState({
     project_id: order.filters.projects.find((p) => p.name === order.project)?.id || 0,
     delivery_date: formatDateForInput(order.delivery_date),
-    delivery_method: order.delivery_method || 'Other',
     special_notes: order.special_notes || '',
     discount: order.discount,
   });
@@ -53,9 +52,7 @@ const OrderUpdateForm: React.FC<OrderUpdateFormProps> = ({ order }) => {
     if (formData.delivery_date !== order.delivery_date) {
       payload.delivery_date = formData.delivery_date;
     }
-    if (formData.delivery_method !== order.delivery_method) {
-      payload.delivery_method = formData.delivery_method;
-    }
+
     if (formData.special_notes !== (order.special_notes || '')) {
       payload.special_notes = formData.special_notes;
     }
@@ -81,7 +78,6 @@ const OrderUpdateForm: React.FC<OrderUpdateFormProps> = ({ order }) => {
     setFormData({
       project_id: order.filters.projects.find((p) => p.name === order.project)?.id || 0,
       delivery_date: order.delivery_date,
-      delivery_method: order.delivery_method || 'Other',
       special_notes: order.special_notes || '',
       discount: order.discount,
     });
@@ -135,21 +131,7 @@ const OrderUpdateForm: React.FC<OrderUpdateFormProps> = ({ order }) => {
           />
         </div>
 
-        {/* Delivery Method */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Method</label>
-          <select
-            value={formData.delivery_method}
-            onChange={(e) => handleChange('delivery_method', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="Other">Other</option>
-            <option value="Tipper">Tipper</option>
-            <option value="Agitator">Agitator</option>
-            <option value="Pump">Pump</option>
-            <option value="Ute">Ute</option>
-          </select>
-        </div>
+        
 
         {/* Special Notes */}
         <div>

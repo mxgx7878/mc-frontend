@@ -31,6 +31,7 @@ export const GENERAL_TRUCK_TYPES: TruckType[] = [
   { value: 'mini_truck', label: 'Mini Truck (max 2.4 t)', maxCapacity: 2.4 },
   { value: 'small_truck', label: 'Small Truck (max 4.5 t)', maxCapacity: 4.5 },
   { value: 'body_truck', label: 'Body Truck (max 12 t)', maxCapacity: 12 },
+  { value: '8_wheeler', label: '8 Wheeler (max 15 t)', maxCapacity: 15 },
   { value: 'truck_and_dog', label: 'Truck and Dog (max 32 t)', maxCapacity: 32 },
 ];
 

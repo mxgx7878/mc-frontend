@@ -19,7 +19,6 @@ interface FiltersPanelProps {
     supplier_id: string;
     workflow: string;
     payment_status: string;
-    delivery_method: string;
     delivery_date_from: string;
     delivery_date_to: string;
     repeat_order: string;
@@ -183,24 +182,7 @@ const OrderFiltersPanel: React.FC<FiltersPanelProps> = ({
               </select>
             </div>
 
-            {/* Delivery Method */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Delivery Method
-              </label>
-              <select
-                value={filters.delivery_method}
-                onChange={(e) => onFilterChange('delivery_method', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-              >
-                <option value="">All Methods</option>
-                {availableFilters?.delivery_methods?.map((method) => (
-                  <option key={method} value={method}>
-                    {method}
-                  </option>
-                ))}
-              </select>
-            </div>
+            
 
             {/* Date Range */}
             <div className="grid grid-cols-2 gap-3">

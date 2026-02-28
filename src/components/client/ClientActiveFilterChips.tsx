@@ -10,7 +10,6 @@ interface ClientActiveFilterChipsProps {
     order_status: string;
     payment_status: string;
     delivery_date: string;
-    delivery_method: string;
     repeat_order: string;
   };
   onFilterChange: (key: string, value: string) => void;
@@ -59,13 +58,13 @@ const ClientActiveFilterChips: React.FC<ClientActiveFilterChipsProps> = ({
     });
   }
 
-  if (filters.delivery_method) {
-    activeFilters.push({
-      key: 'delivery_method',
-      label: 'Method',
-      value: filters.delivery_method,
-    });
-  }
+  // if (filters.delivery_method) {
+  //   activeFilters.push({
+  //     key: 'delivery_method',
+  //     label: 'Method',
+  //     value: filters.delivery_method,
+  //   });
+  // }
 
   if (filters.repeat_order) {
     activeFilters.push({

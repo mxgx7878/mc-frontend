@@ -113,7 +113,6 @@ export interface ClientOrder {
   delivery_address: string;
   delivery_date: string;
   delivery_time: string;
-  delivery_method: string;
   contact_person_name?: string | null;
   contact_person_number?: string | null;
 

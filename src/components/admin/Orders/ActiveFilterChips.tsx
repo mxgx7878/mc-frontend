@@ -17,7 +17,6 @@ interface ActiveFilterChipsProps {
     supplier_id: string;
     workflow: string;
     payment_status: string;
-    delivery_method: string;
     delivery_date_from: string;
     delivery_date_to: string;
     repeat_order: string;
@@ -63,9 +62,6 @@ const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
   }
   if (filters.payment_status) {
     activeFilters.push({ key: 'payment_status', label: 'Payment', value: filters.payment_status });
-  }
-  if (filters.delivery_method) {
-    activeFilters.push({ key: 'delivery_method', label: 'Delivery', value: filters.delivery_method });
   }
   if (filters.delivery_date_from) {
     activeFilters.push({ key: 'delivery_date_from', label: 'From Date', value: filters.delivery_date_from });

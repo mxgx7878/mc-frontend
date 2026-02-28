@@ -115,7 +115,7 @@ export interface MasterProductsFilters {
   page?: number;
   per_page?: number;
   search?: string;
-  category?: string;
+  product_type?: string;
   is_approved?: 0 | 1;
 }
 
@@ -173,6 +173,18 @@ export const masterProductsAPI = {
       return response.data;
     } catch (error: any) {
       throw new Error(error?.message || 'Failed to fetch categories');
+    }
+  },
+
+  /**
+   * Get all product types (distinct)
+   */
+  getProductTypes: async (): Promise<{ product_type: string }[]> => {
+    try {
+      const response = await api.get('/product-types');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.message || 'Failed to fetch product types');
     }
   },
 

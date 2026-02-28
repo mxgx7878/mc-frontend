@@ -79,7 +79,6 @@ const ProjectDetails = () => {
     delivery_date: '',
     delivery_time: '',
     po_number: '',
-    delivery_method: 'Other',
     special_notes: '',
   });
 
@@ -103,7 +102,6 @@ const ProjectDetails = () => {
       delivery_date: '',
       delivery_time: '',
       po_number: '',
-      delivery_method: 'Other',
       special_notes: '',
     });
     setShowOrderModal(true);
@@ -130,7 +128,6 @@ const ProjectDetails = () => {
         delivery_date: orderDetails.delivery_date,
         delivery_time: orderDetails.delivery_time || undefined,
         po_number: orderDetails.po_number || undefined,
-        delivery_method: orderDetails.delivery_method,
         special_notes: orderDetails.special_notes || undefined,
       };
 
@@ -613,23 +610,7 @@ const ProjectDetails = () => {
                   />
                 </div>
 
-                {/* Delivery Method */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Delivery Method
-                  </label>
-                  <select
-                    value={orderDetails.delivery_method}
-                    onChange={(e) => setOrderDetails({ ...orderDetails, delivery_method: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="Other">Other</option>
-                    <option value="Tipper">Tipper</option>
-                    <option value="Agitator">Agitator</option>
-                    <option value="Pump">Pump</option>
-                    <option value="Ute">Ute</option>
-                  </select>
-                </div>
+                
 
                 {/* Special Notes */}
                 <div>

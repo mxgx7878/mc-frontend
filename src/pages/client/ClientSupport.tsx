@@ -145,10 +145,10 @@ const ClientSupport = () => {
               <div>
                 <h3 className="font-semibold text-gray-900">Phone Support</h3>
                 <a
-                  href="tel:+611300000000"
-                  className="text-green-600 hover:text-green-700 text-sm font-medium mt-1 block"
+                  href="tel:+61485985477"
+                  className="text-green-600 hover:text-green-700 text-xs font-medium block"
                 >
-                  1300 000 000
+                  Alternate: 0485 985 477
                 </a>
                 <div className="flex items-center gap-1.5 mt-2 text-xs text-gray-500">
                   <Clock size={12} />
