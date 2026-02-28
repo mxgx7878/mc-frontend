@@ -110,6 +110,7 @@ interface LocalDelivery {
   load_size: string;
   time_interval: string;
   isNew: boolean;
+  invoice_id?: number | null;
 }
 
 const toNumber = (v: unknown, fallback = 0): number => {
@@ -195,6 +196,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
         localId: uuidv4(),
         quantity: toNumber(d.quantity ?? (d as any).qty, 0),
         delivery_date: d.delivery_date?.split('T')[0] || '',
+        invoice_id: d.invoice_id ?? null,
         delivery_time: formatTimeForInput(d.delivery_time),
         truck_type: autoSelectTruckType(
           toNumber(d.quantity ?? (d as any).qty, 0),
@@ -270,8 +272,11 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
   };
 
   // Validate form
-  const validateForm = (): boolean => {
+const validateForm = (): boolean => {
     const newErrors: string[] = [];
+    const editableDeliveries = scheduledDeliveries.filter(
+      (d) => !(d.invoice_id != null && d.invoice_id > 0)
+    );
 
     if (quantity < minQuantity) {
       newErrors.push(`Quantity cannot be less than delivered amount (${minQuantity})`);
@@ -289,17 +294,17 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
       }
     }
 
-    const hasEmptyDates = scheduledDeliveries.some((d) => !d.delivery_date);
+    const hasEmptyDates = editableDeliveries.some((d) => !d.delivery_date);
     if (hasEmptyDates) {
       newErrors.push('All delivery slots must have a delivery date.');
     }
 
-    const hasZeroQty = scheduledDeliveries.some((d) => toNumber(d.quantity, 0) <= 0);
+    const hasZeroQty = editableDeliveries.some((d) => toNumber(d.quantity, 0) <= 0);
     if (hasZeroQty) {
       newErrors.push('All delivery slots must have quantity greater than 0.');
     }
 
-    const hasNoTruckType = scheduledDeliveries.some((d) => !d.truck_type);
+    const hasNoTruckType = editableDeliveries.some((d) => !d.truck_type);
     if (hasNoTruckType) {
       newErrors.push('All delivery slots must have a truck type selected.');
     }
@@ -313,7 +318,9 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
     if (!item) return;
     if (!validateForm()) return;
 
-    const deliveriesPayload: EditDeliveryPayload[] = scheduledDeliveries.map((d) => ({
+    const deliveriesPayload: EditDeliveryPayload[] = scheduledDeliveries
+    .filter((d) => !(d.invoice_id != null && d.invoice_id > 0))
+    .map((d) => ({
       id: d.id,
       quantity: d.quantity,
       delivery_date: d.delivery_date,
@@ -528,18 +535,32 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {scheduledDeliveries.map((delivery, index) => (
+                {scheduledDeliveries.map((delivery, index) => {
+                  const invoiced = delivery.invoice_id != null && delivery.invoice_id > 0;
+                  const disabledClass = invoiced ? 'bg-gray-100 cursor-not-allowed text-gray-500 border-gray-200' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500';
+
+                  return (
                   <div
                     key={delivery.localId}
                     className={`p-4 rounded-lg border-2 ${
-                      delivery.isNew
-                        ? 'bg-blue-50 border-blue-200'
-                        : 'bg-white border-gray-200'
+                      invoiced
+                        ? 'bg-amber-50 border-amber-200'
+                        : delivery.isNew
+                          ? 'bg-blue-50 border-blue-200'
+                          : 'bg-white border-gray-200'
                     }`}
                   >
+                    {/* Invoiced Banner */}
+                    {invoiced && (
+                      <div className="flex items-center gap-1.5 mb-3 text-xs font-semibold text-amber-700 bg-amber-100 px-3 py-1.5 rounded-md border border-amber-200">
+                        <Lock className="w-3.5 h-3.5" />
+                        Invoiced — this delivery cannot be modified or deleted
+                      </div>
+                    )}
+
                     <div className="flex items-start gap-3">
                       {/* Slot Number */}
-                      <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+                      <div className={`w-8 h-8 ${invoiced ? 'bg-amber-500' : 'bg-blue-600'} text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0`}>
                         {index + 1}
                       </div>
 
@@ -555,6 +576,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                               min="0.01"
                               step="0.01"
                               value={delivery.quantity}
+                              disabled={invoiced}
                               onChange={(e) => {
                                 const v = e.currentTarget.valueAsNumber;
                                 handleDeliveryChange(
@@ -563,7 +585,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                                   Number.isFinite(v) ? v : 0
                                 );
                               }}
-                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              className={`w-full px-3 py-2 border-2 rounded-lg text-sm ${disabledClass}`}
                             />
                           </div>
 
@@ -597,10 +619,11 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                             <input
                               type="date"
                               value={delivery.delivery_date}
+                              disabled={invoiced}
                               onChange={(e) =>
                                 handleDeliveryChange(delivery.localId, 'delivery_date', e.target.value)
                               }
-                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              className={`w-full px-3 py-2 border-2 rounded-lg text-sm ${disabledClass}`}
                             />
                           </div>
                           <div>
@@ -611,10 +634,11 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                             <input
                               type="time"
                               value={delivery.delivery_time}
+                              disabled={invoiced}
                               onChange={(e) =>
                                 handleDeliveryChange(delivery.localId, 'delivery_time', e.target.value)
                               }
-                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              className={`w-full px-3 py-2 border-2 rounded-lg text-sm ${disabledClass}`}
                             />
                           </div>
                         </div>
@@ -634,10 +658,11 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                               max={delivery.quantity}
                               placeholder="e.g. 0.2"
                               value={delivery.load_size || ''}
+                              disabled={invoiced}
                               onChange={(e) =>
                                 handleDeliveryChange(delivery.localId, 'load_size', e.target.value)
                               }
-                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              className={`w-full px-3 py-2 border-2 rounded-lg text-sm ${disabledClass}`}
                             />
                           </div>
                           <div>
@@ -648,10 +673,11 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                             </label>
                             <select
                               value={delivery.time_interval || ''}
+                              disabled={invoiced}
                               onChange={(e) =>
                                 handleDeliveryChange(delivery.localId, 'time_interval', e.target.value)
                               }
-                              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              className={`w-full px-3 py-2 border-2 rounded-lg text-sm ${invoiced ? 'bg-gray-100 cursor-not-allowed text-gray-500 border-gray-200' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                             >
                               {TIME_INTERVAL_OPTIONS.map((t) => (
                                 <option key={t.value} value={t.value}>
@@ -706,6 +732,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                                 min="0"
                                 step="0.01"
                                 value={delivery.delivery_cost}
+                                disabled={invoiced}
                                 onChange={(e) =>
                                   handleDeliveryChange(
                                     delivery.localId,
@@ -713,7 +740,7 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                                     parseFloat(e.target.value) || 0
                                   )
                                 }
-                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                className={`w-full px-3 py-2 border-2 rounded-lg text-sm ${disabledClass}`}
                                 placeholder="0.00"
                               />
                             </div>
@@ -721,16 +748,19 @@ const EditItemModal: React.FC<EditItemModalProps> = ({
                         )}
                       </div>
 
-                      {/* Remove Button */}
-                      <button
-                        onClick={() => handleRemoveDelivery(delivery.localId)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {/* Remove Button - hidden for invoiced */}
+                      {!invoiced && (
+                        <button
+                          onClick={() => handleRemoveDelivery(delivery.localId)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

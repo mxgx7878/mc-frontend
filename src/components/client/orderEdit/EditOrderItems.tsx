@@ -31,6 +31,7 @@ import {
   getDeliveredQuantity,
   getScheduledDeliveries,
   getDeliveredDeliveries,
+  hasInvoicedDeliveries,
 } from '../../../types/orderEdit.types';
 
 interface EditOrderItemsProps {
@@ -249,6 +250,12 @@ const EditOrderItems: React.FC<EditOrderItemsProps> = ({
                           {scheduledDeliveries.length} scheduled
                         </span>
                       )}
+                      {hasInvoicedDeliveries(item) && (
+                        <span className="text-amber-600 text-xs font-medium">
+                          <Lock className="w-3.5 h-3.5 inline mr-0.5" />
+                          Invoiced
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -276,8 +283,10 @@ const EditOrderItems: React.FC<EditOrderItemsProps> = ({
                         disabled={!canRemove}
                         title={
                           canRemove
-                            ? 'Remove item'
-                            : 'Cannot remove: has delivered deliveries'
+                            ? 'Remove this item'
+                            : hasInvoicedDeliveries(item)
+                              ? 'Cannot remove — this item has invoiced deliveries'
+                              : 'Cannot remove — has delivered quantities'
                         }
                         className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors text-sm font-medium border ${
                           canRemove

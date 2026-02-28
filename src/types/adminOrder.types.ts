@@ -51,6 +51,7 @@ export interface ItemDelivery {
   supplier_confirms: boolean;
   created_at: string;
   updated_at: string;
+  invoice_id?: number | null;
 }
 export interface AdminOrderItem {
   id: number;

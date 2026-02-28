@@ -46,6 +46,7 @@ export interface OrderDelivery {
   supplier_confirms?: boolean;
   created_at: string;
   updated_at: string;
+  invoice_id?: number | null;
 }
 
 // ==================== HELPER FUNCTIONS ====================
@@ -74,6 +75,21 @@ export const getScheduledDeliveries = (item: OrderEditItem): OrderDelivery[] => 
 export const getDeliveredDeliveries = (item: OrderEditItem): OrderDelivery[] => {
   if (!item.deliveries) return [];
   return item.deliveries.filter((d) => d.status === 'delivered');
+};
+
+
+/**
+ * Check if an item has any invoiced deliveries
+ */
+export const hasInvoicedDeliveries = (item: OrderEditItem): boolean => {
+  return item.deliveries.some(d => d.invoice_id != null && d.invoice_id > 0);
+};
+
+/**
+ * Check if a specific delivery is invoiced
+ */
+export const isDeliveryInvoiced = (delivery: OrderDelivery): boolean => {
+  return delivery.invoice_id != null && delivery.invoice_id > 0;
 };
 
 // ==================== ITEM TYPES ====================
@@ -230,5 +246,7 @@ export interface EditOrderErrorResponse {
  * Check if an item can be removed (no delivered deliveries)
  */
 export const canRemoveItem = (item: OrderEditItem): boolean => {
-  return !item.deliveries.some(d => d.status === 'delivered');
+  if (item.deliveries.some(d => d.status === 'delivered')) return false;
+  if (item.deliveries.some(d => d.invoice_id != null && d.invoice_id > 0)) return false;
+  return true;
 };

@@ -89,6 +89,7 @@ const mapAdminItemToEditItem = (item: AdminOrderItem): OrderEditItem => ({
     load_size: (d as any).load_size ?? null,
     time_interval: (d as any).time_interval ?? null,                    // ← ADD
     delivery_cost: d.delivery_cost ?? null,
+    invoice_id: d.invoice_id ?? null,   // ← ADD THIS
     status: ('status' in d ? (d as any).status : 'scheduled') as any,
     supplier_confirms: !!d.supplier_confirms,
     created_at: d.created_at,
