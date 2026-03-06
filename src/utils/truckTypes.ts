@@ -20,7 +20,7 @@ export interface TruckType {
 
 // A) Concrete trucks (unit = m³)
 export const CONCRETE_TRUCK_TYPES: TruckType[] = [
-  { value: 'mini_mix', label: 'Mini-mix (max 2.4 m³)', maxCapacity: 2.4 },
+  { value: 'mini_mix', label: 'Mini-mix (max 2.4 m³)', maxCapacity: 2.4  },
   { value: '6_wheeler', label: '6 Wheeler (max 5.4 m³)', maxCapacity: 5.4 },
   { value: '8_wheeler', label: '8 Wheeler (max 7.0 m³)', maxCapacity: 7.0 },
   { value: '10_wheeler', label: '10 Wheeler (max 8.0 m³)', maxCapacity: 8.0 },

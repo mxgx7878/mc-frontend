@@ -55,6 +55,10 @@ import SupplierOrderDetail from '../pages/supplier/SupplierOrderDetail';
 import ProfileSettings from '../pages/shared/ProfileSettings';
 import MyProducts from '../pages/supplier/MyProducts';
 import ClientOrderEdit from '../pages/client/ClientOrderEdit';
+
+//surcharges
+import SurchargesList from '../pages/admin/Surcharges/SurchargesList';
+
 const basePath = import.meta.env.VITE_BASE_PATH || '/';
 
 const AppRouter = () => {
@@ -346,6 +350,14 @@ const AppRouter = () => {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <Archives />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/surcharges"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <SurchargesList />
             </ProtectedRoute>
           }
         />

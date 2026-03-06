@@ -49,6 +49,7 @@ export const adminMenuItems: MenuItem[] = [
   { label: 'Supplier Zones', path: '/admin/supplier-zones', icon: <MapPin size={20} /> },
   { label: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
   { label: 'Archives', path: '/admin/archives', icon: <Archive size={20} /> },
+  { label: 'Surcharges', path: '/admin/surcharges', icon: <DollarSign /> }
   // { label: 'Payments', path: '/admin/payments', icon: <CreditCard size={20} /> },
   // { label: 'Reports', path: '/admin/reports', icon: <BarChart3 size={20} /> },
   // { label: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
