@@ -1,19 +1,7 @@
 // FILE PATH: src/pages/admin/Surcharges/SurchargesList.tsx
 
-/**
- * Admin Surcharges Management — Clean v2
- * 
- * Features:
- * - Pill tabs: Service Fees | Testing Fees
- * - Clean row layout with toggle, name, rates summary
- * - Click row → opens detail drawer with full reference/explanation
- * - Edit button → opens rate editing modal
- * - Search filter
- */
-
 import React, { useState, useMemo } from 'react';
 import {
-
   Search,
   Pencil,
   Loader2,
@@ -23,150 +11,326 @@ import {
   FlaskConical,
   Info,
   ChevronRight,
+  Package,
+  Tag,
+  Percent,
 } from 'lucide-react';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import EditSurchargeModal from '../../../components/admin/Surcharges/EditSurchargeModal';
 import SurchargeDetailDrawer from '../../../components/admin/Surcharges/SurchargeDetailDrawer';
-import { useSurcharges, useUpdateSurcharge, useToggleSurcharge } from '../../../features/surcharges/hooks';
+import {
+  useSurcharges,
+  useTestingFees,
+  useUpdateSurcharge,
+  useToggleSurcharge,
+  useUpdateTestingFee,
+  useToggleTestingFee,
+} from '../../../features/surcharges/hooks';
 import { getMenuItemsByRole } from '../../../utils/menuItems';
 import { usePermissions } from '../../../hooks/usePermissions';
-import type { Surcharge, TestingFee, SurchargeRate, TestingFeeRate } from '../../../types/surcharge.types';
+import type { Surcharge, TestingFee, UpdateSurchargePayload, UpdateTestingFeePayload } from '../../../types/surcharge.types';
 
 type TabType = 'service_fees' | 'testing_fees';
+
+// ==================== HELPERS ====================
+
+const formatAmount = (amount: number, amount_type: 'fixed' | 'percentage'): string => {
+  if (amount_type === 'percentage') {
+    return `${amount}%`;
+  }
+  return `$${amount.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const APPLIES_TO_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  'Concrete':     { bg: 'bg-blue-50',   text: 'text-blue-700',   border: 'border-blue-200' },
+  'All Products': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+};
+
+const getAppliesToStyle = (applies_to: string | null) => {
+  if (!applies_to) return null;
+  return APPLIES_TO_COLORS[applies_to] || { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' };
+};
+
+// ==================== TOGGLE SWITCH ====================
+
+const ToggleSwitch: React.FC<{
+  isActive: boolean;
+  isPending: boolean;
+  onClick: (e: React.MouseEvent) => void;
+}> = ({ isActive, isPending, onClick }) => (
+  <button
+    onClick={onClick}
+    disabled={isPending}
+    className="flex-shrink-0 relative w-10 h-[22px] rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 disabled:opacity-50"
+    style={{ backgroundColor: isActive ? '#22c55e' : '#cbd5e1' }}
+  >
+    <span
+      className="absolute top-[2px] left-[2px] w-[18px] h-[18px] bg-white rounded-full shadow-sm transition-transform duration-200"
+      style={{ transform: isActive ? 'translateX(18px)' : 'translateX(0)' }}
+    />
+  </button>
+);
+
+// ==================== MAIN COMPONENT ====================
 
 const SurchargesList: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('service_fees');
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingSurcharge, setEditingSurcharge] = useState<Surcharge | TestingFee | null>(null);
-  const [viewingSurcharge, setViewingSurcharge] = useState<Surcharge | TestingFee | null>(null);
+  const [editingItem, setEditingItem] = useState<Surcharge | TestingFee | null>(null);
+  const [editingType, setEditingType] = useState<'surcharge' | 'testing_fee'>('surcharge');
+  const [viewingItem, setViewingItem] = useState<Surcharge | TestingFee | null>(null);
+  const [viewingType, setViewingType] = useState<'surcharge' | 'testing_fee'>('surcharge');
 
   const { role } = usePermissions();
   const menuItems = getMenuItemsByRole(role);
 
-  const { data, isLoading, error, refetch } = useSurcharges();
-  const updateMutation = useUpdateSurcharge();
-  const toggleMutation = useToggleSurcharge();
+  const {
+    data: surchargesData,
+    isLoading: surchargesLoading,
+    error: surchargesError,
+    refetch: refetchSurcharges,
+  } = useSurcharges();
 
-  const serviceFees = data?.data?.service_fees || [];
-  const testingFees = data?.data?.testing_fees || [];
+  const {
+    data: testingFeesData,
+    isLoading: testingFeesLoading,
+    error: testingFeesError,
+    refetch: refetchTestingFees,
+  } = useTestingFees();
+
+  const updateSurchargeMutation = useUpdateSurcharge();
+  const toggleSurchargeMutation = useToggleSurcharge();
+  const updateTestingFeeMutation = useUpdateTestingFee();
+  const toggleTestingFeeMutation = useToggleTestingFee();
+
+  const surcharges: Surcharge[] = surchargesData?.data || [];
+  const testingFees: TestingFee[] = testingFeesData?.data || [];
+
+  const isLoading = activeTab === 'service_fees' ? surchargesLoading : testingFeesLoading;
+  const error = activeTab === 'service_fees' ? surchargesError : testingFeesError;
+  const refetch = activeTab === 'service_fees' ? refetchSurcharges : refetchTestingFees;
 
   // Filtered lists
-  const filteredServiceFees = useMemo(() => {
-    if (!searchQuery.trim()) return serviceFees;
+  const filteredSurcharges = useMemo(() => {
+    if (!searchQuery.trim()) return surcharges;
     const q = searchQuery.toLowerCase();
-    return serviceFees.filter(
-      (s) => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)
+    return surcharges.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.billing_code?.toLowerCase().includes(q)) ||
+        (s.applies_to?.toLowerCase().includes(q))
     );
-  }, [serviceFees, searchQuery]);
+  }, [surcharges, searchQuery]);
 
   const filteredTestingFees = useMemo(() => {
     if (!searchQuery.trim()) return testingFees;
     const q = searchQuery.toLowerCase();
     return testingFees.filter(
-      (t) => t.name.toLowerCase().includes(q) || t.code.toLowerCase().includes(q)
+      (t) =>
+        t.name.toLowerCase().includes(q) ||
+        (t.billing_code?.toLowerCase().includes(q))
     );
   }, [testingFees, searchQuery]);
 
   // Handlers
-  const handleToggle = (e: React.MouseEvent, id: number, currentStatus: boolean) => {
+  const handleToggleSurcharge = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    toggleMutation.mutate({ surchargeId: id, payload: { is_active: !currentStatus } });
+    toggleSurchargeMutation.mutate(id);
   };
 
-  const handleEditClick = (e: React.MouseEvent, surcharge: Surcharge | TestingFee) => {
+  const handleToggleTestingFee = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    setEditingSurcharge(surcharge);
+    toggleTestingFeeMutation.mutate(id);
   };
 
-  const handleEditSave = (id: number, rates: SurchargeRate[] | TestingFeeRate[]) => {
-    updateMutation.mutate(
-      { surchargeId: id, payload: { rates } },
-      { onSuccess: () => setEditingSurcharge(null) }
-    );
+  const handleEditSurcharge = (e: React.MouseEvent, item: Surcharge) => {
+    e.stopPropagation();
+    setEditingItem(item);
+    setEditingType('surcharge');
   };
 
-  const formatAmount = (amount: number | null): string => {
-    if (amount === null) return 'POA';
-    return `$${amount.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const handleEditTestingFee = (e: React.MouseEvent, item: TestingFee) => {
+    e.stopPropagation();
+    setEditingItem(item);
+    setEditingType('testing_fee');
   };
 
-  // Get summary rate text for a service fee (show primary rate)
-  const getServiceFeeSummary = (fee: Surcharge): string => {
-    const first = fee.rates[0];
-    if (!first) return '';
-    if (first.amount === null) return 'Price on Application';
-    return `${formatAmount(first.amount)} ${first.unit}`;
+  const handleSave = (id: number, payload: UpdateSurchargePayload | UpdateTestingFeePayload) => {
+    if (editingType === 'surcharge') {
+      updateSurchargeMutation.mutate(
+        { id, payload: payload as UpdateSurchargePayload },
+        { onSuccess: () => setEditingItem(null) }
+      );
+    } else {
+      updateTestingFeeMutation.mutate(
+        { id, payload: payload as UpdateTestingFeePayload },
+        { onSuccess: () => setEditingItem(null) }
+      );
+    }
   };
+
+  const isSaving = updateSurchargeMutation.isPending || updateTestingFeeMutation.isPending;
 
   // ==================== SERVICE FEES LIST ====================
   const renderServiceFees = () => {
-    if (filteredServiceFees.length === 0) {
+    if (filteredSurcharges.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-          <FileText size={40} className="mb-3 opacity-50" />
+          <FileText size={40} className="mb-3 opacity-40" />
           <p className="text-sm font-medium text-gray-500">No service fees found</p>
         </div>
       );
     }
 
     return (
-      <div className="divide-y divide-gray-100">
-        {filteredServiceFees.map((fee) => (
+      <div className="p-4 space-y-2">
+        {filteredSurcharges.map((fee) => {
+          const appliesToStyle = getAppliesToStyle(fee.applies_to);
+          return (
+            <div
+              key={fee.id}
+              onClick={() => { setViewingItem(fee); setViewingType('surcharge'); }}
+              className={`flex items-center gap-4 px-4 py-3.5 rounded-xl border cursor-pointer transition-all group
+                ${fee.is_active
+                  ? 'bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50/30 shadow-sm'
+                  : 'bg-gray-50 border-gray-200 opacity-60 hover:opacity-80'
+                }`}
+            >
+              {/* Toggle */}
+              <ToggleSwitch
+                isActive={fee.is_active}
+                isPending={toggleSurchargeMutation.isPending}
+                onClick={(e) => handleToggleSurcharge(e, fee.id)}
+              />
+
+              {/* Main info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-sm font-semibold text-gray-900">{fee.name}</h4>
+                  {/* Applies To badge */}
+                  {appliesToStyle && fee.applies_to && (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border ${appliesToStyle.bg} ${appliesToStyle.text} ${appliesToStyle.border}`}>
+                      <Package size={9} />
+                      {fee.applies_to}
+                    </span>
+                  )}
+                  {/* Billing code */}
+                  {fee.billing_code && (
+                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-mono font-semibold rounded">
+                      {fee.billing_code}
+                    </span>
+                  )}
+                </div>
+                {fee.description && (
+                  <p className="text-xs text-gray-400 mt-0.5 truncate max-w-lg">{fee.description}</p>
+                )}
+              </div>
+
+              {/* Amount */}
+              <div className="flex-shrink-0 text-right hidden sm:block">
+                <div className="flex items-center gap-1.5 justify-end">
+                  {fee.amount_type === 'percentage' ? (
+                    <Percent size={13} className="text-indigo-400" />
+                  ) : (
+                    <span className="text-xs text-gray-400">$</span>
+                  )}
+                  <span className="text-sm font-bold text-gray-900 tabular-nums">
+                    {formatAmount(fee.amount, fee.amount_type)}
+                  </span>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  {fee.amount_type === 'fixed' ? 'Fixed fee' : 'Of delivery cost'}
+                </p>
+              </div>
+
+              {/* Actions — always visible, not hidden behind hover */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={(e) => handleEditSurcharge(e, fee)}
+                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                  title="Edit surcharge"
+                >
+                  <Pencil size={15} />
+                </button>
+                <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition-colors" />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // ==================== TESTING FEES LIST ====================
+  const renderTestingFees = () => {
+    if (filteredTestingFees.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <FlaskConical size={40} className="mb-3 opacity-40" />
+          <p className="text-sm font-medium text-gray-500">No testing fees found</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-4 space-y-2">
+        {filteredTestingFees.map((fee) => (
           <div
             key={fee.id}
-            onClick={() => setViewingSurcharge(fee)}
-            className={`flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-slate-50/80 transition-colors group ${
-              !fee.is_active ? 'opacity-40' : ''
-            }`}
+            onClick={() => { setViewingItem(fee); setViewingType('testing_fee'); }}
+            className={`flex items-center gap-4 px-4 py-3.5 rounded-xl border cursor-pointer transition-all group
+              ${fee.is_active
+                ? 'bg-white border-gray-200 hover:border-purple-300 hover:bg-purple-50/20 shadow-sm'
+                : 'bg-gray-50 border-gray-200 opacity-60 hover:opacity-80'
+              }`}
           >
             {/* Toggle */}
-            <button
-              onClick={(e) => handleToggle(e, fee.id, fee.is_active)}
-              disabled={toggleMutation.isPending}
-              className="flex-shrink-0 relative w-10 h-[22px] rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:ring-offset-1"
-              style={{ backgroundColor: fee.is_active ? '#22c55e' : '#d1d5db' }}
-            >
-              <span
-                className="absolute top-[2px] left-[2px] w-[18px] h-[18px] bg-white rounded-full shadow transition-transform"
-                style={{ transform: fee.is_active ? 'translateX(18px)' : 'translateX(0)' }}
-              />
-            </button>
+            <ToggleSwitch
+              isActive={fee.is_active}
+              isPending={toggleTestingFeeMutation.isPending}
+              onClick={(e) => handleToggleTestingFee(e, fee.id)}
+            />
 
-            {/* Name & Description */}
+            {/* Main info */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-semibold text-gray-900 truncate">{fee.name}</h4>
-                {fee.rates.length > 1 && (
-                  <span className="flex-shrink-0 px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-semibold rounded">
-                    {fee.rates.length} rates
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-sm font-semibold text-gray-900">{fee.name}</h4>
+                {fee.billing_code && (
+                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-mono font-semibold rounded">
+                    {fee.billing_code}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-gray-400 truncate mt-0.5 max-w-lg">{fee.description}</p>
-            </div>
-
-            {/* Rate Summary */}
-            <div className="flex-shrink-0 text-right hidden sm:block">
-              <span className="text-sm font-bold text-gray-900 tabular-nums">
-                {getServiceFeeSummary(fee)}
-              </span>
-              {fee.rates.length > 1 && (
-                <p className="text-[11px] text-gray-400">
-                  +{fee.rates.length - 1} more
-                </p>
+              {fee.description && (
+                <p className="text-xs text-gray-400 mt-0.5 truncate max-w-lg">{fee.description}</p>
               )}
             </div>
 
-            {/* Actions */}
+            {/* Amount */}
+            <div className="flex-shrink-0 text-right hidden sm:block">
+              <div className="flex items-center gap-1.5 justify-end">
+                {fee.amount_type === 'percentage' ? (
+                  <Percent size={13} className="text-indigo-400" />
+                ) : (
+                  <span className="text-xs text-gray-400">$</span>
+                )}
+                <span className="text-sm font-bold text-gray-900 tabular-nums">
+                  {formatAmount(fee.amount, fee.amount_type)}
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-0.5">per test</p>
+            </div>
+
+            {/* Actions — always visible */}
             <div className="flex items-center gap-1 flex-shrink-0">
               <button
-                onClick={(e) => handleEditClick(e, fee)}
-                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                title="Edit rates"
+                onClick={(e) => handleEditTestingFee(e, fee)}
+                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                title="Edit testing fee"
               >
                 <Pencil size={15} />
               </button>
-              <ChevronRight size={16} className="text-gray-300 group-hover:text-gray-400 transition-colors" />
+              <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-500 transition-colors" />
             </div>
           </div>
         ))}
@@ -174,137 +338,11 @@ const SurchargesList: React.FC = () => {
     );
   };
 
-  // ==================== TESTING FEES TABLE ====================
-  const renderTestingFees = () => {
-    if (filteredTestingFees.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-          <FlaskConical size={40} className="mb-3 opacity-50" />
-          <p className="text-sm font-medium text-gray-500">No testing fees found</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider w-10" />
-              <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                Test Type
-              </th>
-              <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                <div>Normal Hours</div>
-                <div className="font-normal normal-case text-[10px] text-gray-300">Mon–Fri 6am–4pm</div>
-              </th>
-              <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                <div>After Hours 1</div>
-                <div className="font-normal normal-case text-[10px] text-gray-300">Mon–Fri 4pm–6am</div>
-              </th>
-              <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                <div>After Hours 2</div>
-                <div className="font-normal normal-case text-[10px] text-gray-300">Sat 6am–12pm</div>
-              </th>
-              <th className="px-4 py-3 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                <div>After Hours 3</div>
-                <div className="font-normal normal-case text-[10px] text-gray-300">Sun & Public Hols</div>
-              </th>
-              <th className="px-4 py-3 w-10" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {filteredTestingFees.map((fee) => {
-              const rateMap: Record<string, TestingFeeRate | undefined> = {};
-              fee.rates.forEach((r) => { rateMap[r.period] = r; });
-              const isSingleRate = fee.rates.length === 1 && fee.rates[0].period === 'normal';
-
-              return (
-                <tr
-                  key={fee.id}
-                  onClick={() => setViewingSurcharge(fee)}
-                  className={`cursor-pointer hover:bg-slate-50/80 transition-colors group ${
-                    !fee.is_active ? 'opacity-40' : ''
-                  }`}
-                >
-                  {/* Toggle */}
-                  <td className="px-5 py-3.5">
-                    <button
-                      onClick={(e) => handleToggle(e, fee.id, fee.is_active)}
-                      disabled={toggleMutation.isPending}
-                      className="flex-shrink-0 relative w-10 h-[22px] rounded-full transition-colors focus:outline-none"
-                      style={{ backgroundColor: fee.is_active ? '#22c55e' : '#d1d5db' }}
-                    >
-                      <span
-                        className="absolute top-[2px] left-[2px] w-[18px] h-[18px] bg-white rounded-full shadow transition-transform"
-                        style={{ transform: fee.is_active ? 'translateX(18px)' : 'translateX(0)' }}
-                      />
-                    </button>
-                  </td>
-
-                  {/* Name */}
-                  <td className="px-4 py-3.5">
-                    <p className="text-sm font-semibold text-gray-900">{fee.name}</p>
-                    <p className="text-[11px] text-gray-400 truncate max-w-[220px]">{fee.description}</p>
-                  </td>
-
-                  {/* Rate columns */}
-                  {isSingleRate ? (
-                    <td colSpan={4} className="px-4 py-3.5 text-center">
-                      <span className={`text-sm font-bold tabular-nums ${
-                        fee.rates[0].amount === null ? 'text-amber-600' : 'text-gray-900'
-                      }`}>
-                        {formatAmount(fee.rates[0].amount)}
-                      </span>
-                      <span className="text-[11px] text-gray-400 ml-1">{fee.rates[0].unit}</span>
-                    </td>
-                  ) : (
-                    <>
-                      {(['normal', 'after_hours_1', 'after_hours_2', 'after_hours_3'] as const).map((period) => {
-                        const rate = rateMap[period];
-                        return (
-                          <td key={period} className="px-4 py-3.5 text-center">
-                            {rate ? (
-                              <span className={`text-sm font-bold tabular-nums ${
-                                rate.amount === null ? 'text-amber-600' : 'text-gray-900'
-                              }`}>
-                                {formatAmount(rate.amount)}
-                              </span>
-                            ) : (
-                              <span className="text-gray-200">—</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </>
-                  )}
-
-                  {/* Action */}
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={(e) => handleEditClick(e, fee)}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                        title="Edit rates"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <ChevronRight size={14} className="text-gray-300 group-hover:text-gray-400 transition-colors" />
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
-  // ==================== MAIN RENDER ====================
+  // ==================== RENDER ====================
   return (
     <DashboardLayout menuItems={menuItems}>
       <div className="space-y-5">
+
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -316,26 +354,28 @@ const SurchargesList: React.FC = () => {
           <button
             onClick={() => refetch()}
             disabled={isLoading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
           >
             {isLoading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
             Refresh
           </button>
         </div>
 
-        {/* Tabs + Search Bar */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between px-5 pt-4 pb-0 flex-wrap gap-3">
+        {/* Card */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+
+          {/* Tabs + Search */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-wrap gap-3">
             {/* Pill Tabs */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+            <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-1">
               {[
-                { id: 'service_fees' as TabType, label: 'Service Fees', icon: FileText, count: serviceFees.length },
+                { id: 'service_fees' as TabType, label: 'Service Fees', icon: FileText, count: surcharges.length },
                 { id: 'testing_fees' as TabType, label: 'Testing Fees', icon: FlaskConical, count: testingFees.length },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }}
-                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                  className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                     activeTab === tab.id
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
@@ -343,7 +383,7 @@ const SurchargesList: React.FC = () => {
                 >
                   <tab.icon size={15} />
                   {tab.label}
-                  <span className={`px-1.5 py-0.5 text-[11px] font-semibold rounded ${
+                  <span className={`px-1.5 py-0.5 text-[11px] font-bold rounded-md ${
                     activeTab === tab.id ? 'bg-blue-50 text-blue-600' : 'bg-gray-200 text-gray-500'
                   }`}>
                     {tab.count}
@@ -353,50 +393,61 @@ const SurchargesList: React.FC = () => {
             </div>
 
             {/* Search */}
-            <div className="relative w-full sm:w-64">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+            <div className="relative w-full sm:w-60">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search by name or code..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 outline-none transition-all placeholder:text-gray-300"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 outline-none transition-all placeholder:text-gray-300 bg-gray-50"
               />
             </div>
           </div>
 
-          {/* Content */}
-          <div className="mt-3">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="text-center">
-                  <Loader2 className="animate-spin text-blue-500 mx-auto mb-3" size={32} />
-                  <p className="text-sm text-gray-400">Loading surcharges...</p>
-                </div>
+          {/* Legend for service fees tab */}
+          {activeTab === 'service_fees' && !isLoading && !error && filteredSurcharges.length > 0 && (
+            <div className="flex items-center gap-4 px-5 py-2.5 bg-gray-50/60 border-b border-gray-100">
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Applies to:</span>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+                  <Package size={9} /> Concrete
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+                  <Tag size={9} /> All Products
+                </span>
               </div>
-            ) : error ? (
-              <div className="flex flex-col items-center justify-center py-20">
-                <AlertCircle size={36} className="text-red-400 mb-3" />
-                <p className="text-sm font-medium text-red-600 mb-1">Failed to load surcharges</p>
-                <p className="text-xs text-gray-400 mb-3">{(error as Error)?.message}</p>
-                <button onClick={() => refetch()} className="text-sm text-blue-600 hover:underline">
-                  Try again
-                </button>
-              </div>
-            ) : (
-              <>
-                {activeTab === 'service_fees' && renderServiceFees()}
-                {activeTab === 'testing_fees' && renderTestingFees()}
-              </>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Footer info */}
+          {/* Content */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="animate-spin text-blue-500 mr-3" size={28} />
+              <p className="text-sm text-gray-400">Loading...</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <AlertCircle size={36} className="text-red-400 mb-3" />
+              <p className="text-sm font-medium text-red-600 mb-1">Failed to load</p>
+              <p className="text-xs text-gray-400 mb-3">{(error as Error)?.message}</p>
+              <button onClick={() => refetch()} className="text-sm text-blue-600 hover:underline">
+                Try again
+              </button>
+            </div>
+          ) : (
+            <>
+              {activeTab === 'service_fees' && renderServiceFees()}
+              {activeTab === 'testing_fees' && renderTestingFees()}
+            </>
+          )}
+
+          {/* Footer */}
           {!isLoading && !error && (
-            <div className="flex items-center gap-2 px-5 py-3 border-t border-gray-100">
-              <Info size={12} className="text-gray-300" />
+            <div className="flex items-center gap-2 px-5 py-3 border-t border-gray-100 bg-gray-50/40">
+              <Info size={12} className="text-gray-300 flex-shrink-0" />
               <p className="text-[11px] text-gray-400">
-                Click any row to view full details and reference information · Source: Holcim SEQ · Effective 1 Jan 2026
+                Click any row to view full details · All prices exclude GST
               </p>
             </div>
           )}
@@ -405,22 +456,25 @@ const SurchargesList: React.FC = () => {
 
       {/* Detail Drawer */}
       <SurchargeDetailDrawer
-        surcharge={viewingSurcharge}
-        isOpen={!!viewingSurcharge}
-        onClose={() => setViewingSurcharge(null)}
-        onEdit={(s) => {
-          setViewingSurcharge(null);
-          setEditingSurcharge(s);
+        item={viewingItem}
+        type={viewingType}
+        isOpen={!!viewingItem}
+        onClose={() => setViewingItem(null)}
+        onEdit={(item, type) => {
+          setViewingItem(null);
+          setEditingItem(item);
+          setEditingType(type);
         }}
       />
 
       {/* Edit Modal */}
       <EditSurchargeModal
-        surcharge={editingSurcharge}
-        isOpen={!!editingSurcharge}
-        onClose={() => setEditingSurcharge(null)}
-        onSave={handleEditSave}
-        isSaving={updateMutation.isPending}
+        item={editingItem}
+        type={editingType}
+        isOpen={!!editingItem}
+        onClose={() => setEditingItem(null)}
+        onSave={handleSave}
+        isSaving={isSaving}
       />
     </DashboardLayout>
   );

@@ -1,78 +1,75 @@
 // FILE PATH: src/features/surcharges/hooks.ts
 
-/**
- * React Query Hooks for Surcharges Management
- */
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { surchargesAPI } from '../../api/handlers/surcharges.api';
-import { surchargeKeys } from './queryKeys';
-import type {
-  UpdateSurchargePayload,
-  ToggleSurchargePayload,
-} from '../../types/surcharge.types';
 import toast from 'react-hot-toast';
+import { surchargesAPI } from '../../api/handlers/surcharges.api';
+import type { UpdateSurchargePayload, UpdateTestingFeePayload } from '../../types/surcharge.types';
 
-// ==================== QUERIES ====================
+export const surchargeKeys = {
+  surcharges: (search?: string) => ['surcharges', search] as const,
+  testingFees: (search?: string) => ['testing-fees', search] as const,
+};
 
-/**
- * Fetch all surcharges (service fees + testing fees)
- */
-export const useSurcharges = () => {
+export const useSurcharges = (search?: string) => {
   return useQuery({
-    queryKey: surchargeKeys.list(),
-    queryFn: () => surchargesAPI.getSurcharges(),
-    staleTime: 60000,
-    refetchOnWindowFocus: false,
+    queryKey: surchargeKeys.surcharges(search),
+    queryFn: () => surchargesAPI.getSurcharges({ search }),
+    staleTime: 30000,
   });
 };
 
-// ==================== MUTATIONS ====================
+export const useTestingFees = (search?: string) => {
+  return useQuery({
+    queryKey: surchargeKeys.testingFees(search),
+    queryFn: () => surchargesAPI.getTestingFees({ search }),
+    staleTime: 30000,
+  });
+};
 
-/**
- * Update surcharge rates
- */
 export const useUpdateSurcharge = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: ({
-      surchargeId,
-      payload,
-    }: {
-      surchargeId: number;
-      payload: UpdateSurchargePayload;
-    }) => surchargesAPI.updateSurcharge(surchargeId, payload),
+    mutationFn: ({ id, payload }: { id: number; payload: UpdateSurchargePayload }) =>
+      surchargesAPI.updateSurcharge(id, payload),
     onSuccess: () => {
       toast.success('Surcharge updated successfully');
-      queryClient.invalidateQueries({ queryKey: surchargeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: ['surcharges'] });
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update surcharge');
-    },
+    onError: (err: Error) => toast.error(err.message || 'Failed to update surcharge'),
   });
 };
 
-/**
- * Toggle surcharge active/inactive
- */
 export const useToggleSurcharge = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: ({
-      surchargeId,
-      payload,
-    }: {
-      surchargeId: number;
-      payload: ToggleSurchargePayload;
-    }) => surchargesAPI.toggleSurcharge(surchargeId, payload),
-    onSuccess: (data) => {
-      toast.success(data.message || 'Surcharge status updated');
-      queryClient.invalidateQueries({ queryKey: surchargeKeys.lists() });
+    mutationFn: (id: number) => surchargesAPI.toggleSurcharge(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['surcharges'] });
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to toggle surcharge');
+    onError: (err: Error) => toast.error(err.message || 'Failed to toggle surcharge'),
+  });
+};
+
+export const useUpdateTestingFee = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: UpdateTestingFeePayload }) =>
+      surchargesAPI.updateTestingFee(id, payload),
+    onSuccess: () => {
+      toast.success('Testing fee updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['testing-fees'] });
     },
+    onError: (err: Error) => toast.error(err.message || 'Failed to update testing fee'),
+  });
+};
+
+export const useToggleTestingFee = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => surchargesAPI.toggleTestingFee(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['testing-fees'] });
+    },
+    onError: (err: Error) => toast.error(err.message || 'Failed to toggle testing fee'),
   });
 };
