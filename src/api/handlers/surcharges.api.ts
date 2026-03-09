@@ -84,4 +84,12 @@ export const surchargesAPI = {
       throw new Error(error?.response?.data?.message || error?.message || 'Failed to delete testing fee');
     }
   },
+  getGeneralSurcharges: async (): Promise<{ success: boolean; data: import('../../types/surcharge.types').Surcharge[] }> => {
+    try {
+      const response = await api.get('/general-surcharges');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error?.response?.data?.message || error?.message || 'Failed to fetch surcharges');
+    }
+  },
 };

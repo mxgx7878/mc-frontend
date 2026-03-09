@@ -17,6 +17,7 @@
  */
 
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   MapPin,
   Calendar,
@@ -29,9 +30,13 @@ import {
   Edit,
   CheckCircle2,
   AlertCircle,
+  Info, ChevronDown, ChevronUp, CheckCircle, Loader2, DollarSign
 } from 'lucide-react';
 import type { CartItem, Project } from '../../types/order.types';
 import type { OrderFormValues } from '../../utils/validators';
+import { surchargesAPI } from '../../api/handlers/surcharges.api';
+import { isConcrete } from '../../utils/truckTypes';
+import type { Surcharge } from '../../types/surcharge.types';
 import Button from '../common/Buttons';
 
 interface Step4Props {
@@ -61,7 +66,64 @@ interface DeliveryGroup {
     }>;
   }>;
 }
+const detectAppliedCodes = (cartItems: CartItem[]): Set<string> => {
+  const applied = new Set<string>();
 
+  cartItems.forEach((item) => {
+    const concrete = isConcrete(item.unit_of_measure);
+
+    (item.delivery_slots || []).forEach((slot) => {
+      if (!slot.delivery_date || !slot.delivery_time) return;
+
+      const [yr, mo, dy] = slot.delivery_date.split('-').map(Number);
+      const date = new Date(yr, mo - 1, dy); // local time — avoids UTC offset shifting the day
+      const day  = date.getDay();
+      const [hStr, mStr] = slot.delivery_time.split(':');
+      const mins      = parseInt(hStr) * 60 + parseInt(mStr);
+      const loadSize  = parseFloat(slot.load_size || '0');
+
+      // ── Environmental Levy (concrete always) ──
+      if (concrete) applied.add('EL-017');
+
+      // ── Minimum Cartage (concrete, load_size < 4) ──
+      if (concrete && loadSize > 0 && loadSize < 4) applied.add('MCART');
+
+      // ── Accelerator ──
+      if (slot.accelerator_type === 'low')    applied.add('ACCEL-LOW');
+      if (slot.accelerator_type === 'medium') applied.add('ACCEL-MED');
+      if (slot.accelerator_type === 'high')   applied.add('ACCEL-HIGH');
+
+      // ── Retarder ──
+      if (slot.retarder_type === 'low')    applied.add('RETARD-LOW');
+      if (slot.retarder_type === 'medium') applied.add('RETARD-MED');
+      if (slot.retarder_type === 'high')   applied.add('RETARD-HIGH');
+
+      // ── Sunday ──
+      if (day === 0) { applied.add('PH-003'); return; }
+
+      // ── Saturday bands ──
+      if (day === 6) {
+        if (mins >= 0   && mins < 360)  applied.add('AH-007B'); // Sat midnight–6am
+        if (mins >= 360 && mins < 720)  applied.add('SD-002A'); // Sat 6am–12pm
+        if (mins >= 720 && mins < 960)  applied.add('SD-002B'); // Sat 12pm–4pm
+        if (mins >= 960)                applied.add('SD-002C'); // Sat 4pm–midnight
+        return;
+      }
+
+      // ── Weekday after hours (Mon–Fri) ──
+      if (day >= 1 && day <= 5) {
+        if (mins >= 960  && mins < 1080) applied.add('AH-007A'); // 4pm–6pm
+        if (mins >= 1080 || mins < 240)  applied.add('AH-007B'); // 6pm–4am
+      }
+    });
+  });
+
+  return applied;
+};
+const formatAmount = (amount: number, amount_type: 'fixed' | 'percentage') =>
+  amount_type === 'percentage'
+    ? `${amount}%`
+    : `$${amount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}`;
 const Step4_ReviewOrder: React.FC<Step4Props> = ({
   cartItems,
   orderDetails,
@@ -192,6 +254,149 @@ const Step4_ReviewOrder: React.FC<Step4Props> = ({
     const displayHours = hours % 12 || 12;
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
+  const SurchargesGuide: React.FC<{ cartItems: CartItem[] }> = ({ cartItems }) => {
+  const [open, setOpen] = React.useState(true);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['general-surcharges'],
+    queryFn: () => surchargesAPI.getGeneralSurcharges(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const appliedCodes = React.useMemo(() => detectAppliedCodes(cartItems), [cartItems]);
+  const surcharges: Surcharge[] = data?.data || [];
+
+  // Sort: applied first, then rest alphabetically
+  const sorted = [...surcharges].sort((a, b) => {
+    const aApp = appliedCodes.has(a.billing_code || '');
+    const bApp = appliedCodes.has(b.billing_code || '');
+    if (aApp && !bApp) return -1;
+    if (!aApp && bApp) return 1;
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+  });
+
+  const appliedCount = surcharges.filter(s => appliedCodes.has(s.billing_code || '')).length;
+
+  return (
+    <div className="bg-white rounded-xl border-2 border-amber-200 overflow-hidden">
+      {/* Header */}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-amber-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <DollarSign size={18} className="text-amber-600" />
+          </div>
+          <div className="text-left">
+            <p className="font-bold text-gray-900 text-sm">Surcharges &amp; Fees Guide</p>
+            <p className="text-xs text-gray-500">
+              {isLoading
+                ? 'Loading...'
+                : appliedCount > 0
+                ? `${appliedCount} surcharge${appliedCount !== 1 ? 's' : ''} apply to your order`
+                : 'No surcharges detected for your current schedule'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {appliedCount > 0 && (
+            <span className="px-2 py-0.5 text-xs font-bold bg-green-100 text-green-700 rounded-full border border-green-200">
+              {appliedCount} Applied
+            </span>
+          )}
+          {open ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+        </div>
+      </button>
+
+      {/* Body */}
+      {open && (
+        <div className="border-t border-amber-100 px-5 py-4">
+          {isLoading ? (
+              <div className="flex items-center justify-center py-6 gap-2 text-gray-400">
+                <Loader2 size={16} className="animate-spin" />
+                <span className="text-sm">Loading surcharges...</span>
+              </div>
+            ) : surcharges.length === 0 ? (
+              <p className="text-sm text-gray-400 py-4 text-center">No surcharge data available.</p>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500 mb-3 flex items-start gap-1.5">
+                  <Info size={12} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                  Surcharges marked <span className="font-semibold text-green-700 mx-1">Applied</span> will
+                  be automatically added based on your delivery schedule. Final amounts confirmed after submission.
+                </p>
+
+                <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+                  {sorted.map((s) => {
+                    const isApplied = appliedCodes.has(s.billing_code || '');
+                    return (
+                      <div
+                        key={s.id}
+                        className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border transition-colors ${
+                          isApplied
+                            ? 'bg-green-50 border-green-200'
+                            : 'bg-gray-50 border-gray-100 opacity-70'
+                        }`}
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          {isApplied ? (
+                            <CheckCircle size={15} className="text-green-500" />
+                          ) : (
+                            <div className="w-[15px] h-[15px] rounded-full border-2 border-gray-300" />
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-sm font-semibold ${isApplied ? 'text-green-800' : 'text-gray-600'}`}>
+                              {s.name}
+                            </span>
+                            {s.billing_code && (
+                              <span className="text-[10px] font-mono text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                                {s.billing_code}
+                              </span>
+                            )}
+                            {s.applies_to && (
+                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${
+                                s.applies_to === 'Concrete'
+                                  ? 'bg-blue-50 text-blue-600 border-blue-200'
+                                  : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                              }`}>
+                                {s.applies_to}
+                              </span>
+                            )}
+                            {isApplied && (
+                              <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full border border-green-200">
+                                APPLIED
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed line-clamp-2">
+                            {s.conditions || s.description}
+                          </p>
+                        </div>
+
+                        <div className="flex-shrink-0 text-right">
+                          <span className={`text-sm font-bold tabular-nums ${isApplied ? 'text-green-700' : 'text-gray-500'}`}>
+                            {formatAmount(s.amount, s.amount_type)}
+                          </span>
+                          {s.amount_type === 'fixed' && (
+                            <p className="text-[10px] text-gray-400">/unit</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+        </div>
+      )}
+    </div>
+  );
+};
 
   return (
     <div className="space-y-6">
@@ -296,6 +501,7 @@ const Step4_ReviewOrder: React.FC<Step4Props> = ({
                   </div>
                 </div>
               ))}
+              <SurchargesGuide cartItems={cartItems} />
             </div>
           </div>
 

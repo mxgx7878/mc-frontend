@@ -21,11 +21,12 @@ import {
   CheckCircle2,
   Weight,
   Timer,
+  Zap,
 } from 'lucide-react';
 import type { CartItem, DeliverySlot } from '../../types/order.types';
 import Button from '../common/Buttons';
 import { v4 as uuidv4 } from 'uuid';
-import { getTruckTypesForUnit, autoSelectTruckType } from '../../utils/truckTypes';
+import { isConcrete, getTruckTypesForUnit, autoSelectTruckType } from '../../utils/truckTypes';
 
 // ==================== CONSTANTS ====================
 
@@ -131,6 +132,8 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
             delivery_time: '08:00',
             load_size: '',
             time_interval: '',
+            accelerator_type: null,
+            retarder_type: null,
           },
         ];
       }
@@ -171,6 +174,8 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
           delivery_time: '08:00',
           load_size: '',
           time_interval: '',
+          accelerator_type: null,
+          retarder_type: null,
         },
       ],
     }));
@@ -605,7 +610,59 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                           </div>
                         </div>
                       </div>
-
+                       {/* Row 3: Accelerator + Retarder — concrete products only */}
+                        {isConcrete(item.unit_of_measure) && (
+                          <div className="grid grid-cols-2 gap-3 mt-3">
+                            <div>
+                              <label className="text-xs text-secondary-600 font-medium mb-1 flex items-center gap-1">
+                                <Zap size={12} className="text-amber-500" />
+                                Accelerator Type
+                                <span className="text-secondary-400 font-normal ml-1">optional</span>
+                              </label>
+                              <select
+                                value={slot.accelerator_type || ''}
+                                onChange={(e) =>
+                                  handleUpdateSlot(
+                                    item.product_id,
+                                    slot.slot_id,
+                                    'accelerator_type',
+                                    e.target.value || ''
+                                  )
+                                }
+                                className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+                              >
+                                <option value="">None</option>
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-xs text-secondary-600 font-medium mb-1 flex items-center gap-1">
+                                <Timer size={12} className="text-blue-500" />
+                                Retarder Type
+                                <span className="text-secondary-400 font-normal ml-1">optional</span>
+                              </label>
+                              <select
+                                value={slot.retarder_type || ''}
+                                onChange={(e) =>
+                                  handleUpdateSlot(
+                                    item.product_id,
+                                    slot.slot_id,
+                                    'retarder_type',
+                                    e.target.value || ''
+                                  )
+                                }
+                                className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+                              >
+                                <option value="">None</option>
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}       
                       {/* ===== INLINE TIMELINE PREVIEW ===== */}
                       {hasLoadConfig && breakdown.length > 1 && (
                         <div className="border-t border-secondary-200 bg-gradient-to-r from-blue-50/60 to-primary-50/40 px-4 py-3">

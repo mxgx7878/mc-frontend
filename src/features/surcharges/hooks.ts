@@ -73,3 +73,11 @@ export const useToggleTestingFee = () => {
     onError: (err: Error) => toast.error(err.message || 'Failed to toggle testing fee'),
   });
 };
+
+export const useGeneralSurcharges = () => {
+  return useQuery({
+    queryKey: ['general-surcharges'],
+    queryFn: () => surchargesAPI.getGeneralSurcharges(),
+    staleTime: 5 * 60 * 1000, // 5 min — rates don't change often
+  });
+};

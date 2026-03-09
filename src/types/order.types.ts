@@ -25,6 +25,8 @@ export interface DeliverySlot {
   truck_type: string;
   load_size?: string;       // Per-load quantity as string (e.g. "0.2")
   time_interval?: string;
+  accelerator_type?: string | null;
+  retarder_type?: string | null;
 }
 
 // ==================== CART ITEM ====================
