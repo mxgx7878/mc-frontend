@@ -1,17 +1,11 @@
 // src/components/client/orderEdit/AddItemModal.tsx
 /**
  * ADD ITEM MODAL
- * 
- * UPDATED: Added truck_type and delivery_cost per delivery slot
- * - truck_type: visible to all users (admin + client)
- * - delivery_cost: visible to admin only (via isAdmin prop)
- * 
- * FLOW:
- * 1. Search/browse products
- * 2. Click product to select
- * 3. Set quantity
- * 4. Add delivery slots with truck type (+ delivery cost for admin)
- * 5. Validate and add to order
+ *
+ * UPDATED:
+ * - Load size per trip is now REQUIRED
+ * - Truck type auto-selects based on load_size (falls back to quantity)
+ * - Auto / Manual toggle per delivery slot
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -39,13 +33,23 @@ import { ordersAPI } from '../../../api/handlers/orders.api';
 import type { AddItemPayload, EditDeliveryPayload } from '../../../types/orderEdit.types';
 import { getTruckTypesForUnit, autoSelectTruckType } from '../../../utils/truckTypes';
 
+const TIME_INTERVAL_OPTIONS = [
+  { value: '', label: 'No interval (single delivery)' },
+  { value: '30', label: '30 minutes' },
+  { value: '60', label: '1 hour' },
+  { value: '90', label: '1.5 hours' },
+  { value: '120', label: '2 hours' },
+  { value: '150', label: '2.5 hours' },
+  { value: '180', label: '3 hours' },
+  { value: '240', label: '4 hours' },
+];
 
 interface AddItemModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (item: AddItemPayload) => void;
   existingProductIds: number[];
-  isAdmin?: boolean; // NEW: controls delivery_cost visibility
+  isAdmin?: boolean;
 }
 
 interface LocalDelivery {
@@ -53,24 +57,19 @@ interface LocalDelivery {
   quantity: number;
   delivery_date: string;
   delivery_time: string;
-  truck_type: string;       // NEW
-  delivery_cost: number;    // NEW (admin only)
+  truck_type: string;
+  delivery_cost: number;
   load_size: string;
   time_interval: string;
 }
 
 type ModalStep = 'select' | 'configure';
 
-/**
- * Format time for API (H:i format) or null
- */
 const formatTimeForApi = (time: string | null | undefined): string | null => {
   if (!time || time.trim() === '') return null;
   const parts = time.split(':');
   if (parts.length >= 2) {
-    const hours = parts[0].padStart(2, '0');
-    const minutes = parts[1].padStart(2, '0');
-    return `${hours}:${minutes}`;
+    return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
   }
   return null;
 };
@@ -95,6 +94,8 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
   const [quantity, setQuantity] = useState(1);
   const [deliveries, setDeliveries] = useState<LocalDelivery[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  // 'auto' = truck driven by load_size/qty | 'manual' = user picks freely
+  const [truckModes, setTruckModes] = useState<Record<string, 'auto' | 'manual'>>({});
 
   // Debounce search
   useEffect(() => {
@@ -153,6 +154,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
       setQuantity(1);
       setDeliveries([]);
       setErrors([]);
+      setTruckModes({});
     }
   }, [isOpen]);
 
@@ -167,9 +169,10 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
   const handleSelectProduct = (product: any) => {
     setSelectedProduct(product);
     setQuantity(1);
+    const newId = uuidv4();
     setDeliveries([
       {
-        localId: uuidv4(),
+        localId: newId,
         quantity: 1,
         delivery_date: '',
         delivery_time: '08:00',
@@ -179,27 +182,26 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
         time_interval: '',
       },
     ]);
+    setTruckModes({ [newId]: 'auto' });
     setErrors([]);
     setStep('configure');
   };
 
   // Handle quantity change
   const handleQuantityChange = (newQty: number) => {
-    if (newQty < 0.01) {
-      setQuantity(0.01);
-    } else {
-      setQuantity(newQty);
-    }
+    setQuantity(newQty < 0.01 ? 0.01 : newQty);
   };
 
   // Add delivery slot
   const handleAddDelivery = () => {
     const defaultQty = Math.max(0.01, remainingToAllocate);
     const unitOfMeasure = selectedProduct?.unit_of_measure || '';
+    const newId = uuidv4();
+    setTruckModes((p) => ({ ...p, [newId]: 'auto' }));
     setDeliveries((prev) => [
       ...prev,
       {
-        localId: uuidv4(),
+        localId: newId,
         quantity: defaultQty > 0 ? defaultQty : 1,
         delivery_date: '',
         delivery_time: '08:00',
@@ -224,15 +226,27 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
     value: string | number
   ) => {
     const unitOfMeasure = selectedProduct?.unit_of_measure || '';
+    const mode = truckModes[localId] ?? 'auto';
 
     setDeliveries((prev) =>
       prev.map((d) => {
         if (d.localId !== localId) return d;
         const updated = { ...d, [field]: value };
 
-        if (field === 'quantity') {
-          const qty = parseFloat(value.toString()) || 0;
-          updated.truck_type = autoSelectTruckType(qty, unitOfMeasure);
+        if (mode === 'auto') {
+          if (field === 'load_size') {
+            const loadVal = parseFloat(value.toString()) || 0;
+            updated.truck_type = autoSelectTruckType(
+              loadVal > 0 ? loadVal : updated.quantity,
+              unitOfMeasure
+            );
+          } else if (field === 'quantity') {
+            const loadVal = parseFloat(d.load_size || '0') || 0;
+            updated.truck_type = autoSelectTruckType(
+              loadVal > 0 ? loadVal : parseFloat(value.toString()) || 0,
+              unitOfMeasure
+            );
+          }
         }
 
         return updated;
@@ -240,44 +254,56 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
     );
   };
 
+  // Toggle auto/manual truck mode
+  const handleToggleTruckMode = (localId: string) => {
+    const current = truckModes[localId] ?? 'auto';
+    const next = current === 'auto' ? 'manual' : 'auto';
+    const unitOfMeasure = selectedProduct?.unit_of_measure || '';
+    setTruckModes((p) => ({ ...p, [localId]: next }));
+
+    if (next === 'auto') {
+      setDeliveries((prev) =>
+        prev.map((d) => {
+          if (d.localId !== localId) return d;
+          const loadVal = parseFloat(d.load_size || '0') || 0;
+          return {
+            ...d,
+            truck_type: autoSelectTruckType(
+              loadVal > 0 ? loadVal : d.quantity,
+              unitOfMeasure
+            ),
+          };
+        })
+      );
+    }
+  };
+
   // Validate form
   const validateForm = (): boolean => {
     const newErrors: string[] = [];
 
-    if (!selectedProduct) {
-      newErrors.push('Please select a product.');
-    }
-
-    if (quantity < 0.01) {
-      newErrors.push('Quantity must be at least 0.01.');
-    }
+    if (!selectedProduct) newErrors.push('Please select a product.');
+    if (quantity < 0.01) newErrors.push('Quantity must be at least 0.01.');
 
     if (!isAllocationValid) {
       if (remainingToAllocate > 0) {
-        newErrors.push(
-          `You have ${remainingToAllocate.toFixed(2)} unallocated. Please distribute all quantity.`
-        );
+        newErrors.push(`You have ${remainingToAllocate.toFixed(2)} unallocated. Please distribute all quantity.`);
       } else {
-        newErrors.push(
-          `Over-allocated by ${Math.abs(remainingToAllocate).toFixed(2)}. Please reduce delivery quantities.`
-        );
+        newErrors.push(`Over-allocated by ${Math.abs(remainingToAllocate).toFixed(2)}. Please reduce delivery quantities.`);
       }
     }
 
-    const hasEmptyDates = deliveries.some((d) => !d.delivery_date);
-    if (hasEmptyDates) {
+    if (deliveries.some((d) => !d.delivery_date)) {
       newErrors.push('All delivery slots must have a delivery date.');
     }
-
-    const hasZeroQty = deliveries.some((d) => !d.quantity || d.quantity <= 0);
-    if (hasZeroQty) {
+    if (deliveries.some((d) => !d.quantity || d.quantity <= 0)) {
       newErrors.push('All delivery slots must have quantity greater than 0.');
     }
 
-    // const hasNoTruckType = deliveries.some((d) => !d.truck_type);
-    // if (hasNoTruckType) {
-    //   newErrors.push('All delivery slots must have a truck type selected.');
-    // }
+    const missingLoadSize = deliveries.some((d) => !d.load_size || parseFloat(d.load_size) <= 0);
+    if (missingLoadSize) {
+      newErrors.push('All delivery slots must have a load size per trip.');
+    }
 
     setErrors(newErrors);
     return newErrors.length === 0;
@@ -295,116 +321,90 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
       truck_type: d.truck_type || null,
       load_size: d.load_size || null,
       time_interval: d.time_interval || null,
-      ...(isAdmin ? { delivery_cost: d.delivery_cost || 0 } : {}),
+      ...(isAdmin ? { delivery_cost: d.delivery_cost || null } : {}),
     }));
 
-    const item: AddItemPayload = {
+    onAdd({
       product_id: selectedProduct.id,
       quantity,
       deliveries: deliveriesPayload,
-    };
+    });
 
-    onAdd(item);
-  };
-
-  // Go back to product selection
-  const handleBackToSelect = () => {
-    setStep('select');
-    setSelectedProduct(null);
-    setErrors([]);
+    onClose();
   };
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+  // ==================== RENDER ====================
 
-      {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b-2 border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {step === 'configure' && (
-                <button
-                  onClick={handleBackToSelect}
-                  className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  <ArrowLeft className="w-5 h-5 text-gray-600" />
-                </button>
-              )}
-              <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                <Plus className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">
-                  {step === 'select' ? 'Add New Item' : 'Configure Item'}
-                </h2>
-                <p className="text-sm text-gray-600">
-                  {step === 'select'
-                    ? 'Search and select a product to add'
-                    : `Set quantity and delivery schedule for ${selectedProduct?.product_name}`}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-600" />
-            </button>
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            {step === 'configure' && (
+              <button
+                type="button"
+                onClick={() => setStep('select')}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft size={18} className="text-gray-600" />
+              </button>
+            )}
+            <h2 className="text-xl font-bold text-gray-900">
+              {step === 'select' ? 'Add Product' : 'Configure Delivery'}
+            </h2>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X size={20} className="text-gray-500" />
+          </button>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">
-          {step === 'select' ? (
-            /* ==================== STEP: SELECT PRODUCT ==================== */
+          {/* ===== STEP: SELECT PRODUCT ===== */}
+          {step === 'select' && (
             <div className="space-y-4">
-              {/* Search & Filters */}
-              <div className="flex gap-3">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              {/* Search + Filter */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <input
                     type="text"
+                    placeholder="Search products..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search products..."
-                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    autoFocus
+                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                   />
                 </div>
                 <div className="relative">
                   <button
+                    type="button"
                     onClick={() => setShowTypeFilter(!showTypeFilter)}
-                    className="px-4 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                    className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm text-gray-700"
                   >
-                    <Filter className="w-4 h-4" />
+                    <Filter size={15} />
                     {selectedType || 'All Types'}
                   </button>
                   {showTypeFilter && (
-                    <div className="absolute right-0 mt-1 w-48 bg-white border-2 border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                    <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
                       <button
-                        onClick={() => {
-                          setSelectedType(undefined);
-                          setShowTypeFilter(false);
-                          setPage(1);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                        type="button"
+                        onClick={() => { setSelectedType(undefined); setShowTypeFilter(false); }}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
                       >
                         All Types
                       </button>
                       {productTypes.map((type: string) => (
                         <button
                           key={type}
-                          onClick={() => {
-                            setSelectedType(type);
-                            setShowTypeFilter(false);
-                            setPage(1);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                          type="button"
+                          onClick={() => { setSelectedType(type); setShowTypeFilter(false); }}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
                         >
                           {type}
                         </button>
@@ -414,61 +414,53 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                 </div>
               </div>
 
-              {/* Product List */}
+              {/* Products list */}
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-green-500" />
+                  <Loader2 className="animate-spin text-blue-600" size={28} />
                 </div>
               ) : products.length === 0 ? (
-                <div className="text-center py-12">
-                  <Package className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                  <p className="text-gray-600">No products found</p>
+                <div className="text-center py-12 text-gray-500">
+                  <Package size={40} className="mx-auto mb-2 text-gray-300" />
+                  <p>No products found</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {products.map((product: any) => {
-                    const isExisting = existingProductIds.includes(product.id);
+                    const alreadyAdded = existingProductIds.includes(product.id);
                     return (
                       <button
                         key={product.id}
-                        onClick={() => handleSelectProduct(product)}
-                        className={`w-full text-left p-4 rounded-xl border-2 transition-all hover:shadow-md ${
-                          isExisting
-                            ? 'border-yellow-300 bg-yellow-50 hover:border-yellow-400'
-                            : 'border-gray-200 bg-white hover:border-green-400'
+                        type="button"
+                        disabled={alreadyAdded}
+                        onClick={() => !alreadyAdded && handleSelectProduct(product)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all ${
+                          alreadyAdded
+                            ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                            : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50 cursor-pointer'
                         }`}
                       >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                            {product.photo ? (
-                              <img
-                                src={getImageUrl(product.photo)}
-                                alt={product.product_name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Package className="w-6 h-6 text-gray-400" />
-                              </div>
-                            )}
+                        {product.photo ? (
+                          <img
+                            src={getImageUrl(product.photo)}
+                            alt={product.product_name}
+                            className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
+                            <Package size={18} className="text-gray-400" />
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-gray-900">{product.product_name}</p>
-                            <p className="text-sm text-gray-600">
-                              {product.product_type} · Unit: {product.unit_of_measure}
-                            </p>
-                          </div>
-                          {product.price && (
-                            <span className="text-green-600 font-bold">
-                              {product.price} / {product.unit_of_measure}
-                            </span>
-                          )}
-                          {isExisting && (
-                            <span className="px-2 py-1 bg-yellow-200 text-yellow-800 text-xs font-medium rounded-full">
-                              Already in order
-                            </span>
-                          )}
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 text-sm truncate">{product.product_name}</p>
+                          <p className="text-xs text-gray-500">{product.product_type} · {product.unit_of_measure}</p>
                         </div>
+                        {alreadyAdded && (
+                          <span className="text-xs text-gray-400 flex-shrink-0">Already added</span>
+                        )}
+                        {!alreadyAdded && (
+                          <CheckCircle size={18} className="text-blue-400 opacity-0 group-hover:opacity-100 flex-shrink-0" />
+                        )}
                       </button>
                     );
                   })}
@@ -477,146 +469,92 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
 
               {/* Pagination */}
               {meta && meta.last_page > 1 && (
-                <div className="flex items-center justify-center gap-3 pt-4">
+                <div className="flex items-center justify-between pt-2">
                   <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="p-2 rounded-lg border-2 border-gray-300 disabled:opacity-50 hover:bg-gray-50"
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-50"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft size={14} /> Prev
                   </button>
-                  <span className="text-sm text-gray-600">
-                    Page {page} of {meta.last_page}
-                  </span>
+                  <span className="text-xs text-gray-500">Page {page} of {meta.last_page}</span>
                   <button
-                    onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
-                    disabled={page === meta.last_page}
-                    className="p-2 rounded-lg border-2 border-gray-300 disabled:opacity-50 hover:bg-gray-50"
+                    type="button"
+                    disabled={page >= meta.last_page}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-50"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    Next <ChevronRight size={14} />
                   </button>
                 </div>
               )}
             </div>
-          ) : (
-            /* ==================== STEP: CONFIGURE ITEM ==================== */
-            <div className="space-y-6">
-              {/* Selected Product Info */}
-              {selectedProduct && (
-                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-lg overflow-hidden bg-white border border-gray-200">
-                      {selectedProduct.photo ? (
-                        <img
-                          src={getImageUrl(selectedProduct.photo)}
-                          alt={selectedProduct.product_name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package className="w-7 h-7 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-900">{selectedProduct.product_name}</p>
-                      <p className="text-sm text-gray-600">
-                        {selectedProduct.product_type}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Unit: {selectedProduct.unit_of_measure}
-                        {selectedProduct.price && (
-                          <span className="ml-3 text-green-700 font-semibold">
-                            ${parseFloat(selectedProduct.price).toFixed(2)} / {selectedProduct.unit_of_measure}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 text-green-700 font-medium">
-                    <CheckCircle className="w-5 h-5" />
-                    Selected
-                  </div>
-                </div>
-              )}
+          )}
 
-              {/* Quantity */}
-              <div className="bg-white border-2 border-gray-200 rounded-xl p-4">
-                <label className="block text-sm font-bold text-gray-900 mb-2">
-                  Order Quantity ({selectedProduct?.unit_of_measure || 'units'})
+          {/* ===== STEP: CONFIGURE ===== */}
+          {step === 'configure' && selectedProduct && (
+            <div className="space-y-5">
+              {/* Selected product summary */}
+              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                {selectedProduct.photo ? (
+                  <img
+                    src={getImageUrl(selectedProduct.photo)}
+                    alt={selectedProduct.product_name}
+                    className="w-10 h-10 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center">
+                    <Package size={18} className="text-gray-400" />
+                  </div>
+                )}
+                <div>
+                  <p className="font-semibold text-gray-900 text-sm">{selectedProduct.product_name}</p>
+                  <p className="text-xs text-gray-500">{selectedProduct.product_type} · {selectedProduct.unit_of_measure}</p>
+                </div>
+              </div>
+
+              {/* Total Quantity */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Total Quantity ({selectedProduct.unit_of_measure})
                 </label>
                 <input
                   type="number"
-                  min="0.20"
-                  step="0.20"
+                  min="0.01"
+                  step="0.01"
                   value={quantity}
                   onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
-                  className="w-32 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg font-medium"
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
-              </div>
-
-              {/* Delivery Allocation Bar */}
-              <div className="bg-white border-2 border-gray-200 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-bold text-gray-900">Delivery Allocation</span>
-                  <span
-                    className={`text-sm font-bold ${
-                      isAllocationValid ? 'text-green-600' : 'text-orange-600'
-                    }`}
-                  >
-                    {allocatedQuantity.toFixed(2)} / {quantity.toFixed(2)} allocated
+                <div className="mt-1 flex justify-between text-xs">
+                  <span className={isAllocationValid ? 'text-green-600' : 'text-amber-600'}>
+                    Allocated: {allocatedQuantity.toFixed(2)} / {quantity}
                   </span>
+                  {!isAllocationValid && (
+                    <span className={remainingToAllocate > 0 ? 'text-amber-600' : 'text-red-600'}>
+                      {remainingToAllocate > 0
+                        ? `${remainingToAllocate.toFixed(2)} remaining`
+                        : `${Math.abs(remainingToAllocate).toFixed(2)} over`}
+                    </span>
+                  )}
                 </div>
-                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      isAllocationValid
-                        ? 'bg-green-500'
-                        : allocatedQuantity > quantity
-                        ? 'bg-red-500'
-                        : 'bg-orange-500'
-                    }`}
-                    style={{
-                      width: `${Math.min(100, (allocatedQuantity / quantity) * 100)}%`,
-                    }}
-                  />
-                </div>
-                {isAllocationValid && (
-                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> Fully allocated
-                  </p>
-                )}
               </div>
 
-              {/* Delivery Schedule */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-gray-600" />
-                    <h3 className="font-bold text-gray-900">Delivery Schedule</h3>
-                  </div>
-                  <button
-                    onClick={handleAddDelivery}
-                    className="px-3 py-1.5 text-sm font-medium text-blue-600 border-2 border-blue-300 rounded-lg hover:bg-blue-50 flex items-center gap-1"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Slot
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {deliveries.map((delivery, index) => (
+              {/* Delivery Slots */}
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-gray-700">Delivery Slots</p>
+                {deliveries.map((delivery, index) => {
+                  const mode = truckModes[delivery.localId] ?? 'auto';
+                  return (
                     <div
                       key={delivery.localId}
                       className="p-4 rounded-lg border-2 bg-white border-gray-200"
                     >
                       <div className="flex items-start gap-3">
-                        {/* Slot Number */}
                         <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
                           {index + 1}
                         </div>
-
-                        {/* Fields */}
                         <div className="flex-1 space-y-3">
                           {/* Row 1: Quantity + Truck Type */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -629,11 +567,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                                 step="0.01"
                                 value={delivery.quantity}
                                 onChange={(e) =>
-                                  handleDeliveryChange(
-                                    delivery.localId,
-                                    'quantity',
-                                    parseFloat(e.target.value) || 0
-                                  )
+                                  handleDeliveryChange(delivery.localId, 'quantity', parseFloat(e.target.value) || 0)
                                 }
                                 className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                               />
@@ -641,19 +575,49 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
 
                             {/* Truck Type */}
                             <div>
-                              <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
-                                <Truck className="w-3 h-3" />
-                                Truck Type
+                              <label className="text-xs text-gray-600 mb-1 flex items-center justify-between">
+                                <span className="flex items-center gap-1">
+                                  <Truck className="w-3 h-3" /> Truck Type
+                                </span>
+                                <span className="flex items-center gap-0.5 bg-gray-200 rounded-full p-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleTruckMode(delivery.localId)}
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all ${
+                                      mode === 'auto'
+                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                    }`}
+                                  >
+                                    Auto
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleTruckMode(delivery.localId)}
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all ${
+                                      mode === 'manual'
+                                        ? 'bg-gray-700 text-white shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                    }`}
+                                  >
+                                    Manual
+                                  </button>
+                                </span>
                               </label>
                               <select
                                 value={delivery.truck_type}
-                                disabled
-                                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm bg-gray-100 cursor-not-allowed opacity-75"
+                                disabled={mode === 'auto'}
+                                onChange={(e) =>
+                                  handleDeliveryChange(delivery.localId, 'truck_type', e.target.value)
+                                }
+                                className={`w-full px-3 py-2 border-2 rounded-lg text-sm transition-colors ${
+                                  mode === 'auto'
+                                    ? 'border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed'
+                                    : 'border-gray-300 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer'
+                                }`}
                               >
                                 {getTruckTypesForUnit(selectedProduct?.unit_of_measure || '').map((t) => (
-                                  <option key={t.value} value={t.value}>
-                                    {t.label}
-                                  </option>
+                                  <option key={t.value} value={t.value}>{t.label}</option>
                                 ))}
                               </select>
                             </div>
@@ -661,11 +625,9 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
 
                           {/* Row 2: Date + Time + Delivery Cost (admin) */}
                           <div className={`grid grid-cols-1 gap-3 ${isAdmin ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
-                            {/* Delivery Date */}
                             <div>
-                              <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                Delivery Date
+                              <label className="text-xs text-gray-600 mb-1 flex items-center gap-1">
+                                <Calendar className="w-3 h-3" /> Date
                               </label>
                               <input
                                 type="date"
@@ -676,12 +638,9 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                                 className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                               />
                             </div>
-
-                            {/* Time */}
                             <div>
-                              <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                Time
+                              <label className="text-xs text-gray-600 mb-1 flex items-center gap-1">
+                                <Clock className="w-3 h-3" /> Time
                               </label>
                               <input
                                 type="time"
@@ -692,13 +651,10 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                                 className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                               />
                             </div>
-
-                            {/* Delivery Cost (Admin Only) */}
                             {isAdmin && (
                               <div>
-                                <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
-                                  <DollarSign className="w-3 h-3" />
-                                  Delivery Cost
+                                <label className="text-xs text-gray-600 mb-1 flex items-center gap-1">
+                                  <DollarSign className="w-3 h-3" /> Delivery Cost
                                 </label>
                                 <input
                                   type="number"
@@ -706,11 +662,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                                   step="0.01"
                                   value={delivery.delivery_cost}
                                   onChange={(e) =>
-                                    handleDeliveryChange(
-                                      delivery.localId,
-                                      'delivery_cost',
-                                      parseFloat(e.target.value) || 0
-                                    )
+                                    handleDeliveryChange(delivery.localId, 'delivery_cost', parseFloat(e.target.value) || 0)
                                   }
                                   className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                                   placeholder="0.00"
@@ -722,10 +674,10 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                           {/* Row 3: Load Size + Time Interval */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                              <label className="text-xs text-gray-600 mb-1 flex items-center gap-1">
                                 <Package className="w-3 h-3" />
                                 Load Size per Trip
-                                <span className="text-gray-400 font-normal ml-1">optional</span>
+                                <span className="text-red-400 ml-0.5">*</span>
                               </label>
                               <input
                                 type="number"
@@ -741,7 +693,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                               />
                             </div>
                             <div>
-                              <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1">
+                              <label className="text-xs text-gray-600 mb-1 flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
                                 Time Between Loads
                                 <span className="text-gray-400 font-normal ml-1">optional</span>
@@ -751,44 +703,49 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
                                 onChange={(e) =>
                                   handleDeliveryChange(delivery.localId, 'time_interval', e.target.value)
                                 }
-                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                               >
-                                <option value="">No interval (single delivery)</option>
-                                <option value="30">30 minutes</option>
-                                <option value="60">1 hour</option>
-                                <option value="90">1.5 hours</option>
-                                <option value="120">2 hours</option>
-                                <option value="150">2.5 hours</option>
-                                <option value="180">3 hours</option>
-                                <option value="240">4 hours</option>
+                                {TIME_INTERVAL_OPTIONS.map((t) => (
+                                  <option key={t.value} value={t.value}>{t.label}</option>
+                                ))}
                               </select>
                             </div>
                           </div>
                         </div>
 
-                        {/* Remove Button */}
+                        {/* Remove button */}
                         {deliveries.length > 1 && (
                           <button
+                            type="button"
                             onClick={() => handleRemoveDelivery(delivery.localId)}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 size={15} />
                           </button>
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+
+                {/* Add slot */}
+                <button
+                  type="button"
+                  onClick={handleAddDelivery}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-lg text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                >
+                  <Plus size={16} /> Add Another Delivery Slot
+                </button>
               </div>
 
               {/* Errors */}
               {errors.length > 0 && (
-                <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
-                  {errors.map((error, i) => (
-                    <p key={i} className="text-sm text-red-700 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                      {error}
-                    </p>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-1">
+                  {errors.map((err, i) => (
+                    <div key={i} className="flex items-center gap-2 text-red-700 text-sm">
+                      <AlertCircle size={14} className="flex-shrink-0" />
+                      {err}
+                    </div>
                   ))}
                 </div>
               )}
@@ -797,23 +754,24 @@ const AddItemModal: React.FC<AddItemModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t-2 border-gray-200 bg-gray-50 flex items-center justify-between">
-          <button
-            onClick={step === 'configure' ? handleBackToSelect : onClose}
-            className="px-4 py-2 text-gray-700 font-medium hover:bg-gray-200 rounded-lg transition-colors"
-          >
-            {step === 'configure' ? 'Back' : 'Cancel'}
-          </button>
-          {step === 'configure' && (
+        {step === 'configure' && (
+          <div className="border-t border-gray-200 p-4 flex gap-3">
             <button
-              onClick={handleAdd}
-              className="px-6 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-md"
+              type="button"
+              onClick={() => setStep('select')}
+              className="flex-1 px-4 py-2.5 border-2 border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              <Plus className="w-4 h-4" />
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleAdd}
+              className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors"
+            >
               Add to Order
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

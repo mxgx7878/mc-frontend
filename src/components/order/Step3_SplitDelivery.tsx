@@ -2,17 +2,12 @@
 /**
  * STEP 3: SPLIT DELIVERY SCHEDULE
  *
- * FLOW:
- * - User splits total quantity across multiple delivery slots (different dates)
- * - Each slot has: quantity, truck_type, date, start time
- * - Each slot ALSO has optional load_size + time_interval
- *   → These define how that slot's quantity arrives in smaller loads
- *   → Example: 1t slot, 0.2t load, 1hr interval, start 8:00 AM
- *     = 5 trips: 8:00(0.2t), 9:00(0.2t), 10:00(0.2t), 11:00(0.2t), 12:00(0.2t)
- *   → A read-only timeline preview shows below the slot
- *   → The slot stays as ONE database row; load_size & time_interval are metadata
- *
- * BACKEND: Already accepts load_size + time_interval per delivery slot
+ * UPDATED:
+ * - Load size per trip is now REQUIRED (not optional)
+ * - Truck type auto-selects based on load_size (falls back to quantity if no load size)
+ * - Client can toggle between Auto / Manual truck selection per slot
+ * - Auto mode: re-selects truck whenever load_size or quantity changes
+ * - Manual mode: client picks truck freely from dropdown
  */
 
 import React, { useState, useEffect } from 'react';
@@ -31,21 +26,8 @@ import type { CartItem, DeliverySlot } from '../../types/order.types';
 import Button from '../common/Buttons';
 import { v4 as uuidv4 } from 'uuid';
 import { getTruckTypesForUnit, autoSelectTruckType } from '../../utils/truckTypes';
-// ==================== CONSTANTS ====================
 
-// const TRUCK_TYPES = [
-//   { value: 'tipper_light', label: 'Tipper Truck Light (3-6 tonnes)' },
-//   { value: 'tipper_medium', label: 'Tipper Truck Medium (6-11 tonnes)' },
-//   { value: 'tipper_heavy', label: 'Tipper Truck Heavy (11-14 tonnes)' },
-//   { value: 'light_rigid', label: 'Light Rigid Truck (3.5 tonnes)' },
-//   { value: 'medium_rigid', label: 'Medium Rigid Trucks (7 tonnes)' },
-//   { value: 'heavy_rigid', label: 'Heavy Rigid Trucks (16-49 tonnes)' },
-//   { value: 'mini_body', label: 'Mini Body Truck (8 tonnes)' },
-//   { value: 'body_truck', label: 'Body Truck (12 tonnes)' },
-//   { value: 'eight_wheeler', label: 'Eight-Wheeler Body Truck (16 tonnes)' },
-//   { value: 'semi', label: 'Semi (28 tonnes)' },
-//   { value: 'truck_dog', label: 'Truck and Dog (38 tonnes)' },
-// ];
+// ==================== CONSTANTS ====================
 
 const TIME_INTERVAL_OPTIONS = [
   { value: '', label: 'No interval (single delivery)' },
@@ -72,10 +54,6 @@ const to12h = (time: string): string => {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${period}`;
 };
 
-/**
- * Build time breakdown for a single slot
- * Returns array of { time, qty } — these are visual only, NOT new database rows
- */
 const buildTimeBreakdown = (
   slotQty: number,
   startTime: string,
@@ -86,7 +64,6 @@ const buildTimeBreakdown = (
   const trips = Math.ceil(slotQty / loadSize);
   const result: Array<{ time: string; qty: number }> = [];
   let currentTime = startTime;
-
   for (let i = 0; i < trips; i++) {
     const isLast = i === trips - 1;
     const qty = isLast ? parseFloat((slotQty - loadSize * (trips - 1)).toFixed(4)) : loadSize;
@@ -116,25 +93,38 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
 }) => {
   const [productSlots, setProductSlots] = useState<Record<number, DeliverySlot[]>>({});
   const [errors, setErrors] = useState<Record<number, string>>({});
+  // 'auto' = truck auto-selected by load_size/qty | 'manual' = client picks freely
+  const [truckModes, setTruckModes] = useState<Record<string, 'auto' | 'manual'>>({});
 
   // ==================== INIT ====================
 
   useEffect(() => {
     const initial: Record<number, DeliverySlot[]> = {};
+    const modes: Record<string, 'auto' | 'manual'> = {};
+
     cartItems.forEach((item) => {
       if (item.delivery_slots?.length > 0 && item.delivery_slots[0].delivery_date) {
-        initial[item.product_id] = item.delivery_slots.map((s) => ({
-          ...s,
-          slot_id: s.slot_id || uuidv4(),
-          load_size: s.load_size || '',
-          time_interval: s.time_interval || '',
-          // Re-calculate truck type based on current quantity
-          truck_type: autoSelectTruckType(s.quantity, item.unit_of_measure),
-        }));
+        initial[item.product_id] = item.delivery_slots.map((s) => {
+          const slotId = s.slot_id || uuidv4();
+          modes[slotId] = 'auto';
+          const loadVal = parseFloat(s.load_size || '0') || 0;
+          return {
+            ...s,
+            slot_id: slotId,
+            load_size: s.load_size || '',
+            time_interval: s.time_interval || '',
+            truck_type: autoSelectTruckType(
+              loadVal > 0 ? loadVal : s.quantity,
+              item.unit_of_measure
+            ),
+          };
+        });
       } else {
+        const slotId = uuidv4();
+        modes[slotId] = 'auto';
         initial[item.product_id] = [
           {
-            slot_id: uuidv4(),
+            slot_id: slotId,
             quantity: item.quantity,
             truck_type: autoSelectTruckType(item.quantity, item.unit_of_measure),
             delivery_date: primaryDeliveryDate,
@@ -145,7 +135,9 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
         ];
       }
     });
+
     setProductSlots(initial);
+    setTruckModes(modes);
   }, [cartItems, primaryDeliveryDate]);
 
   // ==================== IMAGE ====================
@@ -164,13 +156,15 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
     const rem = totalQuantity - allocated;
     const item = cartItems.find((i) => i.product_id === productId);
     const slotQty = rem > 0 ? Math.min(rem, 1) : 1;
+    const newSlotId = uuidv4();
 
+    setTruckModes((p) => ({ ...p, [newSlotId]: 'auto' }));
     setProductSlots((p) => ({
       ...p,
       [productId]: [
         ...cur,
         {
-          slot_id: uuidv4(),
+          slot_id: newSlotId,
           quantity: slotQty,
           truck_type: autoSelectTruckType(slotQty, item?.unit_of_measure || ''),
           delivery_date: primaryDeliveryDate,
@@ -195,26 +189,58 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
     field: keyof DeliverySlot,
     value: string | number
   ) => {
-    // Find the item to get unit_of_measure
     const item = cartItems.find((i) => i.product_id === productId);
+    const mode = truckModes[slotId] ?? 'auto';
 
     setProductSlots((p) => ({
       ...p,
       [productId]: (p[productId] || []).map((s) => {
         if (s.slot_id !== slotId) return s;
-
         const updated = { ...s, [field]: value };
 
-        // Auto-select truck type when quantity changes
-        if (field === 'quantity' && item) {
-          const qty = parseFloat(value.toString()) || 0;
-          updated.truck_type = autoSelectTruckType(qty, item.unit_of_measure);
+        if (mode === 'auto' && item) {
+          if (field === 'load_size') {
+            const loadVal = parseFloat(value.toString()) || 0;
+            updated.truck_type = autoSelectTruckType(
+              loadVal > 0 ? loadVal : updated.quantity,
+              item.unit_of_measure
+            );
+          } else if (field === 'quantity') {
+            const loadVal = parseFloat(s.load_size || '0') || 0;
+            updated.truck_type = autoSelectTruckType(
+              loadVal > 0 ? loadVal : parseFloat(value.toString()) || 0,
+              item.unit_of_measure
+            );
+          }
         }
 
         return updated;
       }),
     }));
     if (errors[productId]) setErrors((p) => ({ ...p, [productId]: '' }));
+  };
+
+  const handleToggleTruckMode = (productId: number, slotId: string, item: CartItem) => {
+    const current = truckModes[slotId] ?? 'auto';
+    const next = current === 'auto' ? 'manual' : 'auto';
+    setTruckModes((p) => ({ ...p, [slotId]: next }));
+
+    if (next === 'auto') {
+      setProductSlots((p) => ({
+        ...p,
+        [productId]: (p[productId] || []).map((s) => {
+          if (s.slot_id !== slotId) return s;
+          const loadVal = parseFloat(s.load_size || '0') || 0;
+          return {
+            ...s,
+            truck_type: autoSelectTruckType(
+              loadVal > 0 ? loadVal : s.quantity,
+              item.unit_of_measure
+            ),
+          };
+        }),
+      }));
+    }
   };
 
   // ==================== VALIDATION ====================
@@ -249,15 +275,12 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
         ok = false;
       }
 
-      // If one of load_size/time_interval is set, both must be set
       slots.forEach((s, idx) => {
-        const hasLoad = s.load_size && parseFloat(s.load_size) > 0;
-        const hasInterval = s.time_interval && parseInt(s.time_interval, 10) > 0;
-        if ((hasLoad && !hasInterval) || (!hasLoad && hasInterval)) {
-          errs[item.product_id] = `Delivery ${idx + 1}: Set both load size and time interval, or leave both empty.`;
+        const loadVal = parseFloat(s.load_size || '0') || 0;
+        if (!loadVal || loadVal <= 0) {
+          errs[item.product_id] = `Delivery ${idx + 1}: Load size per trip is required.`;
           ok = false;
-        }
-        if (hasLoad && parseFloat(s.load_size!) > s.quantity) {
+        } else if (loadVal > s.quantity) {
           errs[item.product_id] = `Delivery ${idx + 1}: Load size cannot exceed slot quantity (${s.quantity}).`;
           ok = false;
         }
@@ -290,7 +313,7 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
           <div>
             <h2 className="text-2xl font-bold text-secondary-900">Schedule Deliveries</h2>
             <p className="text-secondary-600">
-              Split quantities across dates. Optionally set load size &amp; interval for each delivery.
+              Split quantities across dates. Set load size per trip and optionally an interval for each delivery.
             </p>
           </div>
         </div>
@@ -387,6 +410,7 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                   const breakdown = hasLoadConfig
                     ? buildTimeBreakdown(slot.quantity, slot.delivery_time, loadSize, intervalMins)
                     : [];
+                  const mode = truckModes[slot.slot_id] ?? 'auto';
 
                   return (
                     <div
@@ -420,6 +444,7 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                       <div className="px-4 pb-4">
                         {/* Row 1: Qty, Truck, Date, Time */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {/* Quantity */}
                           <div>
                             <label className="text-xs text-secondary-600 font-medium mb-1 block">
                               Qty ({item.unit_of_measure})
@@ -435,29 +460,75 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                               className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
                             />
                           </div>
+
+                          {/* Truck Type */}
                           <div>
-                            <label className="text-xs text-secondary-600 font-medium mb-1 block">
-                              Truck Type
+                            <label className="text-xs text-secondary-600 font-medium mb-1 flex items-center justify-between">
+                              <span className="flex items-center gap-1">
+                                <Truck size={12} /> Truck Type
+                              </span>
+                              {/* Auto / Manual toggle */}
+                              <span className="flex items-center gap-0.5 bg-secondary-200 rounded-full p-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleTruckMode(item.product_id, slot.slot_id, item)}
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all ${
+                                    mode === 'auto'
+                                      ? 'bg-primary-600 text-white shadow-sm'
+                                      : 'text-secondary-500 hover:text-secondary-700'
+                                  }`}
+                                >
+                                  Auto
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleTruckMode(item.product_id, slot.slot_id, item)}
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all ${
+                                    mode === 'manual'
+                                      ? 'bg-secondary-700 text-white shadow-sm'
+                                      : 'text-secondary-500 hover:text-secondary-700'
+                                  }`}
+                                >
+                                  Manual
+                                </button>
+                              </span>
                             </label>
                             <div className="relative">
-                              <Truck className="absolute left-2 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none" size={14} />
+                              <Truck
+                                className="absolute left-2 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none"
+                                size={14}
+                              />
                               <select
                                 value={slot.truck_type}
-                                disabled
-                                className="w-full pl-7 pr-3 py-2 border border-secondary-300 rounded-lg text-sm bg-secondary-100 cursor-not-allowed opacity-75"
+                                disabled={mode === 'auto'}
+                                onChange={(e) =>
+                                  handleUpdateSlot(item.product_id, slot.slot_id, 'truck_type', e.target.value)
+                                }
+                                className={`w-full pl-7 pr-3 py-2 border rounded-lg text-sm transition-colors ${
+                                  mode === 'auto'
+                                    ? 'border-secondary-200 bg-secondary-100 text-secondary-500 cursor-not-allowed'
+                                    : 'border-secondary-300 bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 cursor-pointer'
+                                }`}
                               >
                                 {getTruckTypesForUnit(item.unit_of_measure).map((t) => (
-                                  <option key={t.value} value={t.value}>{t.label}</option>
+                                  <option key={t.value} value={t.value}>
+                                    {t.label}
+                                  </option>
                                 ))}
                               </select>
                             </div>
                           </div>
+
+                          {/* Delivery Date */}
                           <div>
                             <label className="text-xs text-secondary-600 font-medium mb-1 block">
                               Delivery Date
                             </label>
                             <div className="relative">
-                              <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none" size={14} />
+                              <Calendar
+                                className="absolute left-2 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none"
+                                size={14}
+                              />
                               <input
                                 type="date"
                                 value={slot.delivery_date}
@@ -468,12 +539,17 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                               />
                             </div>
                           </div>
+
+                          {/* Start Time */}
                           <div>
                             <label className="text-xs text-secondary-600 font-medium mb-1 block">
                               Start Time
                             </label>
                             <div className="relative">
-                              <Clock className="absolute left-2 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none" size={14} />
+                              <Clock
+                                className="absolute left-2 top-1/2 -translate-y-1/2 text-secondary-400 pointer-events-none"
+                                size={14}
+                              />
                               <input
                                 type="time"
                                 value={slot.delivery_time}
@@ -492,7 +568,7 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                             <label className="text-xs text-secondary-600 font-medium mb-1 flex items-center gap-1">
                               <Weight size={12} />
                               Load Size per Trip ({item.unit_of_measure})
-                              <span className="text-secondary-400 font-normal ml-1">optional</span>
+                              <span className="text-red-400 font-normal ml-0.5">*</span>
                             </label>
                             <input
                               type="number"
@@ -521,7 +597,9 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                               className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
                             >
                               {TIME_INTERVAL_OPTIONS.map((t) => (
-                                <option key={t.value} value={t.value}>{t.label}</option>
+                                <option key={t.value} value={t.value}>
+                                  {t.label}
+                                </option>
                               ))}
                             </select>
                           </div>
@@ -550,8 +628,9 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                             ))}
                           </div>
                           <p className="text-[11px] text-secondary-500 mt-2">
-                            {slot.quantity} {item.unit_of_measure} total · {breakdown.length} trips × {slot.load_size}{' '}
-                            {item.unit_of_measure} · every {getIntervalLabel(slot.time_interval || '')}
+                            {slot.quantity} {item.unit_of_measure} total · {breakdown.length} trips ×{' '}
+                            {slot.load_size} {item.unit_of_measure} · every{' '}
+                            {getIntervalLabel(slot.time_interval || '')}
                           </p>
                         </div>
                       )}
