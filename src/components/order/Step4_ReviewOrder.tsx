@@ -115,6 +115,18 @@ const detectAppliedCodes = (cartItems: CartItem[]): Set<string> => {
         if (mins >= 960  && mins < 1080) applied.add('AH-007A'); // 4pm–6pm
         if (mins >= 1080 || mins < 240)  applied.add('AH-007B'); // 6pm–4am
       }
+
+
+      if (slot.aggregate_size === '10mm') applied.add('SAP-006A');
+      if (slot.aggregate_size === '7mm')  applied.add('SAP-006B');
+
+      // ── Slump Modification (> 80mm baseline) ──
+      if (slot.slump_value && slot.slump_value > 80) applied.add('SM-007');
+
+      // ── Retarder — Normal Dose has no fee, skip ──
+      if (slot.retarder_type === 'low')    applied.add('RETARD-LOW');
+      if (slot.retarder_type === 'medium') applied.add('RETARD-MED');
+      if (slot.retarder_type === 'high')   applied.add('RETARD-HIGH');
     });
   });
 

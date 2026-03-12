@@ -27,6 +27,8 @@ export interface DeliverySlot {
   time_interval?: string;
   accelerator_type?: string | null;
   retarder_type?: string | null;
+  aggregate_size?: 'standard' | '10mm' | '7mm' | null;
+  slump_value?: number | null; // mm above 80mm baseline
 }
 
 // ==================== CART ITEM ====================

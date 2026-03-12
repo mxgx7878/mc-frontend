@@ -133,7 +133,9 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
             load_size: '',
             time_interval: '',
             accelerator_type: null,
-            retarder_type: null,
+            retarder_type: 'normal',
+            aggregate_size: null,
+            slump_value: null,
           },
         ];
       }
@@ -175,7 +177,9 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
           load_size: '',
           time_interval: '',
           accelerator_type: null,
-          retarder_type: null,
+          retarder_type: 'normal',
+          aggregate_size: null,
+          slump_value: null,
         },
       ],
     }));
@@ -631,10 +635,10 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                                 }
                                 className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
                               >
-                                <option value="">None</option>
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
+                                <option value="">None (no fee)</option>
+                                <option value="low">Low Dose</option>
+                                <option value="medium">Medium Dose</option>
+                                <option value="high">High Dose</option>
                               </select>
                             </div>
                             <div>
@@ -655,14 +659,65 @@ const Step3_SplitDelivery: React.FC<Step3Props> = ({
                                 }
                                 className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
                               >
-                                <option value="">None</option>
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
+                                <option value="">No Retarder</option>
+                                <option value="normal">Normal Dose (no fee)</option>
+                                <option value="low">Low Dose</option>
+                                <option value="medium">Medium Dose</option>
+                                <option value="high">High Dose</option>
                               </select>
                             </div>
                           </div>
-                        )}       
+                        )}
+                        {/* Row 4: Aggregate Size + Slump Modification — concrete only */}
+                        {isConcrete(item.unit_of_measure) && (
+                          <div className="grid grid-cols-2 gap-3 mt-3">
+                            <div>
+                              <label className="text-xs text-secondary-600 font-medium mb-1 flex items-center gap-1">
+                                <Weight size={12} className="text-stone-500" />
+                                Aggregate Size
+                                <span className="text-secondary-400 font-normal ml-1">optional</span>
+                              </label>
+                              <select
+                                value={slot.aggregate_size || ''}
+                                onChange={(e) =>
+                                  handleUpdateSlot(item.product_id, slot.slot_id, 'aggregate_size', e.target.value || '')
+                                }
+                                className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+                              >
+                                <option value="">Standard (no fee)</option>
+                                <option value="10mm">10mm — $10.00/m³</option>
+                                <option value="7mm">7mm — $12.00/m³</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-xs text-secondary-600 font-medium mb-1 flex items-center gap-1">
+                                <Zap size={12} className="text-purple-500" />
+                                Slump Modification
+                                <span className="text-secondary-400 font-normal ml-1">optional</span>
+                              </label>
+                              <select
+                                value={slot.slump_value ?? ''}
+                                onChange={(e) =>
+                                  handleUpdateSlot(
+                                    item.product_id,
+                                    slot.slot_id,
+                                    'slump_value',
+                                    e.target.value === '' ? '' : Number(e.target.value)
+                                  )
+                                }
+                                className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm bg-white"
+                              >
+                                <option value="">No modification (no fee)</option>
+                                <option value="100">100mm — $5.00/m³</option>
+                                <option value="120">120mm — $10.00/m³</option>
+                                <option value="140">140mm — $15.00/m³</option>
+                                <option value="160">160mm — $20.00/m³</option>
+                                <option value="180">180mm — $25.00/m³</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                               
                       {/* ===== INLINE TIMELINE PREVIEW ===== */}
                       {hasLoadConfig && breakdown.length > 1 && (
                         <div className="border-t border-secondary-200 bg-gradient-to-r from-blue-50/60 to-primary-50/40 px-4 py-3">
